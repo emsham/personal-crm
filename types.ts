@@ -41,5 +41,20 @@ export interface CRMState {
 export enum View {
   DASHBOARD = 'dashboard',
   CONTACTS = 'contacts',
+  TASKS = 'tasks',
   ANALYTICS = 'analytics'
+}
+
+export type TaskFrequency = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  contactId?: string;
+  dueDate?: string;
+  completed: boolean;
+  priority: 'low' | 'medium' | 'high';
+  frequency: TaskFrequency;
+  createdAt?: string;
 }

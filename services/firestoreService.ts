@@ -11,7 +11,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Contact, Interaction } from '../types';
+import { Contact, Interaction, Task } from '../types';
 
 // Contacts
 
@@ -91,7 +91,64 @@ export const addInteraction = async (
   return docRef.id;
 };
 
+export const updateInteraction = async (
+  userId: string,
+  interactionId: string,
+  updates: Partial<Interaction>
+): Promise<void> => {
+  const interactionRef = doc(db, 'users', userId, 'interactions', interactionId);
+  await updateDoc(interactionRef, updates);
+};
+
 export const deleteInteraction = async (userId: string, interactionId: string): Promise<void> => {
   const interactionRef = doc(db, 'users', userId, 'interactions', interactionId);
   await deleteDoc(interactionRef);
+};
+
+// Tasks
+
+export const subscribeToTasks = (
+  userId: string,
+  callback: (tasks: Task[]) => void
+): (() => void) => {
+  const tasksRef = collection(db, 'users', userId, 'tasks');
+  const q = query(tasksRef, orderBy('createdAt', 'desc'));
+
+  return onSnapshot(q, (snapshot) => {
+    const tasks: Task[] = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Task[];
+    callback(tasks);
+  });
+};
+
+export const addTask = async (
+  userId: string,
+  task: Omit<Task, 'id'>
+): Promise<string> => {
+  const tasksRef = collection(db, 'users', userId, 'tasks');
+  // Filter out undefined values - Firestore doesn't accept them
+  const cleanTask: Record<string, any> = { createdAt: serverTimestamp() };
+  Object.entries(task).forEach(([key, value]) => {
+    if (value !== undefined) {
+      cleanTask[key] = value;
+    }
+  });
+  const docRef = await addDoc(tasksRef, cleanTask);
+  return docRef.id;
+};
+
+export const updateTask = async (
+  userId: string,
+  taskId: string,
+  updates: Partial<Task>
+): Promise<void> => {
+  const taskRef = doc(db, 'users', userId, 'tasks', taskId);
+  await updateDoc(taskRef, updates);
+};
+
+export const deleteTask = async (userId: string, taskId: string): Promise<void> => {
+  const taskRef = doc(db, 'users', userId, 'tasks', taskId);
+  await deleteDoc(taskRef);
 };

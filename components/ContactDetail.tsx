@@ -1,33 +1,72 @@
 
 import React, { useState } from 'react';
-import { Contact, Interaction, InteractionType } from '../types';
-import { Mail, Phone, Calendar, Tag, Plus, MessageSquare, Sparkles, Send, ArrowLeft, Loader2, Users } from 'lucide-react';
+import { Contact, Interaction, InteractionType, Task, TaskFrequency } from '../types';
+import { Mail, Phone, Calendar, Tag, Plus, MessageSquare, Sparkles, Send, ArrowLeft, Loader2, Users, CheckSquare, Check, Trash2, X, Edit3, Save } from 'lucide-react';
 import { generateFollowUpEmail, analyzeRelationship } from '../services/geminiService';
 
 interface ContactDetailProps {
   contact: Contact;
   interactions: Interaction[];
+  tasks: Task[];
   allContacts: Contact[];
   onBack: () => void;
   onSelectContact: (contact: Contact) => void;
-  onAddInteraction: (contactId: string, type: InteractionType, notes: string) => void;
+  onUpdateContact: (contactId: string, updates: Partial<Contact>) => void;
+  onDeleteContact: (contactId: string) => void;
+  onAddInteraction: (contactId: string, type: InteractionType, notes: string, date: string) => void;
+  onUpdateInteraction: (interactionId: string, updates: Partial<Interaction>) => void;
+  onDeleteInteraction: (interactionId: string) => void;
+  onAddTask: (task: Omit<Task, 'id'>) => void;
+  onToggleTask: (taskId: string, completed: boolean) => void;
+  onDeleteTask: (taskId: string) => void;
 }
 
-const ContactDetail: React.FC<ContactDetailProps> = ({ 
-  contact, 
-  interactions, 
-  allContacts, 
-  onBack, 
+const ContactDetail: React.FC<ContactDetailProps> = ({
+  contact,
+  interactions,
+  tasks,
+  allContacts,
+  onBack,
   onSelectContact,
-  onAddInteraction 
+  onUpdateContact,
+  onDeleteContact,
+  onAddInteraction,
+  onUpdateInteraction,
+  onDeleteInteraction,
+  onAddTask,
+  onToggleTask,
+  onDeleteTask,
 }) => {
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [editedContact, setEditedContact] = useState({
+    firstName: contact.firstName,
+    lastName: contact.lastName,
+    email: contact.email,
+    phone: contact.phone,
+    company: contact.company,
+    position: contact.position,
+    tags: contact.tags.join(', '),
+    notes: contact.notes,
+  });
+
   const [newInteractionNotes, setNewInteractionNotes] = useState('');
+  const [newInteractionDate, setNewInteractionDate] = useState(new Date().toISOString().split('T')[0]);
   const [interactionType, setInteractionType] = useState<InteractionType>(InteractionType.EMAIL);
+
+  const [editingInteractionId, setEditingInteractionId] = useState<string | null>(null);
+  const [editedInteraction, setEditedInteraction] = useState<{ type: InteractionType; notes: string; date: string } | null>(null);
+
   const [aiDraft, setAiDraft] = useState('');
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isLoading, setIsLoading] = useState({ draft: false, analysis: false });
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [newTask, setNewTask] = useState({ title: '', dueDate: '', priority: 'medium' as Task['priority'], frequency: 'none' as TaskFrequency });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const relatedContacts = allContacts.filter(c => contact.relatedContactIds.includes(c.id));
+  const contactTasks = tasks.filter(t => t.contactId === contact.id);
+  const pendingTasks = contactTasks.filter(t => !t.completed);
+  const completedTasks = contactTasks.filter(t => t.completed);
 
   const handleGenerateDraft = async () => {
     setIsLoading(prev => ({ ...prev, draft: true }));
@@ -46,69 +85,263 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
   const handleSubmitInteraction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newInteractionNotes.trim()) return;
-    onAddInteraction(contact.id, interactionType, newInteractionNotes);
+    onAddInteraction(contact.id, interactionType, newInteractionNotes, newInteractionDate);
     setNewInteractionNotes('');
+    setNewInteractionDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const handleSaveContact = () => {
+    onUpdateContact(contact.id, {
+      firstName: editedContact.firstName,
+      lastName: editedContact.lastName,
+      email: editedContact.email,
+      phone: editedContact.phone,
+      company: editedContact.company,
+      position: editedContact.position,
+      tags: editedContact.tags.split(',').map(t => t.trim()).filter(t => t),
+      notes: editedContact.notes,
+    });
+    setIsEditingContact(false);
+  };
+
+  const handleEditInteraction = (interaction: Interaction) => {
+    setEditingInteractionId(interaction.id);
+    setEditedInteraction({
+      type: interaction.type,
+      notes: interaction.notes,
+      date: interaction.date,
+    });
+  };
+
+  const handleSaveInteraction = () => {
+    if (editingInteractionId && editedInteraction) {
+      onUpdateInteraction(editingInteractionId, editedInteraction);
+      setEditingInteractionId(null);
+      setEditedInteraction(null);
+    }
+  };
+
+  const handleAddTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTask.title.trim()) return;
+    onAddTask({
+      title: newTask.title,
+      contactId: contact.id,
+      dueDate: newTask.dueDate || undefined,
+      priority: newTask.priority,
+      frequency: newTask.frequency,
+      completed: false,
+    });
+    setNewTask({ title: '', dueDate: '', priority: 'medium', frequency: 'none' });
+    setShowAddTask(false);
+  };
+
+  const frequencyLabels: Record<TaskFrequency, string> = {
+    none: 'One-time',
+    daily: 'Daily',
+    weekly: 'Weekly',
+    biweekly: 'Bi-weekly',
+    monthly: 'Monthly',
+    quarterly: 'Quarterly',
+    yearly: 'Yearly',
+  };
+
+  const getPriorityColor = (priority: Task['priority']) => {
+    switch (priority) {
+      case 'high': return 'text-red-500 bg-red-50 border-red-200';
+      case 'medium': return 'text-orange-500 bg-orange-50 border-orange-200';
+      case 'low': return 'text-green-500 bg-green-50 border-green-200';
+    }
+  };
+
+  const isOverdue = (dueDate?: string) => {
+    if (!dueDate) return false;
+    return new Date(dueDate) < new Date(new Date().toDateString());
   };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <button 
-        onClick={onBack}
-        className="flex items-center space-x-2 text-slate-500 hover:text-indigo-600 transition-colors"
-      >
-        <ArrowLeft size={20} />
-        <span className="font-medium">Back to Network</span>
-      </button>
+      <div className="flex items-center justify-between">
+        <button
+          onClick={onBack}
+          className="flex items-center space-x-2 text-slate-500 hover:text-indigo-600 transition-colors"
+        >
+          <ArrowLeft size={20} />
+          <span className="font-medium">Back to Network</span>
+        </button>
+        <div className="flex gap-2">
+          {!isEditingContact ? (
+            <button
+              onClick={() => setIsEditingContact(true)}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              <Edit3 size={16} /> Edit Contact
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setIsEditingContact(false)}
+                className="px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveContact}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg"
+              >
+                <Save size={16} /> Save
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </div>
+
+      {showDeleteConfirm && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
+          <span className="text-red-700">Delete this contact and all their data?</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowDeleteConfirm(false)}
+              className="px-3 py-1 text-sm text-slate-600 hover:bg-white rounded-lg"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onDeleteContact(contact.id)}
+              className="px-3 py-1 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Card */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm text-center">
-            <img className="h-32 w-32 rounded-3xl mx-auto object-cover shadow-lg border-4 border-white mb-4" src={contact.avatar} alt="" />
-            <h2 className="text-2xl font-bold text-slate-900">{contact.firstName} {contact.lastName}</h2>
-            <p className="text-indigo-600 font-medium">{contact.position} @ {contact.company}</p>
-            
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
-              {contact.tags.map(tag => (
-                <span key={tag} className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-semibold rounded-full flex items-center gap-1">
-                  <Tag size={12} /> {tag}
-                </span>
-              ))}
-            </div>
-
-            <div className="mt-8 space-y-4">
-              <a href={`mailto:${contact.email}`} className="flex items-center space-x-3 w-full p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                <Mail className="text-slate-400" size={18} />
-                <span className="text-slate-700 text-sm truncate">{contact.email}</span>
-              </a>
-              <div className="flex items-center space-x-3 w-full p-3 bg-slate-50 rounded-xl">
-                <Phone className="text-slate-400" size={18} />
-                <span className="text-slate-700 text-sm">{contact.phone}</span>
+          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
+            {isEditingContact ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    placeholder="First Name"
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    value={editedContact.firstName}
+                    onChange={e => setEditedContact({ ...editedContact, firstName: e.target.value })}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Last Name"
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    value={editedContact.lastName}
+                    onChange={e => setEditedContact({ ...editedContact, lastName: e.target.value })}
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Position"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  value={editedContact.position}
+                  onChange={e => setEditedContact({ ...editedContact, position: e.target.value })}
+                />
+                <input
+                  type="text"
+                  placeholder="Company"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  value={editedContact.company}
+                  onChange={e => setEditedContact({ ...editedContact, company: e.target.value })}
+                />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  value={editedContact.email}
+                  onChange={e => setEditedContact({ ...editedContact, email: e.target.value })}
+                />
+                <input
+                  type="tel"
+                  placeholder="Phone"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  value={editedContact.phone}
+                  onChange={e => setEditedContact({ ...editedContact, phone: e.target.value })}
+                />
+                <input
+                  type="text"
+                  placeholder="Tags (comma separated)"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  value={editedContact.tags}
+                  onChange={e => setEditedContact({ ...editedContact, tags: e.target.value })}
+                />
+                <textarea
+                  placeholder="Notes"
+                  rows={3}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"
+                  value={editedContact.notes}
+                  onChange={e => setEditedContact({ ...editedContact, notes: e.target.value })}
+                />
               </div>
-            </div>
+            ) : (
+              <div className="text-center">
+                <img className="h-32 w-32 rounded-3xl mx-auto object-cover shadow-lg border-4 border-white mb-4" src={contact.avatar} alt="" />
+                <h2 className="text-2xl font-bold text-slate-900">{contact.firstName} {contact.lastName}</h2>
+                <p className="text-indigo-600 font-medium">{contact.position} @ {contact.company}</p>
 
-            {/* Related Contacts Section */}
-            {relatedContacts.length > 0 && (
-              <div className="mt-8 pt-8 border-t border-slate-100">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center justify-center gap-2">
-                  <Users size={14} /> Network Connections
-                </h3>
-                <div className="flex flex-wrap justify-center gap-3">
-                  {relatedContacts.map(related => (
-                    <button
-                      key={related.id}
-                      onClick={() => onSelectContact(related)}
-                      className="group relative"
-                      title={`${related.firstName} ${related.lastName}`}
-                    >
-                      <img 
-                        src={related.avatar} 
-                        className="w-10 h-10 rounded-full border-2 border-white shadow-sm group-hover:scale-110 transition-transform cursor-pointer" 
-                        alt={related.firstName} 
-                      />
-                    </button>
+                <div className="mt-6 flex flex-wrap justify-center gap-2">
+                  {contact.tags.map(tag => (
+                    <span key={tag} className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-semibold rounded-full flex items-center gap-1">
+                      <Tag size={12} /> {tag}
+                    </span>
                   ))}
                 </div>
+
+                <div className="mt-8 space-y-4">
+                  <a href={`mailto:${contact.email}`} className="flex items-center space-x-3 w-full p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                    <Mail className="text-slate-400" size={18} />
+                    <span className="text-slate-700 text-sm truncate">{contact.email}</span>
+                  </a>
+                  <div className="flex items-center space-x-3 w-full p-3 bg-slate-50 rounded-xl">
+                    <Phone className="text-slate-400" size={18} />
+                    <span className="text-slate-700 text-sm">{contact.phone}</span>
+                  </div>
+                </div>
+
+                {contact.notes && (
+                  <div className="mt-6 pt-6 border-t border-slate-100 text-left">
+                    <p className="text-xs font-bold text-slate-400 uppercase mb-2">Notes</p>
+                    <p className="text-sm text-slate-600">{contact.notes}</p>
+                  </div>
+                )}
+
+                {relatedContacts.length > 0 && (
+                  <div className="mt-8 pt-8 border-t border-slate-100">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center justify-center gap-2">
+                      <Users size={14} /> Network Connections
+                    </h3>
+                    <div className="flex flex-wrap justify-center gap-3">
+                      {relatedContacts.map(related => (
+                        <button
+                          key={related.id}
+                          onClick={() => onSelectContact(related)}
+                          className="group relative"
+                          title={`${related.firstName} ${related.lastName}`}
+                        >
+                          <img
+                            src={related.avatar}
+                            className="w-10 h-10 rounded-full border-2 border-white shadow-sm group-hover:scale-110 transition-transform cursor-pointer"
+                            alt={related.firstName}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -129,13 +362,13 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                   </div>
                 )}
               </div>
-              
+
               {!aiAnalysis ? (
                 <div className="space-y-4">
                   <p className="text-indigo-100 text-sm opacity-80">
                     Get an AI-powered analysis of your relationship health and personalized next steps.
                   </p>
-                  <button 
+                  <button
                     onClick={handleAnalyze}
                     disabled={isLoading.analysis}
                     className="w-full py-3 bg-white text-indigo-900 font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-50 transition-colors disabled:opacity-50"
@@ -164,15 +397,134 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
           </div>
         </div>
 
-        {/* Interactions & History */}
+        {/* Right Column - Tasks, Interactions & History */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Tasks Section */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                <CheckSquare size={20} className="text-indigo-500" /> Tasks
+              </h3>
+              <button
+                onClick={() => setShowAddTask(!showAddTask)}
+                className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+              >
+                {showAddTask ? <X size={16} /> : <Plus size={16} />}
+                {showAddTask ? 'Cancel' : 'Add Task'}
+              </button>
+            </div>
+
+            {showAddTask && (
+              <form onSubmit={handleAddTask} className="mb-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <input
+                  type="text"
+                  placeholder="Task title..."
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm mb-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  value={newTask.title}
+                  onChange={e => setNewTask({ ...newTask, title: e.target.value })}
+                  required
+                />
+                <div className="flex gap-2 flex-wrap">
+                  <input
+                    type="date"
+                    className="flex-1 min-w-[120px] px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    value={newTask.dueDate}
+                    onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })}
+                  />
+                  <select
+                    className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    value={newTask.frequency}
+                    onChange={e => setNewTask({ ...newTask, frequency: e.target.value as TaskFrequency })}
+                  >
+                    <option value="none">One-time</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="biweekly">Bi-weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                  <select
+                    className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    value={newTask.priority}
+                    onChange={e => setNewTask({ ...newTask, priority: e.target.value as Task['priority'] })}
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                  <button type="submit" className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700">
+                    Add
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="space-y-2">
+              {pendingTasks.length === 0 && completedTasks.length === 0 ? (
+                <p className="text-slate-400 text-sm py-4 text-center">No tasks for this contact yet.</p>
+              ) : (
+                <>
+                  {pendingTasks.map(task => (
+                    <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                      <button
+                        onClick={() => onToggleTask(task.id, true)}
+                        className="w-5 h-5 rounded-full border-2 border-slate-300 hover:border-indigo-500 transition-colors flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-slate-900">{task.title}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full border ${getPriorityColor(task.priority)}`}>
+                            {task.priority}
+                          </span>
+                          {task.frequency && task.frequency !== 'none' && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200">
+                              {frequencyLabels[task.frequency]}
+                            </span>
+                          )}
+                        </div>
+                        {task.dueDate && (
+                          <span className={`text-xs ${isOverdue(task.dueDate) ? 'text-red-500' : 'text-slate-400'}`}>
+                            {isOverdue(task.dueDate) ? 'Overdue: ' : 'Due: '}{task.dueDate}
+                          </span>
+                        )}
+                      </div>
+                      <button onClick={() => onDeleteTask(task.id)} className="text-slate-300 hover:text-red-500">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  {completedTasks.length > 0 && (
+                    <div className="pt-2 mt-2 border-t border-slate-100">
+                      <p className="text-xs font-bold text-slate-400 uppercase mb-2">Completed</p>
+                      {completedTasks.map(task => (
+                        <div key={task.id} className="flex items-center gap-3 p-2 opacity-50">
+                          <button
+                            onClick={() => onToggleTask(task.id, false)}
+                            className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0"
+                          >
+                            <Check size={12} className="text-white" />
+                          </button>
+                          <span className="text-sm text-slate-900 line-through flex-1">{task.title}</span>
+                          <button onClick={() => onDeleteTask(task.id)} className="text-slate-300 hover:text-red-500">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
           {/* Follow-up Draft Section */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
                 <Send size={20} className="text-indigo-500" /> AI Outreach Draft
               </h3>
-              <button 
+              <button
                 onClick={handleGenerateDraft}
                 disabled={isLoading.draft}
                 className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 disabled:opacity-50"
@@ -181,10 +533,10 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                 Generate Smart Follow-up
               </button>
             </div>
-            
+
             {aiDraft ? (
               <div className="space-y-4">
-                <textarea 
+                <textarea
                   className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   value={aiDraft}
                   onChange={(e) => setAiDraft(e.target.value)}
@@ -210,8 +562,8 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
 
             <form onSubmit={handleSubmitInteraction} className="mb-8">
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div className="flex gap-4 mb-3">
-                  <select 
+                <div className="flex gap-3 mb-3 flex-wrap">
+                  <select
                     className="bg-white border border-slate-200 rounded-lg px-3 py-1 text-xs font-bold text-slate-600"
                     value={interactionType}
                     onChange={(e) => setInteractionType(e.target.value as InteractionType)}
@@ -220,8 +572,15 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                       <option key={type} value={type}>{type}</option>
                     ))}
                   </select>
+                  <input
+                    type="date"
+                    className="bg-white border border-slate-200 rounded-lg px-3 py-1 text-xs text-slate-600"
+                    value={newInteractionDate}
+                    onChange={(e) => setNewInteractionDate(e.target.value)}
+                    max={new Date().toISOString().split('T')[0]}
+                  />
                 </div>
-                <textarea 
+                <textarea
                   className="w-full bg-transparent border-none focus:ring-0 text-sm text-slate-700 placeholder:text-slate-400 min-h-[80px]"
                   placeholder="What did you talk about? Any action items?"
                   value={newInteractionNotes}
@@ -240,13 +599,75 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                 <p className="text-slate-400 text-sm py-4">No interactions logged yet.</p>
               ) : (
                 interactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(interaction => (
-                  <div key={interaction.id} className="relative">
+                  <div key={interaction.id} className="relative group">
                     <div className="absolute -left-[41px] top-0 w-4 h-4 rounded-full bg-white border-2 border-indigo-500" />
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{interaction.type}</span>
-                      <span className="text-xs font-medium text-slate-400">{interaction.date}</span>
-                    </div>
-                    <p className="text-sm text-slate-700 leading-relaxed">{interaction.notes}</p>
+
+                    {editingInteractionId === interaction.id && editedInteraction ? (
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div className="flex gap-3 mb-3">
+                          <select
+                            className="bg-white border border-slate-200 rounded-lg px-3 py-1 text-xs font-bold text-slate-600"
+                            value={editedInteraction.type}
+                            onChange={(e) => setEditedInteraction({ ...editedInteraction, type: e.target.value as InteractionType })}
+                          >
+                            {Object.values(InteractionType).map(type => (
+                              <option key={type} value={type}>{type}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="date"
+                            className="bg-white border border-slate-200 rounded-lg px-3 py-1 text-xs text-slate-600"
+                            value={editedInteraction.date}
+                            onChange={(e) => setEditedInteraction({ ...editedInteraction, date: e.target.value })}
+                            max={new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+                        <textarea
+                          className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-700 mb-3"
+                          value={editedInteraction.notes}
+                          onChange={(e) => setEditedInteraction({ ...editedInteraction, notes: e.target.value })}
+                          rows={3}
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={() => { setEditingInteractionId(null); setEditedInteraction(null); }}
+                            className="px-3 py-1 text-sm text-slate-500 hover:text-slate-700"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleSaveInteraction}
+                            className="px-3 py-1 text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{interaction.type}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-slate-400">{interaction.date}</span>
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                              <button
+                                onClick={() => handleEditInteraction(interaction)}
+                                className="text-slate-400 hover:text-indigo-600"
+                              >
+                                <Edit3 size={14} />
+                              </button>
+                              <button
+                                onClick={() => onDeleteInteraction(interaction.id)}
+                                className="text-slate-400 hover:text-red-500"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-sm text-slate-700 leading-relaxed">{interaction.notes}</p>
+                      </>
+                    )}
                   </div>
                 ))
               )}

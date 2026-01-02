@@ -1,20 +1,28 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Plus, TrendingUp, Clock, AlertCircle, Sparkles, Filter, ChevronRight, BarChart3, Loader2 } from 'lucide-react';
+import { Search, Plus, TrendingUp, Clock, AlertCircle, Sparkles, Filter, ChevronRight, BarChart3, Loader2, CheckSquare } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import StatsCard from './components/StatsCard';
 import ContactList from './components/ContactList';
 import ContactDetail from './components/ContactDetail';
 import AddContactForm from './components/AddContactForm';
 import AuthPage from './components/AuthPage';
-import { Contact, Interaction, InteractionType, View } from './types';
+import TaskList from './components/TaskList';
+import { Contact, Interaction, InteractionType, View, Task } from './types';
 import { useAuth } from './contexts/AuthContext';
 import {
   subscribeToContacts,
   subscribeToInteractions,
+  subscribeToTasks,
   addContact as addContactToFirestore,
   updateContact as updateContactInFirestore,
+  deleteContact as deleteContactFromFirestore,
   addInteraction as addInteractionToFirestore,
+  updateInteraction as updateInteractionInFirestore,
+  deleteInteraction as deleteInteractionFromFirestore,
+  addTask as addTaskToFirestore,
+  updateTask as updateTaskInFirestore,
+  deleteTask as deleteTaskFromFirestore,
 } from './services/firestoreService';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -22,6 +30,7 @@ const App: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [interactions, setInteractions] = useState<Interaction[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [currentView, setView] = useState<View>(View.DASHBOARD);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -33,6 +42,7 @@ const App: React.FC = () => {
     if (!user) {
       setContacts([]);
       setInteractions([]);
+      setTasks([]);
       setDataLoading(false);
       return;
     }
@@ -48,9 +58,14 @@ const App: React.FC = () => {
       setInteractions(interactionsData);
     });
 
+    const unsubscribeTasks = subscribeToTasks(user.uid, (tasksData) => {
+      setTasks(tasksData);
+    });
+
     return () => {
       unsubscribeContacts();
       unsubscribeInteractions();
+      unsubscribeTasks();
     };
   }, [user]);
 
@@ -89,12 +104,12 @@ const App: React.FC = () => {
     return days.map((name, i) => ({ name, count: counts[i] }));
   }, [interactions]);
 
-  const handleAddInteraction = async (contactId: string, type: InteractionType, notes: string) => {
+  const handleAddInteraction = async (contactId: string, type: InteractionType, notes: string, date?: string) => {
     if (!user) return;
 
     const newInteraction: Omit<Interaction, 'id'> = {
       contactId,
-      date: new Date().toISOString().split('T')[0],
+      date: date || new Date().toISOString().split('T')[0],
       type,
       notes,
     };
@@ -121,6 +136,102 @@ const App: React.FC = () => {
       setView(View.CONTACTS);
     } catch (error) {
       console.error('Error adding contact:', error);
+    }
+  };
+
+  const handleUpdateContact = async (contactId: string, updates: Partial<Contact>) => {
+    if (!user) return;
+    try {
+      await updateContactInFirestore(user.uid, contactId, updates);
+      // Update selected contact if it's the one being edited
+      if (selectedContact?.id === contactId) {
+        setSelectedContact({ ...selectedContact, ...updates });
+      }
+    } catch (error) {
+      console.error('Error updating contact:', error);
+    }
+  };
+
+  const handleDeleteContact = async (contactId: string) => {
+    if (!user) return;
+    try {
+      await deleteContactFromFirestore(user.uid, contactId);
+      setSelectedContact(null);
+    } catch (error) {
+      console.error('Error deleting contact:', error);
+    }
+  };
+
+  const handleUpdateInteraction = async (interactionId: string, updates: Partial<Interaction>) => {
+    if (!user) return;
+    try {
+      await updateInteractionInFirestore(user.uid, interactionId, updates);
+    } catch (error) {
+      console.error('Error updating interaction:', error);
+    }
+  };
+
+  const handleDeleteInteraction = async (interactionId: string) => {
+    if (!user) return;
+    try {
+      await deleteInteractionFromFirestore(user.uid, interactionId);
+    } catch (error) {
+      console.error('Error deleting interaction:', error);
+    }
+  };
+
+  const handleAddTask = async (task: Omit<Task, 'id'>) => {
+    if (!user) return;
+    try {
+      await addTaskToFirestore(user.uid, task);
+    } catch (error) {
+      console.error('Error adding task:', error);
+    }
+  };
+
+  const getNextDueDate = (currentDate: string, frequency: Task['frequency']): string => {
+    const date = new Date(currentDate);
+    switch (frequency) {
+      case 'daily': date.setDate(date.getDate() + 1); break;
+      case 'weekly': date.setDate(date.getDate() + 7); break;
+      case 'biweekly': date.setDate(date.getDate() + 14); break;
+      case 'monthly': date.setMonth(date.getMonth() + 1); break;
+      case 'quarterly': date.setMonth(date.getMonth() + 3); break;
+      case 'yearly': date.setFullYear(date.getFullYear() + 1); break;
+    }
+    return date.toISOString().split('T')[0];
+  };
+
+  const handleToggleTask = async (taskId: string, completed: boolean) => {
+    if (!user) return;
+    try {
+      const task = tasks.find(t => t.id === taskId);
+      await updateTaskInFirestore(user.uid, taskId, { completed });
+
+      // If completing a recurring task, create the next occurrence
+      if (completed && task && task.frequency !== 'none' && task.dueDate) {
+        const nextDueDate = getNextDueDate(task.dueDate, task.frequency);
+        await addTaskToFirestore(user.uid, {
+          title: task.title,
+          description: task.description,
+          contactId: task.contactId,
+          dueDate: nextDueDate,
+          priority: task.priority,
+          frequency: task.frequency,
+          completed: false,
+        });
+      }
+    } catch (error) {
+      console.error('Error updating task:', error);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!user) return;
+    try {
+      await deleteTaskFromFirestore(user.uid, taskId);
+    } catch (error) {
+      console.error('Error deleting task:', error);
     }
   };
 
@@ -221,23 +332,54 @@ const App: React.FC = () => {
         </div>
 
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-          <h3 className="font-bold text-lg text-slate-900 mb-6">Upcoming Follow-ups</h3>
+          <h3 className="font-bold text-lg text-slate-900 mb-6">Upcoming Tasks</h3>
           <div className="space-y-4">
-            {contacts.filter(c => c.nextFollowUp).map(contact => (
-              <div key={contact.id} className="group flex items-center space-x-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => { setSelectedContact(contact); setView(View.CONTACTS); }}>
-                <img src={contact.avatar} alt="" className="w-12 h-12 rounded-xl object-cover" />
-                <div className="flex-1">
-                  <h4 className="text-sm font-bold text-slate-900">{contact.firstName} {contact.lastName}</h4>
-                  <p className="text-xs text-slate-500">{contact.nextFollowUp}</p>
-                </div>
-                <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 transition-colors" />
-              </div>
-            ))}
-            {contacts.filter(c => c.nextFollowUp).length === 0 && (
-              <p className="text-sm text-slate-400 text-center py-4">No follow-ups scheduled.</p>
+            {tasks
+              .filter(t => !t.completed && t.dueDate)
+              .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
+              .slice(0, 5)
+              .map(task => {
+                const contact = contacts.find(c => c.id === task.contactId);
+                const isOverdue = task.dueDate && new Date(task.dueDate) < new Date(new Date().toDateString());
+                return (
+                  <div
+                    key={task.id}
+                    className="group flex items-center space-x-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors cursor-pointer"
+                    onClick={() => {
+                      if (contact) {
+                        setSelectedContact(contact);
+                        setView(View.CONTACTS);
+                      } else {
+                        setView(View.TASKS);
+                      }
+                    }}
+                  >
+                    {contact ? (
+                      <img src={contact.avatar} alt="" className="w-12 h-12 rounded-xl object-cover" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center">
+                        <CheckSquare size={20} className="text-slate-400" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <h4 className="text-sm font-bold text-slate-900">{task.title}</h4>
+                      <p className={`text-xs ${isOverdue ? 'text-red-500 font-medium' : 'text-slate-500'}`}>
+                        {isOverdue ? 'Overdue: ' : 'Due: '}{task.dueDate}
+                        {contact && ` · ${contact.firstName} ${contact.lastName}`}
+                      </p>
+                    </div>
+                    <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                  </div>
+                );
+              })}
+            {tasks.filter(t => !t.completed && t.dueDate).length === 0 && (
+              <p className="text-sm text-slate-400 text-center py-4">No upcoming tasks.</p>
             )}
           </div>
-          <button className="w-full mt-6 py-3 text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors border border-indigo-100 rounded-xl">
+          <button
+            onClick={() => setView(View.TASKS)}
+            className="w-full mt-6 py-3 text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors border border-indigo-100 rounded-xl"
+          >
             View All Tasks
           </button>
         </div>
@@ -251,10 +393,18 @@ const App: React.FC = () => {
         <ContactDetail
           contact={selectedContact}
           interactions={interactions.filter(i => i.contactId === selectedContact.id)}
+          tasks={tasks}
           allContacts={contacts}
           onBack={() => setSelectedContact(null)}
           onSelectContact={setSelectedContact}
+          onUpdateContact={handleUpdateContact}
+          onDeleteContact={handleDeleteContact}
           onAddInteraction={handleAddInteraction}
+          onUpdateInteraction={handleUpdateInteraction}
+          onDeleteInteraction={handleDeleteInteraction}
+          onAddTask={handleAddTask}
+          onToggleTask={handleToggleTask}
+          onDeleteTask={handleDeleteTask}
         />
       );
     }
@@ -334,6 +484,15 @@ const App: React.FC = () => {
 
         {currentView === View.DASHBOARD && renderDashboard()}
         {currentView === View.CONTACTS && renderContacts()}
+        {currentView === View.TASKS && (
+          <TaskList
+            tasks={tasks}
+            contacts={contacts}
+            onAddTask={handleAddTask}
+            onToggleTask={handleToggleTask}
+            onDeleteTask={handleDeleteTask}
+          />
+        )}
         {currentView === View.ANALYTICS && (
           <div className="flex items-center justify-center h-[60vh] text-slate-400 font-medium">
             <div className="text-center">
