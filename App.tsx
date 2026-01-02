@@ -1,25 +1,61 @@
 
-import React, { useState, useMemo } from 'react';
-import { Search, Plus, TrendingUp, Clock, AlertCircle, Sparkles, Filter, ChevronRight, BarChart3 } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, Plus, TrendingUp, Clock, AlertCircle, Sparkles, Filter, ChevronRight, BarChart3, Loader2 } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import StatsCard from './components/StatsCard';
 import ContactList from './components/ContactList';
 import ContactDetail from './components/ContactDetail';
 import AddContactForm from './components/AddContactForm';
+import AuthPage from './components/AuthPage';
 import { Contact, Interaction, InteractionType, View } from './types';
-import { INITIAL_CONTACTS, INITIAL_INTERACTIONS } from './constants';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { useAuth } from './contexts/AuthContext';
+import {
+  subscribeToContacts,
+  subscribeToInteractions,
+  addContact as addContactToFirestore,
+  updateContact as updateContactInFirestore,
+  addInteraction as addInteractionToFirestore,
+} from './services/firestoreService';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const App: React.FC = () => {
-  const [contacts, setContacts] = useState<Contact[]>(INITIAL_CONTACTS);
-  const [interactions, setInteractions] = useState<Interaction[]>(INITIAL_INTERACTIONS);
+  const { user, loading: authLoading } = useAuth();
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [currentView, setView] = useState<View>(View.DASHBOARD);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  // Subscribe to Firestore data when user is authenticated
+  useEffect(() => {
+    if (!user) {
+      setContacts([]);
+      setInteractions([]);
+      setDataLoading(false);
+      return;
+    }
+
+    setDataLoading(true);
+
+    const unsubscribeContacts = subscribeToContacts(user.uid, (contactsData) => {
+      setContacts(contactsData);
+      setDataLoading(false);
+    });
+
+    const unsubscribeInteractions = subscribeToInteractions(user.uid, (interactionsData) => {
+      setInteractions(interactionsData);
+    });
+
+    return () => {
+      unsubscribeContacts();
+      unsubscribeInteractions();
+    };
+  }, [user]);
 
   const filteredContacts = useMemo(() => {
-    return contacts.filter(c => 
+    return contacts.filter(c =>
       `${c.firstName} ${c.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -27,54 +63,94 @@ const App: React.FC = () => {
   }, [contacts, searchQuery]);
 
   const driftingContacts = contacts.filter(c => c.status === 'drifting');
-  const totalInteractionsLast30Days = 24; // Dummy stat
 
-  const interactionStats = [
-    { name: 'Mon', count: 4 },
-    { name: 'Tue', count: 3 },
-    { name: 'Wed', count: 7 },
-    { name: 'Thu', count: 5 },
-    { name: 'Fri', count: 2 },
-    { name: 'Sat', count: 1 },
-    { name: 'Sun', count: 2 },
-  ];
+  // Calculate interactions in last 30 days
+  const totalInteractionsLast30Days = useMemo(() => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    return interactions.filter(i => new Date(i.date) >= thirtyDaysAgo).length;
+  }, [interactions]);
 
-  const handleAddInteraction = (contactId: string, type: InteractionType, notes: string) => {
-    const newInteraction: Interaction = {
-      id: Date.now().toString(),
+  // Calculate interaction stats for chart
+  const interactionStats = useMemo(() => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const counts = new Array(7).fill(0);
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    interactions.forEach(i => {
+      const date = new Date(i.date);
+      if (date >= sevenDaysAgo) {
+        counts[date.getDay()]++;
+      }
+    });
+
+    return days.map((name, i) => ({ name, count: counts[i] }));
+  }, [interactions]);
+
+  const handleAddInteraction = async (contactId: string, type: InteractionType, notes: string) => {
+    if (!user) return;
+
+    const newInteraction: Omit<Interaction, 'id'> = {
       contactId,
       date: new Date().toISOString().split('T')[0],
       type,
       notes,
     };
-    setInteractions(prev => [...prev, newInteraction]);
-    
-    // Update contact status and last contacted date
-    setContacts(prev => prev.map(c => {
-      if (c.id === contactId) {
-        return {
-          ...c,
-          lastContacted: newInteraction.date,
-          status: 'active'
-        };
-      }
-      return c;
-    }));
+
+    try {
+      await addInteractionToFirestore(user.uid, newInteraction);
+
+      // Update contact status and last contacted date
+      await updateContactInFirestore(user.uid, contactId, {
+        lastContacted: newInteraction.date,
+        status: 'active',
+      });
+    } catch (error) {
+      console.error('Error adding interaction:', error);
+    }
   };
 
-  const handleAddContact = (newContact: Contact) => {
-    setContacts(prev => [newContact, ...prev]);
-    setView(View.CONTACTS);
+  const handleAddContact = async (newContact: Contact) => {
+    if (!user) return;
+
+    try {
+      const { id, ...contactData } = newContact;
+      await addContactToFirestore(user.uid, contactData);
+      setView(View.CONTACTS);
+    } catch (error) {
+      console.error('Error adding contact:', error);
+    }
   };
+
+  // Show loading spinner while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="animate-spin mx-auto text-indigo-600 mb-4" size={48} />
+          <p className="text-slate-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth page if not logged in
+  if (!user) {
+    return <AuthPage />;
+  }
 
   const renderDashboard = () => (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900">Good Morning!</h2>
+          <h2 className="text-3xl font-bold text-slate-900">
+            Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}!
+          </h2>
           <p className="text-slate-500 mt-1">Here's what's happening with your network today.</p>
         </div>
-        <button 
+        <button
           onClick={() => setShowAddModal(true)}
           className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all transform hover:scale-[1.02]"
         >
@@ -83,30 +159,29 @@ const App: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard 
-          title="Network Strength" 
-          value="84%" 
-          icon={TrendingUp} 
-          trend="+5%" 
-          color="bg-green-500" 
+        <StatsCard
+          title="Network Strength"
+          value={contacts.length > 0 ? `${Math.round((contacts.filter(c => c.status === 'active').length / contacts.length) * 100)}%` : '0%'}
+          icon={TrendingUp}
+          color="bg-green-500"
         />
-        <StatsCard 
-          title="Total Contacts" 
-          value={contacts.length} 
-          icon={Sparkles} 
-          color="bg-indigo-500" 
+        <StatsCard
+          title="Total Contacts"
+          value={contacts.length}
+          icon={Sparkles}
+          color="bg-indigo-500"
         />
-        <StatsCard 
-          title="Needing Attention" 
-          value={driftingContacts.length} 
-          icon={AlertCircle} 
-          color="bg-orange-500" 
+        <StatsCard
+          title="Needing Attention"
+          value={driftingContacts.length}
+          icon={AlertCircle}
+          color="bg-orange-500"
         />
-        <StatsCard 
-          title="Last 30 Days" 
-          value={totalInteractionsLast30Days} 
-          icon={Clock} 
-          color="bg-blue-500" 
+        <StatsCard
+          title="Last 30 Days"
+          value={totalInteractionsLast30Days}
+          icon={Clock}
+          color="bg-blue-500"
         />
       </div>
 
@@ -116,27 +191,32 @@ const App: React.FC = () => {
             <h3 className="font-bold text-lg text-slate-900">Interaction Velocity</h3>
             <select className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1 text-sm font-medium text-slate-600">
               <option>Last 7 Days</option>
-              <option>Last 30 Days</option>
             </select>
           </div>
           <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={interactionStats}>
-                <defs>
-                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                />
-                <Area type="monotone" dataKey="count" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {dataLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="animate-spin text-indigo-600" size={32} />
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={interactionStats}>
+                  <defs>
+                    <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  />
+                  <Area type="monotone" dataKey="count" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -168,8 +248,8 @@ const App: React.FC = () => {
   const renderContacts = () => {
     if (selectedContact) {
       return (
-        <ContactDetail 
-          contact={selectedContact} 
+        <ContactDetail
+          contact={selectedContact}
           interactions={interactions.filter(i => i.contactId === selectedContact.id)}
           allContacts={contacts}
           onBack={() => setSelectedContact(null)}
@@ -184,7 +264,7 @@ const App: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h2 className="text-2xl font-bold text-slate-900">Your Network</h2>
           <div className="flex gap-3">
-            <button 
+            <button
               onClick={() => setShowAddModal(true)}
               className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all mr-2"
             >
@@ -192,8 +272,8 @@ const App: React.FC = () => {
             </button>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input 
-                type="text" 
+              <input
+                type="text"
                 placeholder="Search name, company, tags..."
                 className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none w-full md:w-64"
                 value={searchQuery}
@@ -206,10 +286,16 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <ContactList 
-          contacts={filteredContacts} 
-          onSelectContact={setSelectedContact} 
-        />
+        {dataLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="animate-spin text-indigo-600" size={32} />
+          </div>
+        ) : (
+          <ContactList
+            contacts={filteredContacts}
+            onSelectContact={setSelectedContact}
+          />
+        )}
       </div>
     );
   };
@@ -217,7 +303,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex">
       <Sidebar currentView={currentView} setView={(v) => { setView(v); setSelectedContact(null); }} />
-      
+
       <main className="flex-1 ml-64 p-8">
         <header className="flex justify-between items-center mb-10">
           <div className="flex items-center space-x-2 text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
@@ -230,12 +316,18 @@ const App: React.FC = () => {
               {contacts.slice(0, 3).map((c, i) => (
                 <img key={i} className="w-8 h-8 rounded-full border-2 border-white" src={c.avatar} alt="" />
               ))}
-              <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
-                +{contacts.length > 3 ? contacts.length - 3 : 0}
-              </div>
+              {contacts.length > 3 && (
+                <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                  +{contacts.length - 3}
+                </div>
+              )}
             </div>
-            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-              JD
+            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold overflow-hidden">
+              {user.photoURL ? (
+                <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
+              ) : (
+                user.email?.charAt(0).toUpperCase() || 'U'
+              )}
             </div>
           </div>
         </header>
@@ -253,9 +345,9 @@ const App: React.FC = () => {
       </main>
 
       {showAddModal && (
-        <AddContactForm 
-          onClose={() => setShowAddModal(false)} 
-          onAdd={handleAddContact} 
+        <AddContactForm
+          onClose={() => setShowAddModal(false)}
+          onAdd={handleAddContact}
           existingContacts={contacts}
         />
       )}
