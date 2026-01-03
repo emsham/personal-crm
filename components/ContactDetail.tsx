@@ -194,9 +194,9 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
 
   const getPriorityColor = (priority: Task['priority']) => {
     switch (priority) {
-      case 'high': return 'text-red-500 bg-red-50 border-red-200';
-      case 'medium': return 'text-orange-500 bg-orange-50 border-orange-200';
-      case 'low': return 'text-green-500 bg-green-50 border-green-200';
+      case 'high': return 'text-rose-400 bg-rose-500/10 border-rose-500/20';
+      case 'medium': return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+      case 'low': return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
     }
   };
 
@@ -210,7 +210,7 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
-          className="flex items-center space-x-2 text-slate-500 hover:text-indigo-600 transition-colors"
+          className="flex items-center space-x-2 text-slate-400 hover:text-violet-400 transition-colors"
         >
           <ArrowLeft size={20} />
           <span className="font-medium">Back to Network</span>
@@ -219,21 +219,21 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
           {!isEditingContact ? (
             <button
               onClick={() => setIsEditingContact(true)}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
             >
-              <Edit3 size={16} /> Edit Contact
+              <Edit3 size={16} /> Edit
             </button>
           ) : (
             <>
               <button
                 onClick={() => setIsEditingContact(false)}
-                className="px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 rounded-lg"
+                className="px-3 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveContact}
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-violet-500 to-cyan-500 rounded-xl shadow-lg shadow-violet-500/25"
               >
                 <Save size={16} /> Save
               </button>
@@ -241,7 +241,7 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
           )}
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
           >
             <Trash2 size={16} />
           </button>
@@ -249,18 +249,18 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
       </div>
 
       {showDeleteConfirm && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
-          <span className="text-red-700">Delete this contact and all their data?</span>
+        <div className="glass rounded-2xl p-4 flex items-center justify-between border border-red-500/20">
+          <span className="text-red-400">Delete this contact and all their data?</span>
           <div className="flex gap-2">
             <button
               onClick={() => setShowDeleteConfirm(false)}
-              className="px-3 py-1 text-sm text-slate-600 hover:bg-white rounded-lg"
+              className="px-3 py-1.5 text-sm text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"
             >
               Cancel
             </button>
             <button
               onClick={() => onDeleteContact(contact.id)}
-              className="px-3 py-1 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg"
+              className="px-3 py-1.5 text-sm text-white bg-red-500 hover:bg-red-600 rounded-lg transition-all"
             >
               Delete
             </button>
@@ -271,21 +271,21 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Card */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
+          <div className="glass rounded-3xl p-8">
             {isEditingContact ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     type="text"
                     placeholder="First Name"
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="px-4 py-3 input-dark rounded-xl text-sm"
                     value={editedContact.firstName}
                     onChange={e => setEditedContact({ ...editedContact, firstName: e.target.value })}
                   />
                   <input
                     type="text"
                     placeholder="Last Name"
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="px-4 py-3 input-dark rounded-xl text-sm"
                     value={editedContact.lastName}
                     onChange={e => setEditedContact({ ...editedContact, lastName: e.target.value })}
                   />
@@ -293,69 +293,69 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                 <input
                   type="text"
                   placeholder="Position"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full px-4 py-3 input-dark rounded-xl text-sm"
                   value={editedContact.position}
                   onChange={e => setEditedContact({ ...editedContact, position: e.target.value })}
                 />
                 <input
                   type="text"
                   placeholder="Company"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full px-4 py-3 input-dark rounded-xl text-sm"
                   value={editedContact.company}
                   onChange={e => setEditedContact({ ...editedContact, company: e.target.value })}
                 />
                 <input
                   type="email"
                   placeholder="Email"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full px-4 py-3 input-dark rounded-xl text-sm"
                   value={editedContact.email}
                   onChange={e => setEditedContact({ ...editedContact, email: e.target.value })}
                 />
                 <input
                   type="tel"
                   placeholder="Phone"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full px-4 py-3 input-dark rounded-xl text-sm"
                   value={editedContact.phone}
                   onChange={e => setEditedContact({ ...editedContact, phone: e.target.value })}
                 />
                 <input
                   type="text"
                   placeholder="Tags (comma separated)"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full px-4 py-3 input-dark rounded-xl text-sm"
                   value={editedContact.tags}
                   onChange={e => setEditedContact({ ...editedContact, tags: e.target.value })}
                 />
                 <textarea
                   placeholder="Notes"
                   rows={3}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"
+                  className="w-full px-4 py-3 input-dark rounded-xl text-sm resize-none"
                   value={editedContact.notes}
                   onChange={e => setEditedContact({ ...editedContact, notes: e.target.value })}
                 />
-                <div className="pt-4 border-t border-slate-200">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block flex items-center gap-1">
+                <div className="pt-4 border-t border-white/5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-1">
                     <Cake size={12} /> Birthday
                   </label>
                   <input
                     type="date"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full px-4 py-3 input-dark rounded-xl text-sm"
                     value={editedContact.birthday ? `2000-${editedContact.birthday}` : ''}
                     onChange={e => setEditedContact({ ...editedContact, birthday: e.target.value.slice(5) })}
                   />
                 </div>
-                <div className="pt-4 border-t border-slate-200">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block flex items-center gap-1">
+                <div className="pt-4 border-t border-white/5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-1">
                     <Star size={12} /> Important Dates
                   </label>
                   <div className="space-y-2 mb-3">
                     {editedContact.importantDates.map(date => (
-                      <div key={date.id} className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg">
-                        <span className="text-sm text-slate-700 flex-1">{date.label}</span>
+                      <div key={date.id} className="flex items-center gap-2 glass-light px-3 py-2 rounded-lg">
+                        <span className="text-sm text-slate-300 flex-1">{date.label}</span>
                         <span className="text-xs text-slate-500">{formatDateForDisplay(date.date)}</span>
                         <button
                           type="button"
                           onClick={() => handleRemoveImportantDate(date.id)}
-                          className="text-slate-400 hover:text-red-500"
+                          className="text-slate-500 hover:text-red-400"
                         >
                           <X size={14} />
                         </button>
@@ -366,21 +366,21 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                     <input
                       type="text"
                       placeholder="Label (e.g., Anniversary)"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full px-4 py-3 input-dark rounded-xl text-sm"
                       value={newImportantDate.label}
                       onChange={e => setNewImportantDate({ ...newImportantDate, label: e.target.value })}
                     />
                     <div className="flex gap-2">
                       <input
                         type="date"
-                        className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        className="flex-1 px-4 py-3 input-dark rounded-xl text-sm"
                         value={newImportantDate.date}
                         onChange={e => setNewImportantDate({ ...newImportantDate, date: e.target.value })}
                       />
                       <button
                         type="button"
                         onClick={handleAddImportantDate}
-                        className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex-shrink-0"
+                        className="px-4 py-3 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/25 flex-shrink-0"
                       >
                         <Plus size={16} />
                       </button>
@@ -390,71 +390,78 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
               </div>
             ) : (
               <div className="text-center">
-                <img className="h-32 w-32 rounded-3xl mx-auto object-cover shadow-lg border-4 border-white mb-4" src={contact.avatar} alt="" />
-                <h2 className="text-2xl font-bold text-slate-900">{contact.firstName} {contact.lastName}</h2>
-                <p className="text-indigo-600 font-medium">{contact.position} @ {contact.company}</p>
+                <div className="relative inline-block mb-4">
+                  <img className="h-32 w-32 rounded-3xl mx-auto object-cover shadow-2xl ring-4 ring-white/10" src={contact.avatar} alt="" />
+                  {contact.status === 'active' && (
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/50 border-2 border-dark-900">
+                      <Check size={12} className="text-white" />
+                    </div>
+                  )}
+                </div>
+                <h2 className="text-2xl font-bold text-white">{contact.firstName} {contact.lastName}</h2>
+                <p className="text-violet-400 font-medium">{contact.position} {contact.company && `@ ${contact.company}`}</p>
 
                 <div className="mt-6 flex flex-wrap justify-center gap-2">
                   {contact.tags.map(tag => (
-                    <span key={tag} className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-semibold rounded-full flex items-center gap-1">
-                      <Tag size={12} /> {tag}
+                    <span key={tag} className="px-3 py-1.5 glass-light text-slate-300 text-xs font-semibold rounded-lg flex items-center gap-1.5">
+                      <Tag size={10} /> {tag}
                     </span>
                   ))}
                 </div>
 
-                <div className="mt-8 space-y-4">
-                  <a href={`mailto:${contact.email}`} className="flex items-center space-x-3 w-full p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                    <Mail className="text-slate-400" size={18} />
-                    <span className="text-slate-700 text-sm truncate">{contact.email}</span>
+                <div className="mt-8 space-y-3">
+                  <a href={`mailto:${contact.email}`} className="flex items-center space-x-3 w-full p-4 glass-light rounded-xl hover:bg-white/10 transition-all group">
+                    <Mail className="text-violet-400" size={18} />
+                    <span className="text-slate-300 text-sm truncate group-hover:text-white transition-colors">{contact.email}</span>
                   </a>
-                  <div className="flex items-center space-x-3 w-full p-3 bg-slate-50 rounded-xl">
-                    <Phone className="text-slate-400" size={18} />
-                    <span className="text-slate-700 text-sm">{contact.phone}</span>
+                  <div className="flex items-center space-x-3 w-full p-4 glass-light rounded-xl">
+                    <Phone className="text-violet-400" size={18} />
+                    <span className="text-slate-300 text-sm">{contact.phone || 'No phone'}</span>
                   </div>
                 </div>
 
                 {contact.notes && (
-                  <div className="mt-6 pt-6 border-t border-slate-100 text-left">
-                    <p className="text-xs font-bold text-slate-400 uppercase mb-2">Notes</p>
-                    <p className="text-sm text-slate-600">{contact.notes}</p>
+                  <div className="mt-6 pt-6 border-t border-white/5 text-left">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Notes</p>
+                    <p className="text-sm text-slate-400">{contact.notes}</p>
                   </div>
                 )}
 
                 {(contact.birthday || (contact.importantDates && contact.importantDates.length > 0)) && (
-                  <div className="mt-6 pt-6 border-t border-slate-100 text-left">
-                    <p className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-1">
+                  <div className="mt-6 pt-6 border-t border-white/5 text-left">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1">
                       <Calendar size={12} /> Important Dates
                     </p>
                     <div className="space-y-2">
                       {contact.birthday && (
-                        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl border border-pink-100">
+                        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-pink-500/10 to-violet-500/10 rounded-xl border border-pink-500/20">
                           <div className="flex items-center gap-2">
-                            <Cake size={16} className="text-pink-500" />
-                            <span className="text-sm font-medium text-slate-700">Birthday</span>
+                            <Cake size={16} className="text-pink-400" />
+                            <span className="text-sm font-medium text-slate-300">Birthday</span>
                           </div>
                           <div className="text-right">
-                            <span className="text-sm text-slate-600">{formatDateForDisplay(contact.birthday)}</span>
+                            <span className="text-sm text-slate-400">{formatDateForDisplay(contact.birthday)}</span>
                             {(() => {
                               const days = getUpcomingInDays(contact.birthday);
-                              if (days === 0) return <span className="block text-xs text-pink-600 font-bold">Today!</span>;
-                              if (days && days <= 30) return <span className="block text-xs text-pink-500">in {days} days</span>;
+                              if (days === 0) return <span className="block text-xs text-pink-400 font-bold">Today!</span>;
+                              if (days && days <= 30) return <span className="block text-xs text-pink-400">in {days} days</span>;
                               return null;
                             })()}
                           </div>
                         </div>
                       )}
                       {contact.importantDates?.map(date => (
-                        <div key={date.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                        <div key={date.id} className="flex items-center justify-between p-3 glass-light rounded-xl">
                           <div className="flex items-center gap-2">
-                            <Star size={16} className="text-amber-500" />
-                            <span className="text-sm font-medium text-slate-700">{date.label}</span>
+                            <Star size={16} className="text-amber-400" />
+                            <span className="text-sm font-medium text-slate-300">{date.label}</span>
                           </div>
                           <div className="text-right">
-                            <span className="text-sm text-slate-600">{formatDateForDisplay(date.date)}</span>
+                            <span className="text-sm text-slate-400">{formatDateForDisplay(date.date)}</span>
                             {(() => {
                               const days = getUpcomingInDays(date.date);
-                              if (days === 0) return <span className="block text-xs text-amber-600 font-bold">Today!</span>;
-                              if (days && days <= 30) return <span className="block text-xs text-amber-500">in {days} days</span>;
+                              if (days === 0) return <span className="block text-xs text-amber-400 font-bold">Today!</span>;
+                              if (days && days <= 30) return <span className="block text-xs text-amber-400">in {days} days</span>;
                               return null;
                             })()}
                           </div>
@@ -465,8 +472,8 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                 )}
 
                 {relatedContacts.length > 0 && (
-                  <div className="mt-8 pt-8 border-t border-slate-100">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center justify-center gap-2">
+                  <div className="mt-8 pt-8 border-t border-white/5">
+                    <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center justify-center gap-2">
                       <Users size={14} /> Network Connections
                     </h3>
                     <div className="flex flex-wrap justify-center gap-3">
@@ -479,7 +486,7 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                         >
                           <img
                             src={related.avatar}
-                            className="w-10 h-10 rounded-full border-2 border-white shadow-sm group-hover:scale-110 transition-transform cursor-pointer"
+                            className="w-10 h-10 rounded-xl ring-2 ring-white/10 group-hover:ring-violet-500/50 group-hover:scale-110 transition-all cursor-pointer"
                             alt={related.firstName}
                           />
                         </button>
@@ -492,17 +499,17 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
           </div>
 
           {/* Relationship AI Analysis */}
-          <div className="bg-indigo-900 rounded-3xl p-6 text-white overflow-hidden relative">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
+          <div className="rounded-3xl p-6 overflow-hidden relative bg-gradient-to-br from-violet-600 to-cyan-600">
+            <div className="absolute top-0 right-0 p-4 opacity-20">
               <Sparkles size={120} />
             </div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-lg flex items-center gap-2">
+                <h3 className="font-bold text-lg text-white flex items-center gap-2">
                   <Sparkles size={20} /> Nexus AI Insight
                 </h3>
                 {aiAnalysis && (
-                  <div className="bg-white/20 px-3 py-1 rounded-full text-sm font-bold">
+                  <div className="bg-white/20 px-3 py-1 rounded-full text-sm font-bold text-white">
                     Score: {aiAnalysis.healthScore}/10
                   </div>
                 )}
@@ -510,32 +517,32 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
 
               {!aiAnalysis ? (
                 <div className="space-y-4">
-                  <p className="text-indigo-100 text-sm opacity-80">
+                  <p className="text-white/80 text-sm">
                     Get an AI-powered analysis of your relationship health and personalized next steps.
                   </p>
                   <button
                     onClick={handleAnalyze}
                     disabled={isLoading.analysis}
-                    className="w-full py-3 bg-white text-indigo-900 font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-50 transition-colors disabled:opacity-50"
+                    className="w-full py-3 bg-white text-violet-600 font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-white/90 transition-colors disabled:opacity-50"
                   >
                     {isLoading.analysis ? <Loader2 className="animate-spin" size={20} /> : "Run Relationship Analysis"}
                   </button>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <p className="text-indigo-100 text-sm">{aiAnalysis.summary}</p>
+                  <p className="text-white/90 text-sm">{aiAnalysis.summary}</p>
                   <div className="space-y-2">
-                    <p className="text-xs font-bold text-indigo-300 uppercase">Recommended Next Steps</p>
+                    <p className="text-xs font-bold text-white/60 uppercase">Recommended Next Steps</p>
                     <ul className="space-y-2">
                       {aiAnalysis.nextSteps.map((step: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-sm">
-                          <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1.5 shrink-0" />
+                        <li key={i} className="flex items-start gap-2 text-sm text-white/90">
+                          <div className="w-1.5 h-1.5 rounded-full bg-white/60 mt-1.5 shrink-0" />
                           {step}
                         </li>
                       ))}
                     </ul>
                   </div>
-                  <button onClick={() => setAiAnalysis(null)} className="text-xs text-indigo-300 hover:text-white underline">Re-analyze</button>
+                  <button onClick={() => setAiAnalysis(null)} className="text-xs text-white/60 hover:text-white underline">Re-analyze</button>
                 </div>
               )}
             </div>
@@ -545,14 +552,14 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
         {/* Right Column - Tasks, Interactions & History */}
         <div className="lg:col-span-2 space-y-6">
           {/* Tasks Section */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+          <div className="glass rounded-3xl p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-                <CheckSquare size={20} className="text-indigo-500" /> Tasks
+              <h3 className="font-bold text-lg text-white flex items-center gap-2">
+                <CheckSquare size={20} className="text-violet-400" /> Tasks
               </h3>
               <button
                 onClick={() => setShowAddTask(!showAddTask)}
-                className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                className="text-sm font-semibold text-violet-400 hover:text-violet-300 flex items-center gap-1 transition-colors"
               >
                 {showAddTask ? <X size={16} /> : <Plus size={16} />}
                 {showAddTask ? 'Cancel' : 'Add Task'}
@@ -560,11 +567,11 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
             </div>
 
             {showAddTask && (
-              <form onSubmit={handleAddTask} className="mb-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+              <form onSubmit={handleAddTask} className="mb-4 p-4 glass-light rounded-xl">
                 <input
                   type="text"
                   placeholder="Task title..."
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm mb-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full px-4 py-3 input-dark rounded-xl text-sm mb-3"
                   value={newTask.title}
                   onChange={e => setNewTask({ ...newTask, title: e.target.value })}
                   required
@@ -572,12 +579,12 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                 <div className="flex gap-2 flex-wrap">
                   <input
                     type="date"
-                    className="flex-1 min-w-[120px] px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="flex-1 min-w-[120px] px-3 py-2 input-dark rounded-xl text-sm"
                     value={newTask.dueDate}
                     onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })}
                   />
                   <select
-                    className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="px-3 py-2 input-dark rounded-xl text-sm"
                     value={newTask.frequency}
                     onChange={e => setNewTask({ ...newTask, frequency: e.target.value as TaskFrequency })}
                   >
@@ -590,7 +597,7 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                     <option value="yearly">Yearly</option>
                   </select>
                   <select
-                    className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="px-3 py-2 input-dark rounded-xl text-sm"
                     value={newTask.priority}
                     onChange={e => setNewTask({ ...newTask, priority: e.target.value as Task['priority'] })}
                   >
@@ -598,7 +605,7 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                     <option value="medium">Medium</option>
                     <option value="high">High</option>
                   </select>
-                  <button type="submit" className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700">
+                  <button type="submit" className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-violet-500/25">
                     Add
                   </button>
                 </div>
@@ -607,51 +614,51 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
 
             <div className="space-y-2">
               {pendingTasks.length === 0 && completedTasks.length === 0 ? (
-                <p className="text-slate-400 text-sm py-4 text-center">No tasks for this contact yet.</p>
+                <p className="text-slate-500 text-sm py-4 text-center">No tasks for this contact yet.</p>
               ) : (
                 <>
                   {pendingTasks.map(task => (
-                    <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                    <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all group">
                       <button
                         onClick={() => onToggleTask(task.id, true)}
-                        className="w-5 h-5 rounded-full border-2 border-slate-300 hover:border-indigo-500 transition-colors flex-shrink-0"
+                        className="w-5 h-5 rounded-lg border-2 border-slate-600 hover:border-violet-500 transition-colors flex-shrink-0"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium text-slate-900">{task.title}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full border ${getPriorityColor(task.priority)}`}>
+                          <span className="text-sm font-medium text-white">{task.title}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-lg border ${getPriorityColor(task.priority)}`}>
                             {task.priority}
                           </span>
                           {task.frequency && task.frequency !== 'none' && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200">
+                            <span className="text-xs px-2 py-0.5 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20">
                               {frequencyLabels[task.frequency]}
                             </span>
                           )}
                         </div>
                         {task.dueDate && (
-                          <span className={`text-xs ${isOverdue(task.dueDate) ? 'text-red-500' : 'text-slate-400'}`}>
+                          <span className={`text-xs ${isOverdue(task.dueDate) ? 'text-red-400' : 'text-slate-500'}`}>
                             {isOverdue(task.dueDate) ? 'Overdue: ' : 'Due: '}{task.dueDate}
                           </span>
                         )}
                       </div>
-                      <button onClick={() => onDeleteTask(task.id)} className="text-slate-300 hover:text-red-500">
+                      <button onClick={() => onDeleteTask(task.id)} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
                         <Trash2 size={16} />
                       </button>
                     </div>
                   ))}
                   {completedTasks.length > 0 && (
-                    <div className="pt-2 mt-2 border-t border-slate-100">
-                      <p className="text-xs font-bold text-slate-400 uppercase mb-2">Completed</p>
+                    <div className="pt-2 mt-2 border-t border-white/5">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Completed</p>
                       {completedTasks.map(task => (
                         <div key={task.id} className="flex items-center gap-3 p-2 opacity-50">
                           <button
                             onClick={() => onToggleTask(task.id, false)}
-                            className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0"
+                            className="w-5 h-5 rounded-lg bg-emerald-500 flex items-center justify-center flex-shrink-0"
                           >
                             <Check size={12} className="text-white" />
                           </button>
-                          <span className="text-sm text-slate-900 line-through flex-1">{task.title}</span>
-                          <button onClick={() => onDeleteTask(task.id)} className="text-slate-300 hover:text-red-500">
+                          <span className="text-sm text-slate-400 line-through flex-1">{task.title}</span>
+                          <button onClick={() => onDeleteTask(task.id)} className="text-slate-600 hover:text-red-400">
                             <Trash2 size={16} />
                           </button>
                         </div>
@@ -664,15 +671,15 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
           </div>
 
           {/* Follow-up Draft Section */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+          <div className="glass rounded-3xl p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-                <Send size={20} className="text-indigo-500" /> AI Outreach Draft
+              <h3 className="font-bold text-lg text-white flex items-center gap-2">
+                <Send size={20} className="text-violet-400" /> AI Outreach Draft
               </h3>
               <button
                 onClick={handleGenerateDraft}
                 disabled={isLoading.draft}
-                className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 disabled:opacity-50"
+                className="text-sm font-semibold text-violet-400 hover:text-violet-300 flex items-center gap-1 disabled:opacity-50 transition-colors"
               >
                 {isLoading.draft ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
                 Generate Smart Follow-up
@@ -682,34 +689,34 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
             {aiDraft ? (
               <div className="space-y-4">
                 <textarea
-                  className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full h-40 p-4 input-dark rounded-2xl text-sm resize-none"
                   value={aiDraft}
                   onChange={(e) => setAiDraft(e.target.value)}
                 />
                 <div className="flex gap-2">
-                  <button onClick={() => setAiDraft('')} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors">Discard</button>
-                  <button className="flex-1 py-2 bg-indigo-600 text-white font-bold rounded-xl text-sm shadow-md hover:bg-indigo-700 transition-all">Copy to Clipboard</button>
+                  <button onClick={() => setAiDraft('')} className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white transition-colors">Discard</button>
+                  <button className="flex-1 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white font-bold rounded-xl text-sm shadow-lg hover:shadow-violet-500/25 transition-all">Copy to Clipboard</button>
                 </div>
               </div>
             ) : (
-              <div className="py-8 text-center border-2 border-dashed border-slate-100 rounded-2xl">
-                <MessageSquare className="mx-auto text-slate-300 mb-2" size={32} />
-                <p className="text-slate-400 text-sm">Generate a tailored message based on your history.</p>
+              <div className="py-8 text-center border-2 border-dashed border-white/10 rounded-2xl">
+                <MessageSquare className="mx-auto text-slate-600 mb-2" size={32} />
+                <p className="text-slate-500 text-sm">Generate a tailored message based on your history.</p>
               </div>
             )}
           </div>
 
           {/* Interaction Log */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex-1">
-            <h3 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
-              <Calendar size={20} className="text-indigo-500" /> Interaction History
+          <div className="glass rounded-3xl p-6 flex-1">
+            <h3 className="font-bold text-lg text-white mb-6 flex items-center gap-2">
+              <Calendar size={20} className="text-violet-400" /> Interaction History
             </h3>
 
             <form onSubmit={handleSubmitInteraction} className="mb-8">
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <div className="glass-light p-4 rounded-2xl">
                 <div className="flex gap-3 mb-3 flex-wrap">
                   <select
-                    className="bg-white border border-slate-200 rounded-lg px-3 py-1 text-xs font-bold text-slate-600"
+                    className="input-dark rounded-xl px-3 py-2 text-xs font-bold"
                     value={interactionType}
                     onChange={(e) => setInteractionType(e.target.value as InteractionType)}
                   >
@@ -719,39 +726,39 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                   </select>
                   <input
                     type="date"
-                    className="bg-white border border-slate-200 rounded-lg px-3 py-1 text-xs text-slate-600"
+                    className="input-dark rounded-xl px-3 py-2 text-xs"
                     value={newInteractionDate}
                     onChange={(e) => setNewInteractionDate(e.target.value)}
                     max={new Date().toISOString().split('T')[0]}
                   />
                 </div>
                 <textarea
-                  className="w-full bg-transparent border-none focus:ring-0 text-sm text-slate-700 placeholder:text-slate-400 min-h-[80px]"
+                  className="w-full bg-transparent text-sm text-slate-300 placeholder:text-slate-500 min-h-[80px] focus:outline-none"
                   placeholder="What did you talk about? Any action items?"
                   value={newInteractionNotes}
                   onChange={(e) => setNewInteractionNotes(e.target.value)}
                 />
                 <div className="flex justify-end mt-2">
-                  <button type="submit" className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl flex items-center gap-2 hover:bg-slate-800 transition-all">
+                  <button type="submit" className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-xs font-bold rounded-xl flex items-center gap-2 hover:shadow-lg hover:shadow-violet-500/25 transition-all">
                     <Plus size={14} /> Log Interaction
                   </button>
                 </div>
               </div>
             </form>
 
-            <div className="relative border-l-2 border-slate-100 ml-4 space-y-8 pl-8">
+            <div className="relative border-l-2 border-white/10 ml-4 space-y-8 pl-8">
               {interactions.length === 0 ? (
-                <p className="text-slate-400 text-sm py-4">No interactions logged yet.</p>
+                <p className="text-slate-500 text-sm py-4">No interactions logged yet.</p>
               ) : (
                 interactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(interaction => (
                   <div key={interaction.id} className="relative group">
-                    <div className="absolute -left-[41px] top-0 w-4 h-4 rounded-full bg-white border-2 border-indigo-500" />
+                    <div className="absolute -left-[41px] top-0 w-4 h-4 rounded-full bg-dark-900 border-2 border-violet-500 shadow-lg shadow-violet-500/25" />
 
                     {editingInteractionId === interaction.id && editedInteraction ? (
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <div className="glass-light p-4 rounded-xl">
                         <div className="flex gap-3 mb-3">
                           <select
-                            className="bg-white border border-slate-200 rounded-lg px-3 py-1 text-xs font-bold text-slate-600"
+                            className="input-dark rounded-xl px-3 py-2 text-xs font-bold"
                             value={editedInteraction.type}
                             onChange={(e) => setEditedInteraction({ ...editedInteraction, type: e.target.value as InteractionType })}
                           >
@@ -761,14 +768,14 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                           </select>
                           <input
                             type="date"
-                            className="bg-white border border-slate-200 rounded-lg px-3 py-1 text-xs text-slate-600"
+                            className="input-dark rounded-xl px-3 py-2 text-xs"
                             value={editedInteraction.date}
                             onChange={(e) => setEditedInteraction({ ...editedInteraction, date: e.target.value })}
                             max={new Date().toISOString().split('T')[0]}
                           />
                         </div>
                         <textarea
-                          className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-700 mb-3"
+                          className="w-full input-dark rounded-xl p-3 text-sm mb-3"
                           value={editedInteraction.notes}
                           onChange={(e) => setEditedInteraction({ ...editedInteraction, notes: e.target.value })}
                           rows={3}
@@ -776,13 +783,13 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                         <div className="flex gap-2 justify-end">
                           <button
                             onClick={() => { setEditingInteractionId(null); setEditedInteraction(null); }}
-                            className="px-3 py-1 text-sm text-slate-500 hover:text-slate-700"
+                            className="px-3 py-1.5 text-sm text-slate-400 hover:text-white transition-colors"
                           >
                             Cancel
                           </button>
                           <button
                             onClick={handleSaveInteraction}
-                            className="px-3 py-1 text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg"
+                            className="px-3 py-1.5 text-sm text-white bg-gradient-to-r from-violet-500 to-cyan-500 rounded-lg"
                           >
                             Save
                           </button>
@@ -791,26 +798,26 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                     ) : (
                       <>
                         <div className="flex justify-between items-start mb-1">
-                          <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{interaction.type}</span>
+                          <span className="text-xs font-bold text-violet-400 uppercase tracking-wider">{interaction.type}</span>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-slate-400">{interaction.date}</span>
+                            <span className="text-xs font-medium text-slate-500">{interaction.date}</span>
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                               <button
                                 onClick={() => handleEditInteraction(interaction)}
-                                className="text-slate-400 hover:text-indigo-600"
+                                className="text-slate-500 hover:text-violet-400 transition-colors"
                               >
                                 <Edit3 size={14} />
                               </button>
                               <button
                                 onClick={() => onDeleteInteraction(interaction.id)}
-                                className="text-slate-400 hover:text-red-500"
+                                className="text-slate-500 hover:text-red-400 transition-colors"
                               >
                                 <Trash2 size={14} />
                               </button>
                             </div>
                           </div>
                         </div>
-                        <p className="text-sm text-slate-700 leading-relaxed">{interaction.notes}</p>
+                        <p className="text-sm text-slate-300 leading-relaxed">{interaction.notes}</p>
                       </>
                     )}
                   </div>

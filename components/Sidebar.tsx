@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, Users, BarChart3, Settings, LogOut, CheckSquare, Sparkles } from 'lucide-react';
+import { Brain, Users, BarChart3, Settings, LogOut, CheckSquare, Sparkles } from 'lucide-react';
 import { View } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -13,7 +13,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
   const { user, signOut } = useAuth();
 
   const navItems = [
-    { id: View.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
+    { id: View.DASHBOARD, label: 'Nexus Brain', icon: Brain },
     { id: View.CONTACTS, label: 'Contacts', icon: Users },
     { id: View.TASKS, label: 'Tasks', icon: CheckSquare },
     { id: View.ANALYTICS, label: 'Analytics', icon: BarChart3 },

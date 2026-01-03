@@ -287,7 +287,7 @@ async function executeAddContact(
     position: (args.position as string) || '',
     tags: (args.tags as string[]) || [],
     notes: (args.notes as string) || '',
-    lastContacted: null,
+    lastContacted: new Date().toISOString().split('T')[0], // Set to today
     nextFollowUp: null,
     avatar: '',
     status: 'active',
@@ -300,6 +300,17 @@ async function executeAddContact(
   }
 
   const contactId = await firestoreService.addContact(userId, contact);
+
+  // Auto-log initial interaction
+  const initialNotes = (args.notes as string) || `First contact with ${args.firstName} ${args.lastName}`;
+  const initialInteraction: Omit<Interaction, 'id'> = {
+    contactId,
+    type: InteractionType.OTHER,
+    date: new Date().toISOString().split('T')[0],
+    notes: `Initial contact added. ${initialNotes}`,
+  };
+  await firestoreService.addInteraction(userId, initialInteraction);
+
   return { success: true, contactId, contact: { ...contact, id: contactId } };
 }
 

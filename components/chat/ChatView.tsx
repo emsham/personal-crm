@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { Send, Settings, Loader2, LayoutDashboard, X, Plus, Bot, Sparkles } from 'lucide-react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { Send, Settings, Loader2, LayoutDashboard, X, Plus, Bot, Sparkles, History, MessageSquare, Search, Clock, Zap } from 'lucide-react';
 import { useChat } from '../../contexts/ChatContext';
 import { useLLMSettings } from '../../contexts/LLMSettingsContext';
 import { Contact, Task } from '../../types';
@@ -15,6 +15,8 @@ interface ChatViewProps {
 const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard }) => {
   const [input, setInput] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -81,36 +83,119 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard })
         <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-cyan-500/10 rounded-full blur-[80px]" />
       </div>
 
+      {/* Memory Panel (History Drawer) */}
+      {historyOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity"
+            onClick={() => { setHistoryOpen(false); setHistorySearch(''); }}
+          />
+          <div className="fixed right-0 top-0 h-full w-80 glass-strong border-l border-white/10 shadow-2xl z-50 flex flex-col animate-slide-in-from-right">
+            {/* Header */}
+            <div className="p-4 border-b border-white/5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/20 to-cyan-500/20 flex items-center justify-center">
+                    <Clock size={16} className="text-violet-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Memory</h3>
+                    <p className="text-[10px] text-slate-500">{sessions.length} conversations</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setHistoryOpen(false); setHistorySearch(''); }}
+                  className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              {/* Search */}
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Search conversations..."
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 input-dark rounded-lg text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Sessions List */}
+            <div className="flex-1 overflow-y-auto p-2">
+              {sessions
+                .filter(s =>
+                  historySearch === '' ||
+                  s.title.toLowerCase().includes(historySearch.toLowerCase()) ||
+                  s.messages.some(m => m.content?.toLowerCase().includes(historySearch.toLowerCase()))
+                )
+                .map((session) => (
+                  <button
+                    key={session.id}
+                    onClick={() => { selectSession(session.id); setHistoryOpen(false); setHistorySearch(''); }}
+                    className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-all mb-1 ${
+                      currentSession?.id === session.id
+                        ? 'bg-gradient-to-r from-violet-500/20 to-cyan-500/10 border border-violet-500/30'
+                        : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      currentSession?.id === session.id
+                        ? 'bg-gradient-to-br from-violet-500 to-cyan-500'
+                        : 'bg-white/5'
+                    }`}>
+                      <MessageSquare size={14} className={currentSession?.id === session.id ? 'text-white' : 'text-slate-500'} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{session.title}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{session.messages.length} messages</p>
+                    </div>
+                  </button>
+                ))}
+              {sessions.filter(s =>
+                historySearch === '' ||
+                s.title.toLowerCase().includes(historySearch.toLowerCase()) ||
+                s.messages.some(m => m.content?.toLowerCase().includes(historySearch.toLowerCase()))
+              ).length === 0 && (
+                <div className="text-center py-8 text-slate-500 text-sm">
+                  No conversations found
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Top bar */}
       <div className={`
         relative z-20 flex-shrink-0 flex items-center justify-between px-6 py-3
         transition-all duration-300
         ${hasMessages ? 'border-b border-white/5 bg-black/20 backdrop-blur-xl' : ''}
       `}>
-        <div className="flex items-center gap-4">
-          {hasMessages && (
-            <>
-              <div className="h-4 w-px bg-white/10" />
-              <select
-                value={currentSession?.id || ''}
-                onChange={(e) => e.target.value && selectSession(e.target.value)}
-                className="text-xs bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-slate-400 focus:outline-none hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                {sessions.length === 0 ? (
-                  <option value="">New Chat</option>
-                ) : (
-                  sessions.map((s) => (
-                    <option key={s.id} value={s.id}>{s.title}</option>
-                  ))
-                )}
-              </select>
-              <button
-                onClick={createNewSession}
-                className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-all"
-              >
-                <Plus size={16} />
-              </button>
-            </>
+        <div className="flex items-center gap-3">
+          {/* New Session button - always visible */}
+          <button
+            onClick={createNewSession}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 rounded-lg transition-all border border-violet-500/20"
+          >
+            <Zap size={14} />
+            <span>New Insight</span>
+          </button>
+
+          {/* Memory button - only when there are sessions */}
+          {sessions.length > 0 && (
+            <button
+              onClick={() => setHistoryOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+            >
+              <Clock size={14} />
+              <span>Memory</span>
+              <span className="px-1.5 py-0.5 bg-white/10 text-slate-400 text-[10px] font-bold rounded-md">
+                {sessions.length}
+              </span>
+            </button>
           )}
         </div>
 
@@ -120,7 +205,7 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard })
             className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"
           >
             <LayoutDashboard size={14} />
-            <span className="hidden sm:inline">Dashboard</span>
+            <span className="hidden sm:inline">Widgets</span>
           </button>
           <button
             onClick={() => setSettingsOpen(true)}

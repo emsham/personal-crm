@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Key, ExternalLink, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { X, Key, ExternalLink, Check, AlertCircle, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { useLLMSettings } from '../../contexts/LLMSettingsContext';
 import { LLMProvider } from '../../types';
 
@@ -67,30 +67,30 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 z-50"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
         onClick={onClose}
       />
 
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden"
+          className="glass-strong rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden border border-white/10"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 rounded-lg">
-                <Key size={20} className="text-indigo-600" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
+                <Sparkles size={20} className="text-white" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">AI Settings</h2>
-                <p className="text-xs text-slate-500">Bring your own API keys</p>
+                <h2 className="text-lg font-bold text-white">AI Settings</h2>
+                <p className="text-xs text-slate-400">Bring your own API keys</p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
             >
               <X size={20} />
             </button>
@@ -100,7 +100,7 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
           <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-200px)]">
             {/* Provider selection */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-3">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3 block">
                 Active Provider
               </label>
               <div className="grid grid-cols-2 gap-3">
@@ -113,27 +113,27 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
                       key={provider.id}
                       onClick={() => setProvider(provider.id)}
                       className={`
-                        relative p-4 rounded-xl border-2 text-left transition-all
+                        relative p-4 rounded-xl text-left transition-all
                         ${isActive
-                          ? 'border-indigo-500 bg-indigo-50'
-                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                          ? 'bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border-2 border-violet-500/50 shadow-lg shadow-violet-500/10'
+                          : 'glass border-2 border-transparent hover:border-white/10'
                         }
                       `}
                     >
                       {isActive && (
-                        <div className="absolute top-2 right-2 w-5 h-5 bg-indigo-500 rounded-full flex items-center justify-center">
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center shadow-lg">
                           <Check size={12} className="text-white" />
                         </div>
                       )}
-                      <div className="font-medium text-slate-900">{provider.name}</div>
-                      <div className="text-xs text-slate-500 mt-1">{provider.description}</div>
+                      <div className="font-semibold text-white">{provider.name}</div>
+                      <div className="text-xs text-slate-400 mt-1">{provider.description}</div>
                       {hasKey ? (
-                        <div className="flex items-center gap-1 mt-2 text-xs text-green-600">
+                        <div className="flex items-center gap-1 mt-2 text-xs text-emerald-400">
                           <Check size={12} />
                           Key configured
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1 mt-2 text-xs text-amber-600">
+                        <div className="flex items-center gap-1 mt-2 text-xs text-amber-400">
                           <AlertCircle size={12} />
                           No key set
                         </div>
@@ -146,19 +146,19 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
 
             {/* API Keys */}
             <div className="space-y-4">
-              <label className="block text-sm font-medium text-slate-700">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                 API Keys
               </label>
 
               {/* Gemini Key */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm text-slate-600">Google Gemini</span>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-slate-300">Google Gemini</span>
                   <a
                     href="https://aistudio.google.com/app/apikey"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700"
+                    className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors"
                   >
                     Get API Key <ExternalLink size={10} />
                   </a>
@@ -169,12 +169,12 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
                     value={geminiKey}
                     onChange={(e) => setGeminiKey(e.target.value)}
                     placeholder="AIzaSy..."
-                    className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-3 pr-12 input-dark rounded-xl text-sm"
                   />
                   <button
                     type="button"
                     onClick={() => setShowGeminiKey(!showGeminiKey)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-white rounded-lg transition-colors"
                   >
                     {showGeminiKey ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -183,13 +183,13 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
 
               {/* OpenAI Key */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm text-slate-600">OpenAI</span>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-slate-300">OpenAI</span>
                   <a
                     href="https://platform.openai.com/api-keys"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700"
+                    className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors"
                   >
                     Get API Key <ExternalLink size={10} />
                   </a>
@@ -200,12 +200,12 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
                     value={openaiKey}
                     onChange={(e) => setOpenaiKey(e.target.value)}
                     placeholder="sk-proj-..."
-                    className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-3 pr-12 input-dark rounded-xl text-sm"
                   />
                   <button
                     type="button"
                     onClick={() => setShowOpenaiKey(!showOpenaiKey)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-white rounded-lg transition-colors"
                   >
                     {showOpenaiKey ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -214,34 +214,34 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
             </div>
 
             {/* Security notice */}
-            <div className="p-3 bg-slate-50 rounded-lg">
-              <div className="flex items-start gap-2">
-                <Key size={14} className="text-slate-400 mt-0.5 flex-shrink-0" />
-                <div className="text-xs text-slate-500">
-                  <strong className="text-slate-600">Your keys are stored locally.</strong> They are saved in your browser's localStorage and never sent to our servers. API calls go directly to the provider.
+            <div className="p-4 rounded-xl glass border border-white/5">
+              <div className="flex items-start gap-3">
+                <Key size={16} className="text-violet-400 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-slate-400">
+                  <strong className="text-slate-300">Your keys are stored locally.</strong> They are saved in your browser's localStorage and never sent to our servers. API calls go directly to the provider.
                 </div>
               </div>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-white/5 bg-black/20">
             <button
               onClick={handleClearAll}
-              className="text-sm text-red-600 hover:text-red-700"
+              className="text-sm text-red-400 hover:text-red-300 transition-colors"
             >
               Clear all keys
             </button>
             <div className="flex items-center gap-3">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800"
+                className="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
-                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                className="px-5 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-violet-500/25 transition-all flex items-center gap-2"
               >
                 {saved ? (
                   <>
