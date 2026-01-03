@@ -1,6 +1,7 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { LLMSettingsProvider } from './contexts/LLMSettingsContext';
@@ -14,12 +15,14 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <LLMSettingsProvider>
-        <ChatProvider>
-          <App />
-        </ChatProvider>
-      </LLMSettingsProvider>
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <LLMSettingsProvider>
+          <ChatProvider>
+            <App />
+          </ChatProvider>
+        </LLMSettingsProvider>
+      </AuthProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );

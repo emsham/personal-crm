@@ -6,17 +6,17 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
   currentView: View;
-  setView: (view: View) => void;
+  onNavigate: (path: string) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
   const { user, signOut } = useAuth();
 
   const navItems = [
-    { id: View.DASHBOARD, label: 'Nexus Brain', icon: Brain },
-    { id: View.CONTACTS, label: 'Contacts', icon: Users },
-    { id: View.TASKS, label: 'Tasks', icon: CheckSquare },
-    { id: View.ANALYTICS, label: 'Analytics', icon: BarChart3 },
+    { id: View.DASHBOARD, label: 'Nexus Brain', icon: Brain, path: '/' },
+    { id: View.CONTACTS, label: 'Contacts', icon: Users, path: '/contacts' },
+    { id: View.TASKS, label: 'Tasks', icon: CheckSquare, path: '/tasks' },
+    { id: View.ANALYTICS, label: 'Analytics', icon: BarChart3, path: '/analytics' },
   ];
 
   const handleSignOut = async () => {
@@ -49,7 +49,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
         {navItems.map((item) => (
           <button
             key={item.id}
-            onClick={() => setView(item.id)}
+            onClick={() => onNavigate(item.path)}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all group relative overflow-hidden ${
               currentView === item.id
                 ? 'text-white'

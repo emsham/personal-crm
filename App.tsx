@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Search, Plus, Filter, ChevronRight, Loader2, CheckSquare, Cake, Star } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import ContactList from './components/ContactList';
@@ -33,18 +34,28 @@ const App: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const { setCRMData } = useChat();
   const { currentProviderConfigured } = useLLMSettings();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [currentView, setView] = useState<View>(View.DASHBOARD);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<Contact['status'] | 'all'>('all');
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [showDashboardWidgets, setShowDashboardWidgets] = useState(false);
+
+  // Derive current view from URL
+  const currentView = useMemo(() => {
+    const path = location.pathname;
+    if (path.startsWith('/contacts')) return View.CONTACTS;
+    if (path.startsWith('/tasks')) return View.TASKS;
+    if (path.startsWith('/analytics')) return View.ANALYTICS;
+    return View.DASHBOARD;
+  }, [location.pathname]);
 
   // Subscribe to Firestore data when user is authenticated
   useEffect(() => {
@@ -281,7 +292,7 @@ const App: React.FC = () => {
     try {
       const { id, ...contactData } = newContact;
       await addContactToFirestore(user.uid, contactData);
-      setView(View.CONTACTS);
+      navigate('/contacts');
     } catch (error) {
       console.error('Error adding contact:', error);
     }
@@ -291,10 +302,6 @@ const App: React.FC = () => {
     if (!user) return;
     try {
       await updateContactInFirestore(user.uid, contactId, updates);
-      // Update selected contact if it's the one being edited
-      if (selectedContact?.id === contactId) {
-        setSelectedContact({ ...selectedContact, ...updates });
-      }
     } catch (error) {
       console.error('Error updating contact:', error);
     }
@@ -304,7 +311,6 @@ const App: React.FC = () => {
     if (!user) return;
     try {
       await deleteContactFromFirestore(user.uid, contactId);
-      setSelectedContact(null);
     } catch (error) {
       console.error('Error deleting contact:', error);
     }
@@ -418,11 +424,10 @@ const App: React.FC = () => {
           tasks={tasks}
           interactions={interactions}
           onSelectContact={(contact) => {
-            setSelectedContact(contact);
-            setView(View.CONTACTS);
+            navigate(`/contacts/${contact.id}`);
           }}
           onViewTasks={() => {
-            setView(View.TASKS);
+            navigate('/tasks');
           }}
           fullPage={true}
         />
@@ -437,8 +442,7 @@ const App: React.FC = () => {
           tasks={tasks}
           onShowDashboard={() => setShowDashboardWidgets(true)}
           onSelectContact={(contact) => {
-            setSelectedContact(contact);
-            setView(View.CONTACTS);
+            navigate(`/contacts/${contact.id}`);
           }}
         />
         <DashboardWidgets
@@ -449,40 +453,61 @@ const App: React.FC = () => {
           interactions={interactions}
           onSelectContact={(contact) => {
             setShowDashboardWidgets(false);
-            setSelectedContact(contact);
-            setView(View.CONTACTS);
+            navigate(`/contacts/${contact.id}`);
           }}
           onViewTasks={() => {
             setShowDashboardWidgets(false);
-            setView(View.TASKS);
+            navigate('/tasks');
           }}
         />
       </div>
     );
   };
 
-  const renderContacts = () => {
-    if (selectedContact) {
+  // Contact detail page wrapper that reads ID from URL
+  const ContactDetailPage: React.FC = () => {
+    const { contactId } = useParams<{ contactId: string }>();
+    const contact = contacts.find(c => c.id === contactId);
+
+    if (!contact) {
       return (
-        <ContactDetail
-          contact={selectedContact}
-          interactions={interactions.filter(i => i.contactId === selectedContact.id)}
-          tasks={tasks}
-          allContacts={contacts}
-          onBack={() => setSelectedContact(null)}
-          onSelectContact={setSelectedContact}
-          onUpdateContact={handleUpdateContact}
-          onDeleteContact={handleDeleteContact}
-          onAddInteraction={handleAddInteraction}
-          onUpdateInteraction={handleUpdateInteraction}
-          onDeleteInteraction={handleDeleteInteraction}
-          onAddTask={handleAddTask}
-          onToggleTask={handleToggleTask}
-          onDeleteTask={handleDeleteTask}
-        />
+        <div className="glass rounded-2xl p-12 text-center">
+          <h3 className="text-lg font-bold text-white mb-2">Contact not found</h3>
+          <p className="text-slate-400 mb-6">This contact may have been deleted.</p>
+          <button
+            onClick={() => navigate('/contacts')}
+            className="text-violet-400 font-semibold hover:text-violet-300 transition-colors"
+          >
+            Back to Contacts
+          </button>
+        </div>
       );
     }
 
+    return (
+      <ContactDetail
+        contact={contact}
+        interactions={interactions.filter(i => i.contactId === contact.id)}
+        tasks={tasks}
+        allContacts={contacts}
+        onBack={() => navigate('/contacts')}
+        onSelectContact={(c) => navigate(`/contacts/${c.id}`)}
+        onUpdateContact={handleUpdateContact}
+        onDeleteContact={async (id) => {
+          await handleDeleteContact(id);
+          navigate('/contacts');
+        }}
+        onAddInteraction={handleAddInteraction}
+        onUpdateInteraction={handleUpdateInteraction}
+        onDeleteInteraction={handleDeleteInteraction}
+        onAddTask={handleAddTask}
+        onToggleTask={handleToggleTask}
+        onDeleteTask={handleDeleteTask}
+      />
+    );
+  };
+
+  const renderContactsList = () => {
     return (
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -618,7 +643,7 @@ const App: React.FC = () => {
         ) : (
           <ContactList
             contacts={filteredContacts}
-            onSelectContact={setSelectedContact}
+            onSelectContact={(contact) => navigate(`/contacts/${contact.id}`)}
           />
         )}
       </div>
@@ -632,50 +657,23 @@ const App: React.FC = () => {
       <div className="orb orb-2" />
       <div className="orb orb-3" />
 
-      <Sidebar currentView={currentView} setView={(v) => { setView(v); setSelectedContact(null); }} />
+      <Sidebar currentView={currentView} onNavigate={navigate} />
 
       <main className="flex-1 ml-72 p-8">
-        {/* <header className="flex justify-between items-center mb-10">
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2 text-xs font-semibold text-slate-500 uppercase tracking-[0.15em]">
-              <span>Nexus</span>
-              <ChevronRight size={12} className="text-slate-600" />
-              <span className="gradient-text font-bold">{currentView}</span>
-            </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="flex -space-x-2">
-              {contacts.slice(0, 3).map((c, i) => (
-                <img key={i} className="w-8 h-8 rounded-xl border-2 border-dark-900 ring-1 ring-white/10 object-cover" src={c.avatar} alt="" />
-              ))}
-              {contacts.length > 3 && (
-                <div className="w-8 h-8 rounded-xl border-2 border-dark-900 bg-gradient-to-br from-violet-500/20 to-cyan-500/20 flex items-center justify-center text-[10px] font-bold text-slate-300 ring-1 ring-white/10">
-                  +{contacts.length - 3}
-                </div>
-              )}
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-white font-bold overflow-hidden ring-2 ring-white/10 shadow-lg shadow-violet-500/20">
-              {user.photoURL ? (
-                <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
-              ) : (
-                user.email?.charAt(0).toUpperCase() || 'U'
-              )}
-            </div>
-          </div>
-        </header> */}
-
-        {currentView === View.DASHBOARD && renderDashboard()}
-        {currentView === View.CONTACTS && renderContacts()}
-        {currentView === View.TASKS && (
-          <TaskList
-            tasks={tasks}
-            contacts={contacts}
-            onAddTask={handleAddTask}
-            onToggleTask={handleToggleTask}
-            onDeleteTask={handleDeleteTask}
-          />
-        )}
-        {currentView === View.ANALYTICS && (
+        <Routes>
+          <Route path="/" element={renderDashboard()} />
+          <Route path="/contacts" element={renderContactsList()} />
+          <Route path="/contacts/:contactId" element={<ContactDetailPage />} />
+          <Route path="/tasks" element={
+            <TaskList
+              tasks={tasks}
+              contacts={contacts}
+              onAddTask={handleAddTask}
+              onToggleTask={handleToggleTask}
+              onDeleteTask={handleDeleteTask}
+            />
+          } />
+          <Route path="/analytics" element={
           <div className="space-y-8">
             <div>
               <h2 className="text-2xl font-bold text-white">Analytics</h2>
@@ -786,10 +784,7 @@ const App: React.FC = () => {
                     <div
                       key={item.contact!.id}
                       className="flex items-center gap-4 p-4 rounded-xl glass-light hover:bg-white/10 transition-all cursor-pointer group"
-                      onClick={() => {
-                        setSelectedContact(item.contact!);
-                        setView(View.CONTACTS);
-                      }}
+                      onClick={() => navigate(`/contacts/${item.contact!.id}`)}
                     >
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-violet-500/20">
                         {index + 1}
@@ -809,7 +804,8 @@ const App: React.FC = () => {
               )}
             </div>
           </div>
-        )}
+          } />
+        </Routes>
       </main>
 
       {showAddModal && (
