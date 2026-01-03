@@ -1,14 +1,14 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Plus, Clock, Sparkles, Filter, ChevronRight, Loader2, CheckSquare, Cake, Star } from 'lucide-react';
+import { Search, Plus, Filter, ChevronRight, Loader2, CheckSquare, Cake, Star } from 'lucide-react';
 import Sidebar from './components/Sidebar';
-import StatsCard from './components/StatsCard';
 import ContactList from './components/ContactList';
 import ContactDetail from './components/ContactDetail';
 import AddContactForm from './components/AddContactForm';
 import AuthPage from './components/AuthPage';
 import TaskList from './components/TaskList';
-import { ChatPanel } from './components/chat';
+import DashboardWidgets from './components/DashboardWidgets';
+import { ChatView } from './components/chat';
 import { Contact, Interaction, InteractionType, View, Task } from './types';
 import { useAuth } from './contexts/AuthContext';
 import { useChat } from './contexts/ChatContext';
@@ -42,6 +42,7 @@ const App: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<Contact['status'] | 'all'>('all');
   const [tagFilter, setTagFilter] = useState<string>('all');
+  const [showDashboardWidgets, setShowDashboardWidgets] = useState(false);
 
   // Subscribe to Firestore data when user is authenticated
   useEffect(() => {
@@ -398,151 +399,28 @@ const App: React.FC = () => {
   }
 
   const renderDashboard = () => (
-    <div className="space-y-6">
-      {/* Header with greeting and add button */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900">
-            Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}!
-          </h2>
-          <p className="text-slate-500 mt-1">Here's what's happening with your network today.</p>
-        </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all transform hover:scale-[1.02]"
-        >
-          <Plus size={20} /> Add New Contact
-        </button>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-          <div className="text-2xl font-bold text-slate-900">{contacts.length}</div>
-          <div className="text-sm text-slate-500">Contacts</div>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-          <div className="text-2xl font-bold text-slate-900">{totalInteractionsLast30Days}</div>
-          <div className="text-sm text-slate-500">Interactions (30d)</div>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-          <div className="text-2xl font-bold text-slate-900">{tasks.filter(t => !t.completed).length}</div>
-          <div className="text-sm text-slate-500">Pending Tasks</div>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-          <div className="text-2xl font-bold text-slate-900">{contacts.filter(c => c.status === 'active').length}</div>
-          <div className="text-sm text-slate-500">Active Contacts</div>
-        </div>
-      </div>
-
-      {/* AI Chat Panel - Center of Dashboard */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden" style={{ height: '500px' }}>
-        <ChatPanel contacts={contacts} />
-      </div>
-
-      {/* Bottom Section: Tasks and Celebrations */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upcoming Tasks */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-          <h3 className="font-bold text-lg text-slate-900 mb-4">Upcoming Tasks</h3>
-          <div className="space-y-3">
-            {tasks
-              .filter(t => !t.completed && t.dueDate)
-              .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
-              .slice(0, 4)
-              .map(task => {
-                const contact = contacts.find(c => c.id === task.contactId);
-                const isOverdue = task.dueDate && new Date(task.dueDate) < new Date(new Date().toDateString());
-                return (
-                  <div
-                    key={task.id}
-                    className="group flex items-center space-x-3 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
-                    onClick={() => {
-                      if (contact) {
-                        setSelectedContact(contact);
-                        setView(View.CONTACTS);
-                      } else {
-                        setView(View.TASKS);
-                      }
-                    }}
-                  >
-                    {contact ? (
-                      <img src={contact.avatar} alt="" className="w-10 h-10 rounded-lg object-cover" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
-                        <CheckSquare size={18} className="text-slate-400" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-slate-900 truncate">{task.title}</h4>
-                      <p className={`text-xs ${isOverdue ? 'text-red-500 font-medium' : 'text-slate-500'}`}>
-                        {isOverdue ? 'Overdue: ' : 'Due: '}{task.dueDate}
-                      </p>
-                    </div>
-                    <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-500 transition-colors" />
-                  </div>
-                );
-              })}
-            {tasks.filter(t => !t.completed && t.dueDate).length === 0 && (
-              <p className="text-sm text-slate-400 text-center py-4">No upcoming tasks.</p>
-            )}
-          </div>
-          <button
-            onClick={() => setView(View.TASKS)}
-            className="w-full mt-4 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
-          >
-            View All Tasks →
-          </button>
-        </div>
-
-        {/* Upcoming Celebrations */}
-        <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-6 rounded-3xl border border-pink-100 shadow-sm">
-          <h3 className="font-bold text-lg text-slate-900 mb-4 flex items-center gap-2">
-            <Cake size={18} className="text-pink-500" /> Upcoming Celebrations
-          </h3>
-          {upcomingDates.length > 0 ? (
-            <div className="space-y-3">
-              {upcomingDates.slice(0, 4).map((item, index) => (
-                <div
-                  key={`${item.contact.id}-${item.label}-${index}`}
-                  className="group flex items-center space-x-3 p-3 bg-white rounded-xl hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => {
-                    setSelectedContact(item.contact);
-                    setView(View.CONTACTS);
-                  }}
-                >
-                  <div className="relative">
-                    <img src={item.contact.avatar} alt="" className="w-10 h-10 rounded-lg object-cover" />
-                    <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ${
-                      item.type === 'birthday' ? 'bg-pink-500' : 'bg-amber-500'
-                    }`}>
-                      {item.type === 'birthday' ? (
-                        <Cake size={10} className="text-white" />
-                      ) : (
-                        <Star size={10} className="text-white" />
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-medium text-slate-900 truncate">
-                      {item.contact.firstName} {item.contact.lastName}
-                    </h4>
-                    <p className={`text-xs font-medium ${
-                      item.daysUntil === 0 ? 'text-pink-600' : item.daysUntil <= 7 ? 'text-amber-600' : 'text-slate-500'
-                    }`}>
-                      {item.daysUntil === 0 ? 'Today!' : item.daysUntil === 1 ? 'Tomorrow' : `in ${item.daysUntil} days`}
-                      {' · '}{item.label}
-                    </p>
-                  </div>
-                  <ChevronRight size={14} className="text-slate-300 group-hover:text-pink-500 transition-colors" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500 text-center py-4">No upcoming celebrations in the next 30 days.</p>
-          )}
-        </div>
-      </div>
+    <div className="h-full -m-8">
+      <ChatView
+        contacts={contacts}
+        tasks={tasks}
+        onShowDashboard={() => setShowDashboardWidgets(true)}
+      />
+      <DashboardWidgets
+        isOpen={showDashboardWidgets}
+        onClose={() => setShowDashboardWidgets(false)}
+        contacts={contacts}
+        tasks={tasks}
+        interactions={interactions}
+        onSelectContact={(contact) => {
+          setShowDashboardWidgets(false);
+          setSelectedContact(contact);
+          setView(View.CONTACTS);
+        }}
+        onViewTasks={() => {
+          setShowDashboardWidgets(false);
+          setView(View.TASKS);
+        }}
+      />
     </div>
   );
 
