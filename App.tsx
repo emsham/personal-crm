@@ -406,7 +406,7 @@ const App: React.FC = () => {
   }
 
   const renderDashboard = () => (
-    <div className="h-full -m-8">
+    <div className="h-screen -m-8 overflow-hidden">
       <ChatView
         contacts={contacts}
         tasks={tasks}
@@ -605,7 +605,7 @@ const App: React.FC = () => {
       <Sidebar currentView={currentView} setView={(v) => { setView(v); setSelectedContact(null); }} />
 
       <main className="flex-1 ml-72 p-8">
-        <header className="flex justify-between items-center mb-10">
+        {/* <header className="flex justify-between items-center mb-10">
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-2 text-xs font-semibold text-slate-500 uppercase tracking-[0.15em]">
               <span>Nexus</span>
@@ -632,7 +632,7 @@ const App: React.FC = () => {
               )}
             </div>
           </div>
-        </header>
+        </header> */}
 
         {currentView === View.DASHBOARD && renderDashboard()}
         {currentView === View.CONTACTS && renderContacts()}

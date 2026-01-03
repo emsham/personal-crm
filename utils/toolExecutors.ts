@@ -287,13 +287,17 @@ async function executeAddContact(
     position: (args.position as string) || '',
     tags: (args.tags as string[]) || [],
     notes: (args.notes as string) || '',
-    birthday: args.birthday as string | undefined,
     lastContacted: null,
     nextFollowUp: null,
     avatar: '',
     status: 'active',
     relatedContactIds: []
   };
+
+  // Only add optional fields if they have values (Firestore doesn't accept undefined)
+  if (args.birthday) {
+    contact.birthday = args.birthday as string;
+  }
 
   const contactId = await firestoreService.addContact(userId, contact);
   return { success: true, contactId, contact: { ...contact, id: contactId } };
@@ -343,13 +347,21 @@ async function executeAddTask(
 
   const task: Omit<Task, 'id'> = {
     title: args.title as string,
-    description: args.description as string | undefined,
-    contactId,
-    dueDate: args.dueDate as string | undefined,
     completed: false,
     priority: (args.priority as 'low' | 'medium' | 'high') || 'medium',
     frequency: (args.frequency as TaskFrequency) || 'none'
   };
+
+  // Only add optional fields if they have values (Firestore doesn't accept undefined)
+  if (args.description) {
+    task.description = args.description as string;
+  }
+  if (contactId) {
+    task.contactId = contactId;
+  }
+  if (args.dueDate) {
+    task.dueDate = args.dueDate as string;
+  }
 
   const taskId = await firestoreService.addTask(userId, task);
   return { success: true, taskId };

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Send, Settings, Loader2, LayoutDashboard, X, Sparkles, Plus, Bot, Zap } from 'lucide-react';
+import { Send, Settings, Loader2, LayoutDashboard, X, Plus, Bot, Sparkles } from 'lucide-react';
 import { useChat } from '../../contexts/ChatContext';
 import { useLLMSettings } from '../../contexts/LLMSettingsContext';
 import { Contact, Task } from '../../types';
@@ -15,6 +15,7 @@ interface ChatViewProps {
 const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard }) => {
   const [input, setInput] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -32,18 +33,21 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard })
   const { currentProviderConfigured, settings } = useLLMSettings();
 
   const messages = currentSession?.messages || [];
+  const hasMessages = messages.length > 0;
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (hasMessages && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [hasMessages, messages]);
 
   // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = 'auto';
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
     }
   }, [input]);
 
@@ -63,123 +67,176 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard })
   };
 
   const suggestions = [
-    { text: "Who haven't I contacted recently?", icon: "users" },
-    { text: "Show my high priority tasks", icon: "tasks" },
-    { text: "Find contacts tagged 'investor'", icon: "search" },
-    { text: "What's my CRM overview?", icon: "chart" },
+    { text: "Who needs my attention?", icon: "👋" },
+    { text: "Show high priority tasks", icon: "🎯" },
+    { text: "Find investors in my network", icon: "🔍" },
+    { text: "Give me a CRM overview", icon: "📊" },
   ];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full max-h-full overflow-hidden relative">
+      {/* Ambient background */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-violet-500/10 rounded-full blur-[100px]" />
+        <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-cyan-500/10 rounded-full blur-[80px]" />
+      </div>
+
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 glass-light">
+      <div className={`
+        relative z-20 flex-shrink-0 flex items-center justify-between px-6 py-3
+        transition-all duration-300
+        ${hasMessages ? 'border-b border-white/5 bg-black/20 backdrop-blur-xl' : ''}
+      `}>
         <div className="flex items-center gap-4">
-          {/* Chat session selector */}
-          <div className="relative">
-            <select
-              value={currentSession?.id || ''}
-              onChange={(e) => e.target.value && selectSession(e.target.value)}
-              className="appearance-none text-sm bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-8 text-slate-300 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 cursor-pointer hover:bg-white/10 transition-colors"
-            >
-              {sessions.length === 0 ? (
-                <option value="">New Chat</option>
-              ) : (
-                sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.title}
-                  </option>
-                ))
-              )}
-            </select>
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-          <button
-            onClick={createNewSession}
-            className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all group"
-            title="New chat"
-          >
-            <Plus size={18} className="group-hover:rotate-90 transition-transform duration-300" />
-          </button>
+          {hasMessages && (
+            <>
+              <div className="h-4 w-px bg-white/10" />
+              <select
+                value={currentSession?.id || ''}
+                onChange={(e) => e.target.value && selectSession(e.target.value)}
+                className="text-xs bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-slate-400 focus:outline-none hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                {sessions.length === 0 ? (
+                  <option value="">New Chat</option>
+                ) : (
+                  sessions.map((s) => (
+                    <option key={s.id} value={s.id}>{s.title}</option>
+                  ))
+                )}
+              </select>
+              <button
+                onClick={createNewSession}
+                className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+              >
+                <Plus size={16} />
+              </button>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={onShowDashboard}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all group"
+            className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"
           >
-            <LayoutDashboard size={16} className="group-hover:scale-110 transition-transform" />
+            <LayoutDashboard size={14} />
             <span className="hidden sm:inline">Dashboard</span>
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
-            className={`p-2 rounded-xl transition-all ${
+            className={`p-1.5 rounded-lg transition-all ${
               !currentProviderConfigured
-                ? 'text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 animate-pulse'
-                : 'text-slate-400 hover:text-white hover:bg-white/10'
+                ? 'text-amber-400 bg-amber-500/10 animate-pulse'
+                : 'text-slate-500 hover:text-white hover:bg-white/10'
             }`}
-            title="AI Settings"
           >
-            <Settings size={18} className="hover:rotate-90 transition-transform duration-300" />
+            <Settings size={16} />
           </button>
         </div>
       </div>
 
       {/* Error banner */}
       {error && (
-        <div className="mx-6 mt-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-between backdrop-blur-sm">
+        <div className="relative z-20 flex-shrink-0 mx-6 mt-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-between">
           <span className="text-sm text-red-400">{error}</span>
-          <button onClick={clearError} className="text-red-400 hover:text-red-300 p-1 hover:bg-red-500/10 rounded-lg transition-colors">
+          <button onClick={clearError} className="text-red-400 hover:text-red-300 p-1 rounded-lg transition-colors">
             <X size={16} />
           </button>
         </div>
       )}
 
-      {/* Messages area */}
-      <div className="flex-1 overflow-y-auto">
-        {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center px-4">
-            <div className="max-w-lg text-center">
-              {/* AI Avatar */}
-              <div className="relative inline-block mb-8">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-cyan-500 flex items-center justify-center shadow-2xl shadow-violet-500/30">
-                  <Bot size={40} className="text-white" />
+      {/* Main content area */}
+      <div className="flex-1 min-h-0 overflow-y-auto relative z-10">
+        {!hasMessages ? (
+          /* ============ CONTAINED AI BOX ============ */
+          <div className="h-full flex items-center justify-center px-6">
+            <div className="w-full max-w-2xl">
+              {/* The AI Card */}
+              <div className="glass-strong rounded-3xl p-8 shadow-2xl shadow-violet-500/5 border border-white/10">
+                {/* AI Avatar */}
+                <div className="flex justify-center mb-8">
+                  <div className="relative">
+                    <div className="absolute inset-0 -m-4 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 opacity-20 blur-2xl" />
+                    <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-cyan-500 flex items-center justify-center shadow-xl shadow-violet-500/30 animate-float">
+                      <Bot size={36} className="text-white" />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/50">
+                      <Sparkles size={12} className="text-white" />
+                    </div>
+                  </div>
                 </div>
-                <div className="absolute -inset-3 rounded-3xl bg-gradient-to-br from-violet-500 via-purple-500 to-cyan-500 opacity-20 blur-xl animate-pulse-slow" />
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-4 border-dark-900 flex items-center justify-center shadow-lg shadow-emerald-500/50">
-                  <Zap size={12} className="text-white" />
+
+                {/* Welcome text */}
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold text-white mb-2">
+                    What can I help you with?
+                  </h2>
+                  <p className="text-slate-400">
+                    {currentProviderConfigured
+                      ? "Ask me anything about your network."
+                      : "Configure your AI provider to get started."}
+                  </p>
                 </div>
+
+                {/* Input area */}
+                {currentProviderConfigured ? (
+                  <form onSubmit={handleSubmit}>
+                    <div className={`
+                      relative flex items-end gap-3 p-3 rounded-xl transition-all duration-200
+                      ${isFocused ? 'bg-white/10 ring-2 ring-violet-500/40' : 'bg-white/5 hover:bg-white/[0.07]'}
+                    `}>
+                      <textarea
+                        ref={textareaRef}
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => setIsFocused(false)}
+                        placeholder="Ask me anything..."
+                        rows={1}
+                        className="flex-1 resize-none bg-transparent text-white placeholder-slate-500 focus:outline-none text-sm py-1.5"
+                        style={{ maxHeight: '100px' }}
+                      />
+                      <button
+                        type="submit"
+                        disabled={isLoading || !input.trim()}
+                        className={`
+                          p-2.5 rounded-lg transition-all flex-shrink-0
+                          ${isLoading || !input.trim()
+                            ? 'text-slate-600'
+                            : 'bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg shadow-violet-500/25'}
+                        `}
+                      >
+                        {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-center gap-1.5 mt-3 text-[11px] text-slate-500">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />
+                      <span>Powered by {settings.provider === 'gemini' ? 'Gemini' : 'OpenAI'}</span>
+                    </div>
+                  </form>
+                ) : (
+                  <button
+                    onClick={() => setSettingsOpen(true)}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-violet-500 to-cyan-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-violet-500/25 transition-all group"
+                  >
+                    <Settings size={18} className="group-hover:rotate-90 transition-transform duration-500" />
+                    Configure AI Provider
+                  </button>
+                )}
               </div>
 
-              <h2 className="text-3xl font-bold text-white mb-3">
-                How can I help you today?
-              </h2>
-              <p className="text-slate-400 mb-10 text-lg">
-                {currentProviderConfigured
-                  ? "I can help you manage contacts, track interactions, and stay on top of your network."
-                  : "Configure your AI provider to get started."}
-              </p>
-
-              {!currentProviderConfigured ? (
-                <button
-                  onClick={() => setSettingsOpen(true)}
-                  className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-violet-500 to-cyan-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-violet-500/25 transition-all group"
-                >
-                  <Settings size={20} className="group-hover:rotate-90 transition-transform duration-300" />
-                  Configure AI Provider
-                </button>
-              ) : (
-                <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
+              {/* Suggestions */}
+              {currentProviderConfigured && (
+                <div className="grid grid-cols-2 gap-2 mt-4">
                   {suggestions.map((s, i) => (
                     <button
                       key={i}
                       onClick={() => sendMessage(s.text)}
-                      className="px-4 py-3 glass rounded-xl text-sm text-slate-300 hover:text-white hover:bg-white/10 transition-all text-left group glow-border"
+                      className="group flex items-center gap-2 p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all text-left"
                     >
-                      <span className="group-hover:text-violet-300 transition-colors">{s.text}</span>
+                      <span className="text-base">{s.icon}</span>
+                      <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">{s.text}</span>
                     </button>
                   ))}
                 </div>
@@ -187,77 +244,60 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard })
             </div>
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-            {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} contacts={contacts} />
-            ))}
-            <div ref={messagesEndRef} />
+          /* ============ CONVERSATION STATE ============ */
+          <div className="max-w-4xl mx-auto px-6 py-6">
+            <div className="space-y-6">
+              {messages.map((message, index) => (
+                <ChatMessage
+                  key={message.id}
+                  message={message}
+                  contacts={contacts}
+                  isLatest={index === messages.length - 1}
+                />
+              ))}
+            </div>
+            <div ref={messagesEndRef} className="h-4" />
           </div>
         )}
       </div>
 
-      {/* Input area */}
-      <div className="border-t border-white/5 p-6">
-        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
-          <div className={`
-            relative flex items-end gap-3 p-4 rounded-2xl transition-all
-            ${!currentProviderConfigured
-              ? 'bg-amber-500/5 border border-amber-500/20'
-              : 'glass-strong'}
-            focus-within:ring-2 focus-within:ring-violet-500/30
-          `}>
-            {/* Gradient border effect on focus */}
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-violet-500/20 to-cyan-500/20 opacity-0 focus-within:opacity-100 transition-opacity -z-10 blur-xl" />
-
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                currentProviderConfigured
-                  ? "Ask anything about your network..."
-                  : "Configure AI to start chatting..."
-              }
-              disabled={!currentProviderConfigured}
-              rows={1}
-              className="flex-1 resize-none bg-transparent text-white placeholder-slate-500 focus:outline-none text-sm py-1"
-              style={{ maxHeight: '150px' }}
-            />
-            <button
-              type="submit"
-              disabled={!currentProviderConfigured || isLoading || !input.trim()}
-              className={`
-                p-3 rounded-xl transition-all
-                ${!currentProviderConfigured || isLoading || !input.trim()
-                  ? 'text-slate-600 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-violet-500 to-cyan-500 text-white hover:shadow-lg hover:shadow-violet-500/25'}
-              `}
-            >
-              {isLoading ? (
-                <Loader2 size={20} className="animate-spin" />
-              ) : (
-                <Send size={20} />
-              )}
-            </button>
-          </div>
-
-          {/* Provider indicator */}
-          {currentProviderConfigured && (
-            <div className="flex items-center justify-center gap-2 mt-3 text-xs text-slate-500">
-              <div className="flex items-center gap-1.5">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span>
-                  Powered by {settings.provider === 'gemini' ? 'Gemini' : 'OpenAI'}
-                </span>
-              </div>
+      {/* Bottom input - only when has messages */}
+      {hasMessages && (
+        <div className="relative z-20 flex-shrink-0 border-t border-white/5 bg-black/30 backdrop-blur-xl p-4">
+          <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
+            <div className={`
+              relative flex items-end gap-3 p-3 rounded-xl transition-all duration-200
+              ${isFocused ? 'bg-white/10 ring-1 ring-violet-500/30' : 'bg-white/5'}
+            `}>
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                placeholder="Continue the conversation..."
+                disabled={!currentProviderConfigured}
+                rows={1}
+                className="flex-1 resize-none bg-transparent text-white placeholder-slate-500 focus:outline-none text-sm py-1.5"
+                style={{ maxHeight: '100px' }}
+              />
+              <button
+                type="submit"
+                disabled={!currentProviderConfigured || isLoading || !input.trim()}
+                className={`
+                  p-2.5 rounded-lg transition-all flex-shrink-0
+                  ${!currentProviderConfigured || isLoading || !input.trim()
+                    ? 'text-slate-600'
+                    : 'bg-gradient-to-r from-violet-500 to-cyan-500 text-white'}
+                `}
+              >
+                {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+              </button>
             </div>
-          )}
-        </form>
-      </div>
+          </form>
+        </div>
+      )}
 
       <LLMSettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
