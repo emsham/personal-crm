@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Plus, TrendingUp, Clock, AlertCircle, Sparkles, Filter, ChevronRight, BarChart3, Loader2, CheckSquare } from 'lucide-react';
+import { Search, Plus, TrendingUp, Clock, AlertCircle, Sparkles, Filter, ChevronRight, BarChart3, Loader2, CheckSquare, Cake, Star } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import StatsCard from './components/StatsCard';
 import ContactList from './components/ContactList';
@@ -36,6 +36,9 @@ const App: React.FC = () => {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<Contact['status'] | 'all'>('all');
+  const [tagFilter, setTagFilter] = useState<string>('all');
 
   // Subscribe to Firestore data when user is authenticated
   useEffect(() => {
@@ -69,13 +72,32 @@ const App: React.FC = () => {
     };
   }, [user]);
 
+  const allTags = useMemo(() => {
+    const tags = new Set<string>();
+    contacts.forEach(c => c.tags.forEach(t => tags.add(t)));
+    return Array.from(tags).sort();
+  }, [contacts]);
+
   const filteredContacts = useMemo(() => {
-    return contacts.filter(c =>
-      `${c.firstName} ${c.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-  }, [contacts, searchQuery]);
+    return contacts.filter(c => {
+      // Search filter
+      const matchesSearch = searchQuery === '' ||
+        `${c.firstName} ${c.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
+
+      // Status filter
+      const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
+
+      // Tag filter
+      const matchesTag = tagFilter === 'all' || c.tags.includes(tagFilter);
+
+      return matchesSearch && matchesStatus && matchesTag;
+    });
+  }, [contacts, searchQuery, statusFilter, tagFilter]);
+
+  const activeFiltersCount = (statusFilter !== 'all' ? 1 : 0) + (tagFilter !== 'all' ? 1 : 0);
 
   const driftingContacts = contacts.filter(c => c.status === 'drifting');
 
@@ -103,6 +125,60 @@ const App: React.FC = () => {
 
     return days.map((name, i) => ({ name, count: counts[i] }));
   }, [interactions]);
+
+  // Calculate upcoming birthdays and important dates
+  const upcomingDates = useMemo(() => {
+    const today = new Date();
+    const dates: { contact: Contact; label: string; date: string; daysUntil: number; type: 'birthday' | 'important' }[] = [];
+
+    contacts.forEach(contact => {
+      if (contact.birthday) {
+        const [month, day] = contact.birthday.split('-').map(Number);
+        const thisYear = new Date(today.getFullYear(), month - 1, day);
+        const nextYear = new Date(today.getFullYear() + 1, month - 1, day);
+        const targetDate = thisYear >= new Date(today.getFullYear(), today.getMonth(), today.getDate()) ? thisYear : nextYear;
+        const diffTime = targetDate.getTime() - today.getTime();
+        const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (daysUntil <= 30) {
+          dates.push({
+            contact,
+            label: 'Birthday',
+            date: contact.birthday,
+            daysUntil,
+            type: 'birthday',
+          });
+        }
+      }
+
+      contact.importantDates?.forEach(importantDate => {
+        const [month, day] = importantDate.date.split('-').map(Number);
+        const thisYear = new Date(today.getFullYear(), month - 1, day);
+        const nextYear = new Date(today.getFullYear() + 1, month - 1, day);
+        const targetDate = thisYear >= new Date(today.getFullYear(), today.getMonth(), today.getDate()) ? thisYear : nextYear;
+        const diffTime = targetDate.getTime() - today.getTime();
+        const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (daysUntil <= 30) {
+          dates.push({
+            contact,
+            label: importantDate.label,
+            date: importantDate.date,
+            daysUntil,
+            type: 'important',
+          });
+        }
+      });
+    });
+
+    return dates.sort((a, b) => a.daysUntil - b.daysUntil);
+  }, [contacts]);
+
+  const formatDateForDisplay = (mmdd: string) => {
+    const [month, day] = mmdd.split('-');
+    const date = new Date(2000, parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   const handleAddInteraction = async (contactId: string, type: InteractionType, notes: string, date?: string) => {
     if (!user) return;
@@ -384,6 +460,53 @@ const App: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Upcoming Birthdays & Important Dates */}
+      {upcomingDates.length > 0 && (
+        <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-6 rounded-3xl border border-pink-100 shadow-sm">
+          <h3 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
+            <Cake size={20} className="text-pink-500" /> Upcoming Celebrations
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {upcomingDates.slice(0, 6).map((item, index) => (
+              <div
+                key={`${item.contact.id}-${item.label}-${index}`}
+                className="group flex items-center space-x-4 p-4 bg-white rounded-2xl hover:shadow-md transition-all cursor-pointer"
+                onClick={() => {
+                  setSelectedContact(item.contact);
+                  setView(View.CONTACTS);
+                }}
+              >
+                <div className="relative">
+                  <img src={item.contact.avatar} alt="" className="w-12 h-12 rounded-xl object-cover" />
+                  <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center ${
+                    item.type === 'birthday' ? 'bg-pink-500' : 'bg-amber-500'
+                  }`}>
+                    {item.type === 'birthday' ? (
+                      <Cake size={12} className="text-white" />
+                    ) : (
+                      <Star size={12} className="text-white" />
+                    )}
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-bold text-slate-900 truncate">
+                    {item.contact.firstName} {item.contact.lastName}
+                  </h4>
+                  <p className="text-xs text-slate-500">{item.label}</p>
+                  <p className={`text-xs font-medium ${
+                    item.daysUntil === 0 ? 'text-pink-600' : item.daysUntil <= 7 ? 'text-amber-600' : 'text-slate-400'
+                  }`}>
+                    {item.daysUntil === 0 ? 'Today!' : item.daysUntil === 1 ? 'Tomorrow' : `in ${item.daysUntil} days`}
+                    {' · '}{formatDateForDisplay(item.date)}
+                  </p>
+                </div>
+                <ChevronRight size={16} className="text-slate-300 group-hover:text-pink-500 transition-colors" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -416,7 +539,7 @@ const App: React.FC = () => {
           <div className="flex gap-3">
             <button
               onClick={() => setShowAddModal(true)}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all mr-2"
+              className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all"
             >
               <Plus size={18} /> New Contact
             </button>
@@ -430,15 +553,108 @@ const App: React.FC = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <button className="p-2 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`p-2 border rounded-xl transition-colors relative ${
+                showFilters || activeFiltersCount > 0
+                  ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
               <Filter size={20} />
+              {activeFiltersCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {activeFiltersCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
 
+        {/* Filter Panel */}
+        {showFilters && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <div className="flex flex-wrap gap-4 items-end">
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                  Status
+                </label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as Contact['status'] | 'all')}
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none min-w-[140px]"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="active">Active</option>
+                  <option value="drifting">Drifting</option>
+                  <option value="lost">Lost</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                  Tag
+                </label>
+                <select
+                  value={tagFilter}
+                  onChange={(e) => setTagFilter(e.target.value)}
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none min-w-[140px]"
+                >
+                  <option value="all">All Tags</option>
+                  {allTags.map(tag => (
+                    <option key={tag} value={tag}>{tag}</option>
+                  ))}
+                </select>
+              </div>
+              {activeFiltersCount > 0 && (
+                <button
+                  onClick={() => {
+                    setStatusFilter('all');
+                    setTagFilter('all');
+                  }}
+                  className="text-sm text-slate-500 hover:text-slate-700 underline"
+                >
+                  Clear filters
+                </button>
+              )}
+              <div className="ml-auto text-sm text-slate-500">
+                {filteredContacts.length} of {contacts.length} contacts
+              </div>
+            </div>
+          </div>
+        )}
+
         {dataLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="animate-spin text-indigo-600" size={32} />
+          </div>
+        ) : filteredContacts.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+            <Search size={48} className="mx-auto mb-4 text-slate-300" />
+            <h3 className="text-lg font-bold text-slate-900 mb-2">No contacts found</h3>
+            <p className="text-slate-500 mb-4">
+              {contacts.length === 0
+                ? "You haven't added any contacts yet."
+                : "Try adjusting your search or filters."}
+            </p>
+            {contacts.length === 0 ? (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold inline-flex items-center gap-2 hover:bg-indigo-700 transition-all"
+              >
+                <Plus size={18} /> Add Your First Contact
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setStatusFilter('all');
+                  setTagFilter('all');
+                }}
+                className="text-indigo-600 font-bold hover:text-indigo-700"
+              >
+                Clear all filters
+              </button>
+            )}
           </div>
         ) : (
           <ContactList

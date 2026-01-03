@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { X, User, Briefcase, Mail, Phone, Tag, AlignLeft, Users, Check } from 'lucide-react';
+import { X, User, Briefcase, Mail, Phone, Tag, AlignLeft, Users, Check, Cake } from 'lucide-react';
 import { Contact } from '../types';
 
 interface AddContactFormProps {
@@ -18,7 +18,8 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
     company: '',
     position: '',
     tags: '',
-    notes: ''
+    notes: '',
+    birthday: ''
   });
   const [selectedRelatedIds, setSelectedRelatedIds] = useState<string[]>([]);
   const [searchRelated, setSearchRelated] = useState('');
@@ -48,7 +49,8 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
       notes: formData.notes,
       avatar: `https://picsum.photos/seed/${formData.firstName}${formData.lastName}/200`,
       status: 'active',
-      relatedContactIds: selectedRelatedIds
+      relatedContactIds: selectedRelatedIds,
+      birthday: formData.birthday ? formData.birthday.slice(5) : undefined, // Convert YYYY-MM-DD to MM-DD
     };
 
     onAdd(newContact);
@@ -149,6 +151,17 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
                 value={formData.phone}
                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <Cake size={14} /> Birthday
+              </label>
+              <input
+                type="date"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                value={formData.birthday}
+                onChange={e => setFormData({ ...formData, birthday: e.target.value })}
               />
             </div>
           </div>

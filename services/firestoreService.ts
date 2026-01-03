@@ -50,10 +50,14 @@ export const updateContact = async (
   updates: Partial<Contact>
 ): Promise<void> => {
   const contactRef = doc(db, 'users', userId, 'contacts', contactId);
-  await updateDoc(contactRef, {
-    ...updates,
-    updatedAt: serverTimestamp(),
+  // Filter out undefined values - Firestore doesn't accept them
+  const cleanUpdates: Record<string, any> = { updatedAt: serverTimestamp() };
+  Object.entries(updates).forEach(([key, value]) => {
+    if (value !== undefined) {
+      cleanUpdates[key] = value;
+    }
   });
+  await updateDoc(contactRef, cleanUpdates);
 };
 
 export const deleteContact = async (userId: string, contactId: string): Promise<void> => {

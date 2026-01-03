@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { Contact, Interaction, InteractionType, Task, TaskFrequency } from '../types';
-import { Mail, Phone, Calendar, Tag, Plus, MessageSquare, Sparkles, Send, ArrowLeft, Loader2, Users, CheckSquare, Check, Trash2, X, Edit3, Save } from 'lucide-react';
+import { Contact, Interaction, InteractionType, Task, TaskFrequency, ImportantDate } from '../types';
+import { Mail, Phone, Calendar, Tag, Plus, MessageSquare, Sparkles, Send, ArrowLeft, Loader2, Users, CheckSquare, Check, Trash2, X, Edit3, Save, Cake, Star } from 'lucide-react';
 import { generateFollowUpEmail, analyzeRelationship } from '../services/geminiService';
 
 interface ContactDetailProps {
@@ -47,7 +47,10 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
     position: contact.position,
     tags: contact.tags.join(', '),
     notes: contact.notes,
+    birthday: contact.birthday || '',
+    importantDates: contact.importantDates || [],
   });
+  const [newImportantDate, setNewImportantDate] = useState({ label: '', date: '' });
 
   const [newInteractionNotes, setNewInteractionNotes] = useState('');
   const [newInteractionDate, setNewInteractionDate] = useState(new Date().toISOString().split('T')[0]);
@@ -91,7 +94,7 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
   };
 
   const handleSaveContact = () => {
-    onUpdateContact(contact.id, {
+    const updates: Partial<Contact> = {
       firstName: editedContact.firstName,
       lastName: editedContact.lastName,
       email: editedContact.email,
@@ -100,8 +103,51 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
       position: editedContact.position,
       tags: editedContact.tags.split(',').map(t => t.trim()).filter(t => t),
       notes: editedContact.notes,
-    });
+      importantDates: editedContact.importantDates,
+    };
+    if (editedContact.birthday) {
+      updates.birthday = editedContact.birthday;
+    }
+    onUpdateContact(contact.id, updates);
     setIsEditingContact(false);
+  };
+
+  const handleAddImportantDate = () => {
+    if (!newImportantDate.label.trim() || !newImportantDate.date) return;
+    const newDate: ImportantDate = {
+      id: Date.now().toString(),
+      label: newImportantDate.label,
+      date: newImportantDate.date.slice(5), // Convert YYYY-MM-DD to MM-DD
+    };
+    setEditedContact({
+      ...editedContact,
+      importantDates: [...editedContact.importantDates, newDate],
+    });
+    setNewImportantDate({ label: '', date: '' });
+  };
+
+  const handleRemoveImportantDate = (dateId: string) => {
+    setEditedContact({
+      ...editedContact,
+      importantDates: editedContact.importantDates.filter(d => d.id !== dateId),
+    });
+  };
+
+  const formatDateForDisplay = (mmdd: string) => {
+    const [month, day] = mmdd.split('-');
+    const date = new Date(2000, parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getUpcomingInDays = (mmdd: string): number | null => {
+    const today = new Date();
+    const [month, day] = mmdd.split('-').map(Number);
+    const thisYear = new Date(today.getFullYear(), month - 1, day);
+    const nextYear = new Date(today.getFullYear() + 1, month - 1, day);
+
+    const targetDate = thisYear >= today ? thisYear : nextYear;
+    const diffTime = targetDate.getTime() - today.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
   const handleEditInteraction = (interaction: Interaction) => {
@@ -286,6 +332,61 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                   value={editedContact.notes}
                   onChange={e => setEditedContact({ ...editedContact, notes: e.target.value })}
                 />
+                <div className="pt-4 border-t border-slate-200">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block flex items-center gap-1">
+                    <Cake size={12} /> Birthday
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    value={editedContact.birthday ? `2000-${editedContact.birthday}` : ''}
+                    onChange={e => setEditedContact({ ...editedContact, birthday: e.target.value.slice(5) })}
+                  />
+                </div>
+                <div className="pt-4 border-t border-slate-200">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block flex items-center gap-1">
+                    <Star size={12} /> Important Dates
+                  </label>
+                  <div className="space-y-2 mb-3">
+                    {editedContact.importantDates.map(date => (
+                      <div key={date.id} className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg">
+                        <span className="text-sm text-slate-700 flex-1">{date.label}</span>
+                        <span className="text-xs text-slate-500">{formatDateForDisplay(date.date)}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImportantDate(date.id)}
+                          className="text-slate-400 hover:text-red-500"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      placeholder="Label (e.g., Anniversary)"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      value={newImportantDate.label}
+                      onChange={e => setNewImportantDate({ ...newImportantDate, label: e.target.value })}
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        value={newImportantDate.date}
+                        onChange={e => setNewImportantDate({ ...newImportantDate, date: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddImportantDate}
+                        className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex-shrink-0"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="text-center">
@@ -316,6 +417,50 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                   <div className="mt-6 pt-6 border-t border-slate-100 text-left">
                     <p className="text-xs font-bold text-slate-400 uppercase mb-2">Notes</p>
                     <p className="text-sm text-slate-600">{contact.notes}</p>
+                  </div>
+                )}
+
+                {(contact.birthday || (contact.importantDates && contact.importantDates.length > 0)) && (
+                  <div className="mt-6 pt-6 border-t border-slate-100 text-left">
+                    <p className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-1">
+                      <Calendar size={12} /> Important Dates
+                    </p>
+                    <div className="space-y-2">
+                      {contact.birthday && (
+                        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl border border-pink-100">
+                          <div className="flex items-center gap-2">
+                            <Cake size={16} className="text-pink-500" />
+                            <span className="text-sm font-medium text-slate-700">Birthday</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm text-slate-600">{formatDateForDisplay(contact.birthday)}</span>
+                            {(() => {
+                              const days = getUpcomingInDays(contact.birthday);
+                              if (days === 0) return <span className="block text-xs text-pink-600 font-bold">Today!</span>;
+                              if (days && days <= 30) return <span className="block text-xs text-pink-500">in {days} days</span>;
+                              return null;
+                            })()}
+                          </div>
+                        </div>
+                      )}
+                      {contact.importantDates?.map(date => (
+                        <div key={date.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                          <div className="flex items-center gap-2">
+                            <Star size={16} className="text-amber-500" />
+                            <span className="text-sm font-medium text-slate-700">{date.label}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm text-slate-600">{formatDateForDisplay(date.date)}</span>
+                            {(() => {
+                              const days = getUpcomingInDays(date.date);
+                              if (days === 0) return <span className="block text-xs text-amber-600 font-bold">Today!</span>;
+                              if (days && days <= 30) return <span className="block text-xs text-amber-500">in {days} days</span>;
+                              return null;
+                            })()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 

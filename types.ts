@@ -16,6 +16,13 @@ export interface Interaction {
   notes: string;
 }
 
+export interface ImportantDate {
+  id: string;
+  label: string;
+  date: string; // MM-DD format for recurring dates
+  year?: number; // Optional year for non-recurring dates
+}
+
 export interface Contact {
   id: string;
   firstName: string;
@@ -31,6 +38,8 @@ export interface Contact {
   avatar: string;
   status: 'active' | 'drifting' | 'lost';
   relatedContactIds: string[];
+  birthday?: string; // MM-DD format
+  importantDates?: ImportantDate[];
 }
 
 export interface CRMState {
