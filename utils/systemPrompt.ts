@@ -11,6 +11,11 @@ export function buildSystemPrompt(data: CRMData): string {
     !t.completed && t.dueDate && new Date(t.dueDate) < today
   ).length;
 
+  // Format current date info for the AI
+  const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+  const dayOfWeek = today.toLocaleDateString('en-US', { weekday: 'long' });
+  const formattedDate = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
   // Get recent interaction types for context
   const recentInteractionTypes = [...new Set(
     interactions.slice(0, 20).map(i => i.type)
@@ -28,6 +33,11 @@ export function buildSystemPrompt(data: CRMData): string {
     .join(', ');
 
   return `You are an AI assistant for Nexus, a personal CRM (Customer Relationship Management) application. Your role is to help the user manage their professional and personal relationships effectively.
+
+## Current Date & Time
+- Today is ${dayOfWeek}, ${formattedDate}
+- Today's date in YYYY-MM-DD format: ${todayStr}
+- Use this for relative dates: "tomorrow" = day after ${todayStr}, "next week" = 7 days from now, etc.
 
 ## Current CRM State
 - Total Contacts: ${contacts.length} (${activeContacts} active, ${driftingContacts} drifting)
