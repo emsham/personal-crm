@@ -65,28 +65,22 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const unsubscribe = chatService.subscribeToChatSessions(user.uid, (newSessions) => {
-      setSessions(newSessions);
-      // If no current session and we have sessions, select the most recent
-      if (!currentSessionId && newSessions.length > 0) {
-        setCurrentSessionId(newSessions[0].id);
-      }
+      // Filter out empty sessions (no messages)
+      const nonEmptySessions = newSessions.filter(s => s.messages && s.messages.length > 0);
+      setSessions(nonEmptySessions);
+      // Don't auto-select a session - let user start fresh with orb
     });
 
     return () => unsubscribe();
   }, [user]);
 
-  // Create a new session
+  // Create a new session (just clears current - actual session created on first message)
   const createNewSession = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      const sessionId = await chatService.createChatSession(user.uid);
-      setCurrentSessionId(sessionId);
-    } catch (err) {
-      setError('Failed to create new chat session');
-      console.error(err);
-    }
-  }, [user]);
+    // Just clear the current session to show the orb/hero state
+    // The actual session will be created when the first message is sent
+    setCurrentSessionId(null);
+    setError(null);
+  }, []);
 
   // Select a session
   const selectSession = useCallback((sessionId: string) => {
@@ -214,6 +208,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Process tool calls if any
       if (toolCalls.length > 0) {
         console.log('Processing tool calls:', toolCalls.map(tc => tc.name));
+        console.log('CRM data available:', { contacts: crmData.contacts.length, interactions: crmData.interactions.length, tasks: crmData.tasks.length });
         const toolResults: ToolResult[] = [];
 
         for (const toolCall of toolCalls) {
@@ -256,61 +251,114 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           toolResultsMessage,
         ];
 
-        let followUpContent = '';
-        console.log('Starting follow-up stream with', followUpMessages.length, 'messages');
-        try {
-          const followUpStream = llmService.stream({
-            messages: followUpMessages,
-            tools: CRM_TOOLS,
-            systemPrompt,
-          });
+        // Handle follow-up responses with potential additional tool calls
+        let currentMessages = [...updatedMessages, assistantWithTools, toolResultsMessage];
+        let maxIterations = 5; // Prevent infinite loops
+        let iteration = 0;
 
-          for await (const chunk of followUpStream) {
-            console.log('Follow-up chunk:', chunk.type, chunk.content?.substring(0, 50) || chunk.error || '');
-            if (chunk.type === 'text' && chunk.content) {
-              followUpContent += chunk.content;
-              // Update with streaming follow-up
-              const streamingFollowUp: ChatMessage = {
+        while (iteration < maxIterations) {
+          iteration++;
+          let followUpContent = '';
+          const followUpToolCalls: ToolCall[] = [];
+
+          console.log(`Starting follow-up iteration ${iteration} with`, currentMessages.length, 'messages');
+
+          try {
+            const followUpStream = llmService.stream({
+              messages: currentMessages,
+              tools: CRM_TOOLS,
+              systemPrompt,
+            });
+
+            for await (const chunk of followUpStream) {
+              if (chunk.type === 'text' && chunk.content) {
+                followUpContent += chunk.content;
+                // Update with streaming follow-up
+                const streamingFollowUp: ChatMessage = {
+                  id: `msg_${Date.now()}_final`,
+                  role: 'assistant',
+                  content: followUpContent,
+                  timestamp: new Date(),
+                  isStreaming: true,
+                };
+                await chatService.updateChatSession(user.uid, sessionId, {
+                  messages: [...currentMessages, streamingFollowUp],
+                });
+              } else if (chunk.type === 'tool_call' && chunk.toolCall) {
+                console.log('Follow-up tool call:', chunk.toolCall.name);
+                followUpToolCalls.push(chunk.toolCall);
+              } else if (chunk.type === 'error') {
+                console.error('Follow-up error:', chunk.error);
+                break;
+              } else if (chunk.type === 'done') {
+                break;
+              }
+            }
+          } catch (followUpError) {
+            console.error('Follow-up stream error:', followUpError);
+            break;
+          }
+
+          // If there are follow-up tool calls, execute them and continue the loop
+          if (followUpToolCalls.length > 0) {
+            console.log('Executing follow-up tool calls:', followUpToolCalls.map(tc => tc.name));
+            const followUpToolResults: ToolResult[] = [];
+
+            for (const toolCall of followUpToolCalls) {
+              console.log('Executing follow-up tool:', toolCall.name, 'with args:', toolCall.arguments);
+              const result = await executeToolCall(toolCall.name, toolCall.arguments, {
+                userId: user.uid,
+                data: crmData,
+              });
+              result.toolCallId = toolCall.id;
+              followUpToolResults.push(result);
+              console.log('Follow-up tool result:', result.success ? 'success' : 'failed', result);
+            }
+
+            // Add assistant message with tool calls
+            const followUpAssistant: ChatMessage = {
+              id: `msg_${Date.now()}_assistant_${iteration}`,
+              role: 'assistant',
+              content: followUpContent,
+              timestamp: new Date(),
+              toolCalls: followUpToolCalls,
+              isStreaming: false,
+            };
+
+            // Add tool results message
+            const followUpToolResultsMessage: ChatMessage = {
+              id: `msg_${Date.now()}_tools_${iteration}`,
+              role: 'tool',
+              content: '',
+              timestamp: new Date(),
+              toolResults: followUpToolResults,
+            };
+
+            currentMessages = [...currentMessages, followUpAssistant, followUpToolResultsMessage];
+
+            // Save intermediate state
+            await chatService.updateChatSession(user.uid, sessionId, {
+              messages: currentMessages,
+            });
+          } else {
+            // No more tool calls, add final content and break
+            if (followUpContent) {
+              const finalAssistantMessage: ChatMessage = {
                 id: `msg_${Date.now()}_final`,
                 role: 'assistant',
                 content: followUpContent,
                 timestamp: new Date(),
-                isStreaming: true,
+                isStreaming: false,
               };
-              await chatService.updateChatSession(user.uid, sessionId, {
-                messages: [...updatedMessages, assistantWithTools, toolResultsMessage, streamingFollowUp],
-              });
-            } else if (chunk.type === 'tool_call' && chunk.toolCall) {
-              // AI wants to call another tool - handle it
-              console.log('Follow-up wants another tool call:', chunk.toolCall.name);
-            } else if (chunk.type === 'error') {
-              console.error('Follow-up error:', chunk.error);
-              break;
-            } else if (chunk.type === 'done') {
-              console.log('Follow-up done, content length:', followUpContent.length);
-              break;
+              currentMessages.push(finalAssistantMessage);
             }
+            break;
           }
-        } catch (followUpError) {
-          console.error('Follow-up stream error:', followUpError);
         }
 
-        // Final save - always include tool results
-        const finalMessages = [...updatedMessages, assistantWithTools, toolResultsMessage];
-
-        if (followUpContent) {
-          const finalAssistantMessage: ChatMessage = {
-            id: `msg_${Date.now()}_final`,
-            role: 'assistant',
-            content: followUpContent,
-            timestamp: new Date(),
-            isStreaming: false,
-          };
-          finalMessages.push(finalAssistantMessage);
-        }
-
+        // Final save
         await chatService.updateChatSession(user.uid, sessionId, {
-          messages: finalMessages,
+          messages: currentMessages,
         });
       } else {
         // No tool calls, just save the final message

@@ -1,14 +1,15 @@
 import React, { memo, useRef, useEffect, useState } from 'react';
 import { ChatMessage as ChatMessageType, ToolResult, Contact, Interaction, Task } from '../../types';
-import { Bot, Wrench, AlertCircle, CheckCircle, Sparkles, ArrowUpRight } from 'lucide-react';
+import { Bot, Wrench, AlertCircle, CheckCircle, Sparkles, ArrowUpRight, Loader2 } from 'lucide-react';
 
 interface ChatMessageProps {
   message: ChatMessageType;
   contacts?: Contact[];
   isLatest?: boolean;
+  onSelectContact?: (contact: Contact) => void;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], isLatest = false }) => {
+const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], isLatest = false, onSelectContact }) => {
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
   const [hasAnimated, setHasAnimated] = useState(false);
@@ -27,7 +28,7 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
   }
 
   if (isTool && message.toolResults) {
-    return <ToolResultsDisplay results={message.toolResults} contacts={contacts} hasAnimated={hasAnimated} />;
+    return <ToolResultsDisplay results={message.toolResults} contacts={contacts} hasAnimated={hasAnimated} onSelectContact={onSelectContact} />;
   }
 
   // User message - minimal, right-aligned
@@ -71,13 +72,23 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
           </div>
         )}
 
-        {/* Tool calls indicator */}
-        {message.toolCalls && message.toolCalls.length > 0 && !message.isStreaming && (
-          <div className="mt-4 flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-400">
-              <Wrench size={12} className="text-violet-400" />
-              <span>{message.toolCalls.map(tc => formatToolName(tc.name)).join(', ')}</span>
-            </div>
+        {/* Tool calls indicator - show with animation */}
+        {message.toolCalls && message.toolCalls.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {message.toolCalls.map((tc, i) => (
+              <div
+                key={tc.id || i}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-500/10 to-cyan-500/10 border border-violet-500/20 text-xs text-violet-300 animate-scale-in"
+                style={{ animationDelay: `${i * 100}ms`, animationFillMode: 'both' }}
+              >
+                {message.isStreaming ? (
+                  <Loader2 size={12} className="animate-spin text-violet-400" />
+                ) : (
+                  <CheckCircle size={12} className="text-emerald-400" />
+                )}
+                <span>{formatToolName(tc.name)}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -114,23 +125,31 @@ function formatToolName(name: string): string {
 }
 
 // Tool results display component
-const ToolResultsDisplay: React.FC<{ results: ToolResult[]; contacts: Contact[]; hasAnimated: boolean }> = memo(({
+const ToolResultsDisplay: React.FC<{ results: ToolResult[]; contacts: Contact[]; hasAnimated: boolean; onSelectContact?: (contact: Contact) => void }> = memo(({
   results,
   contacts,
   hasAnimated,
+  onSelectContact,
 }) => {
   return (
-    <div className={`pl-11 space-y-4 ${!hasAnimated ? 'animate-slide-in-from-bottom-4' : ''}`}>
+    <div className="pl-11 space-y-3">
       {results.map((result, index) => (
-        <ToolResultCard key={index} result={result} contacts={contacts} />
+        <div
+          key={index}
+          className={`${!hasAnimated ? 'animate-fade-in-up' : ''}`}
+          style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'both' }}
+        >
+          <ToolResultCard result={result} contacts={contacts} onSelectContact={onSelectContact} />
+        </div>
       ))}
     </div>
   );
 });
 
-const ToolResultCard: React.FC<{ result: ToolResult; contacts: Contact[] }> = memo(({
+const ToolResultCard: React.FC<{ result: ToolResult; contacts: Contact[]; onSelectContact?: (contact: Contact) => void }> = memo(({
   result,
   contacts,
+  onSelectContact,
 }) => {
   const data = result.result;
 
@@ -164,7 +183,11 @@ const ToolResultCard: React.FC<{ result: ToolResult; contacts: Contact[] }> = me
           </div>
           <div className="divide-y divide-white/5">
             {(data as Contact[]).slice(0, 5).map((contact) => (
-              <div key={contact.id} className="flex items-center gap-4 p-4 hover:bg-white/5 transition-colors group cursor-pointer">
+              <div
+                key={contact.id}
+                className="flex items-center gap-4 p-4 hover:bg-white/5 transition-colors group cursor-pointer"
+                onClick={() => onSelectContact?.(contact)}
+              >
                 <img
                   src={contact.avatar || `https://ui-avatars.com/api/?name=${contact.firstName}+${contact.lastName}`}
                   alt=""
@@ -335,16 +358,16 @@ const ToolResultCard: React.FC<{ result: ToolResult; contacts: Contact[] }> = me
       );
     }
 
-    // Success messages
+    // Success messages - compact inline indicator
     if ('success' in data && data.success) {
       return (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-          <CheckCircle size={16} />
-          <span className="text-sm font-medium">
-            {'contactId' in data ? 'Contact created successfully' :
-             'interactionId' in data ? 'Interaction logged successfully' :
-             'taskId' in data ? 'Task created successfully' :
-             'Operation completed successfully'}
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+          <CheckCircle size={14} />
+          <span className="text-xs font-medium">
+            {'contactId' in data ? 'Contact added' :
+             'interactionId' in data ? 'Interaction logged' :
+             'taskId' in data ? 'Task created' :
+             'Done'}
           </span>
         </div>
       );

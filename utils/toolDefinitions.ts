@@ -184,11 +184,16 @@ export const CRM_TOOLS: ToolDefinition[] = [
         },
         notes: {
           type: 'string',
-          description: 'Initial notes about the contact'
+          description: 'Initial notes about the contact - include how you met, mutual connections, shared history'
         },
         birthday: {
           type: 'string',
           description: 'Birthday in MM-DD format'
+        },
+        relatedContactNames: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Names of related contacts (e.g., mutual friends, colleagues, introduced by). The system will look up their IDs.'
         }
       },
       required: ['firstName', 'lastName']
@@ -295,7 +300,13 @@ export const CRM_TOOLS: ToolDefinition[] = [
             position: { type: 'string' },
             tags: { type: 'array', items: { type: 'string' } },
             notes: { type: 'string' },
-            status: { type: 'string', enum: ['active', 'drifting', 'lost'] }
+            birthday: { type: 'string', description: 'Birthday in MM-DD format' },
+            status: { type: 'string', enum: ['active', 'drifting', 'lost'] },
+            relatedContactNames: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Names of related contacts to link. The system will look up their IDs.'
+            }
           }
         }
       },

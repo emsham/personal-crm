@@ -21,11 +21,14 @@ function findContact(contacts: Contact[], args: { contactId?: string; contactNam
   }
   if (args.contactName) {
     const name = args.contactName.toLowerCase();
-    return contacts.find(c =>
-      `${c.firstName} ${c.lastName}`.toLowerCase().includes(name) ||
-      c.firstName.toLowerCase().includes(name) ||
-      c.lastName.toLowerCase().includes(name)
-    ) || null;
+    return contacts.find(c => {
+      const fullName = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase();
+      return (
+        fullName.includes(name) ||
+        (c.firstName || '').toLowerCase().includes(name) ||
+        (c.lastName || '').toLowerCase().includes(name)
+      );
+    }) || null;
   }
   return null;
 }
@@ -44,6 +47,7 @@ function findTask(tasks: Task[], args: { taskId?: string; taskTitle?: string }):
 
 // Query executors
 function executeSearchContacts(contacts: Contact[], args: ToolArguments): Contact[] {
+  console.log('executeSearchContacts called with', contacts.length, 'contacts, args:', args);
   let results = [...contacts];
 
   const query = args.query as string | undefined;
@@ -53,13 +57,17 @@ function executeSearchContacts(contacts: Contact[], args: ToolArguments): Contac
 
   if (query) {
     const q = query.toLowerCase();
-    results = results.filter(c =>
-      c.firstName.toLowerCase().includes(q) ||
-      c.lastName.toLowerCase().includes(q) ||
-      c.email.toLowerCase().includes(q) ||
-      c.company.toLowerCase().includes(q) ||
-      c.tags.some(t => t.toLowerCase().includes(q))
-    );
+    results = results.filter(c => {
+      const fullName = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase();
+      return (
+        fullName.includes(q) ||
+        (c.firstName || '').toLowerCase().includes(q) ||
+        (c.lastName || '').toLowerCase().includes(q) ||
+        (c.email || '').toLowerCase().includes(q) ||
+        (c.company || '').toLowerCase().includes(q) ||
+        (c.tags || []).some(t => t.toLowerCase().includes(q))
+      );
+    });
   }
 
   if (status && status !== 'all') {
@@ -69,10 +77,11 @@ function executeSearchContacts(contacts: Contact[], args: ToolArguments): Contac
   if (tags && tags.length > 0) {
     const tagsLower = tags.map(t => t.toLowerCase());
     results = results.filter(c =>
-      c.tags.some(t => tagsLower.includes(t.toLowerCase()))
+      (c.tags || []).some(t => t.toLowerCase().includes(tagsLower.join()))
     );
   }
 
+  console.log('executeSearchContacts returning', results.length, 'results');
   return results.slice(0, limit);
 }
 
@@ -273,11 +282,28 @@ function executeGetStats(data: CRMData, args: ToolArguments): Record<string, unk
   }
 }
 
+// Helper to resolve contact names to IDs
+function resolveContactNames(contacts: Contact[], names: string[]): string[] {
+  const ids: string[] = [];
+  for (const name of names) {
+    const found = findContact(contacts, { contactName: name });
+    if (found) {
+      ids.push(found.id);
+    }
+  }
+  return ids;
+}
+
 // Create/Update executors
 async function executeAddContact(
   userId: string,
+  contacts: Contact[],
   args: ToolArguments
 ): Promise<{ success: boolean; contactId?: string; contact?: Partial<Contact> }> {
+  // Resolve related contact names to IDs
+  const relatedContactNames = (args.relatedContactNames as string[]) || [];
+  const relatedContactIds = resolveContactNames(contacts, relatedContactNames);
+
   const contact: Omit<Contact, 'id'> = {
     firstName: args.firstName as string,
     lastName: args.lastName as string,
@@ -291,7 +317,7 @@ async function executeAddContact(
     nextFollowUp: null,
     avatar: '',
     status: 'active',
-    relatedContactIds: []
+    relatedContactIds
   };
 
   // Only add optional fields if they have values (Firestore doesn't accept undefined)
@@ -300,6 +326,15 @@ async function executeAddContact(
   }
 
   const contactId = await firestoreService.addContact(userId, contact);
+
+  // Also update the related contacts to link back to this new contact (bidirectional)
+  for (const relatedId of relatedContactIds) {
+    const relatedContact = contacts.find(c => c.id === relatedId);
+    if (relatedContact) {
+      const updatedRelatedIds = [...(relatedContact.relatedContactIds || []), contactId];
+      await firestoreService.updateContact(userId, relatedId, { relatedContactIds: updatedRelatedIds });
+    }
+  }
 
   // Auto-log initial interaction
   const initialNotes = (args.notes as string) || `First contact with ${args.firstName} ${args.lastName}`;
@@ -388,7 +423,31 @@ async function executeUpdateContact(
     return { success: false, error: 'Contact not found' };
   }
 
-  const updates = args.updates as Partial<Contact>;
+  const updates = args.updates as Partial<Contact> & { relatedContactNames?: string[] };
+
+  // Handle relatedContactNames -> relatedContactIds conversion
+  if (updates.relatedContactNames && updates.relatedContactNames.length > 0) {
+    const newRelatedIds = resolveContactNames(contacts, updates.relatedContactNames);
+    // Merge with existing related contacts (avoid duplicates)
+    const existingIds = contact.relatedContactIds || [];
+    const mergedIds = [...new Set([...existingIds, ...newRelatedIds])];
+    updates.relatedContactIds = mergedIds;
+
+    // Also update the related contacts to link back (bidirectional)
+    for (const relatedId of newRelatedIds) {
+      if (!existingIds.includes(relatedId)) {
+        const relatedContact = contacts.find(c => c.id === relatedId);
+        if (relatedContact) {
+          const updatedRelatedIds = [...new Set([...(relatedContact.relatedContactIds || []), contact.id])];
+          await firestoreService.updateContact(userId, relatedId, { relatedContactIds: updatedRelatedIds });
+        }
+      }
+    }
+
+    // Remove the names field before saving
+    delete updates.relatedContactNames;
+  }
+
   await firestoreService.updateContact(userId, contact.id, updates);
   return { success: true };
 }
@@ -440,7 +499,7 @@ export async function executeToolCall(
 
       // Create tools
       case 'addContact':
-        result = await executeAddContact(userId, args);
+        result = await executeAddContact(userId, contacts, args);
         break;
       case 'addInteraction':
         result = await executeAddInteraction(userId, contacts, args);

@@ -411,6 +411,10 @@ const App: React.FC = () => {
         contacts={contacts}
         tasks={tasks}
         onShowDashboard={() => setShowDashboardWidgets(true)}
+        onSelectContact={(contact) => {
+          setSelectedContact(contact);
+          setView(View.CONTACTS);
+        }}
       />
       <DashboardWidgets
         isOpen={showDashboardWidgets}

@@ -10,9 +10,10 @@ interface ChatViewProps {
   contacts: Contact[];
   tasks: Task[];
   onShowDashboard: () => void;
+  onSelectContact?: (contact: Contact) => void;
 }
 
-const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard }) => {
+const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, onSelectContact }) => {
   const [input, setInput] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -338,8 +339,23 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard })
                   message={message}
                   contacts={contacts}
                   isLatest={index === messages.length - 1}
+                  onSelectContact={onSelectContact}
                 />
               ))}
+
+              {/* Processing indicator - shows between tool results and follow-up */}
+              {(isLoading || isStreaming) && messages.length > 0 && messages[messages.length - 1].role === 'tool' && (
+                <div className="pl-11 animate-in">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <span className="text-sm text-slate-500">Thinking...</span>
+                  </div>
+                </div>
+              )}
             </div>
             <div ref={messagesEndRef} className="h-4" />
           </div>
