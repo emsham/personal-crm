@@ -12,6 +12,7 @@ import { ChatView } from './components/chat';
 import { Contact, Interaction, InteractionType, View, Task } from './types';
 import { useAuth } from './contexts/AuthContext';
 import { useChat } from './contexts/ChatContext';
+import { useLLMSettings } from './contexts/LLMSettingsContext';
 import {
   subscribeToContacts,
   subscribeToInteractions,
@@ -31,6 +32,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 const App: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const { setCRMData } = useChat();
+  const { currentProviderConfigured } = useLLMSettings();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -405,35 +407,59 @@ const App: React.FC = () => {
     return <AuthPage />;
   }
 
-  const renderDashboard = () => (
-    <div className="h-screen -m-8 overflow-hidden">
-      <ChatView
-        contacts={contacts}
-        tasks={tasks}
-        onShowDashboard={() => setShowDashboardWidgets(true)}
-        onSelectContact={(contact) => {
-          setSelectedContact(contact);
-          setView(View.CONTACTS);
-        }}
-      />
-      <DashboardWidgets
-        isOpen={showDashboardWidgets}
-        onClose={() => setShowDashboardWidgets(false)}
-        contacts={contacts}
-        tasks={tasks}
-        interactions={interactions}
-        onSelectContact={(contact) => {
-          setShowDashboardWidgets(false);
-          setSelectedContact(contact);
-          setView(View.CONTACTS);
-        }}
-        onViewTasks={() => {
-          setShowDashboardWidgets(false);
-          setView(View.TASKS);
-        }}
-      />
-    </div>
-  );
+  const renderDashboard = () => {
+    // If no API key configured, show full dashboard with widgets
+    if (!currentProviderConfigured) {
+      return (
+        <DashboardWidgets
+          isOpen={true}
+          onClose={() => {}} // No-op since it's the main view
+          contacts={contacts}
+          tasks={tasks}
+          interactions={interactions}
+          onSelectContact={(contact) => {
+            setSelectedContact(contact);
+            setView(View.CONTACTS);
+          }}
+          onViewTasks={() => {
+            setView(View.TASKS);
+          }}
+          fullPage={true}
+        />
+      );
+    }
+
+    // If API key is configured, show Nexus Brain (ChatView)
+    return (
+      <div className="h-screen -m-8 overflow-hidden">
+        <ChatView
+          contacts={contacts}
+          tasks={tasks}
+          onShowDashboard={() => setShowDashboardWidgets(true)}
+          onSelectContact={(contact) => {
+            setSelectedContact(contact);
+            setView(View.CONTACTS);
+          }}
+        />
+        <DashboardWidgets
+          isOpen={showDashboardWidgets}
+          onClose={() => setShowDashboardWidgets(false)}
+          contacts={contacts}
+          tasks={tasks}
+          interactions={interactions}
+          onSelectContact={(contact) => {
+            setShowDashboardWidgets(false);
+            setSelectedContact(contact);
+            setView(View.CONTACTS);
+          }}
+          onViewTasks={() => {
+            setShowDashboardWidgets(false);
+            setView(View.TASKS);
+          }}
+        />
+      </div>
+    );
+  };
 
   const renderContacts = () => {
     if (selectedContact) {

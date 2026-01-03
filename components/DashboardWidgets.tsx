@@ -1,6 +1,7 @@
-import React from 'react';
-import { X, ChevronRight, CheckSquare, Cake, Star, Clock, Users, ListTodo, TrendingUp } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, ChevronRight, CheckSquare, Cake, Star, Clock, Users, ListTodo, TrendingUp, Settings, Sparkles, Bot } from 'lucide-react';
 import { Contact, Task, Interaction } from '../types';
+import LLMSettingsModal from './chat/LLMSettingsModal';
 
 interface DashboardWidgetsProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface DashboardWidgetsProps {
   interactions: Interaction[];
   onSelectContact: (contact: Contact) => void;
   onViewTasks: () => void;
+  fullPage?: boolean;
 }
 
 const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
@@ -20,7 +22,9 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
   interactions,
   onSelectContact,
   onViewTasks,
+  fullPage = false,
 }) => {
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const today = new Date();
 
   // Stats
@@ -70,6 +74,157 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
 
   if (!isOpen) return null;
 
+  // Full page mode - shown when no API key is configured
+  if (fullPage) {
+    return (
+      <div className="h-screen -m-8 overflow-hidden flex flex-col">
+        {/* Full page header */}
+        <div className="flex-shrink-0 px-8 py-6 border-b border-white/5">
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-white">Welcome to Nexus</h1>
+              <p className="text-slate-400 text-sm mt-1">Your personal CRM dashboard</p>
+            </div>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-violet-500/25 transition-all"
+            >
+              <Sparkles size={18} />
+              Enable AI Assistant
+            </button>
+          </div>
+        </div>
+
+        {/* Full page content */}
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="max-w-6xl mx-auto">
+            {/* AI Setup Card */}
+            <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/20">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                  <Bot size={24} className="text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-white mb-1">Unlock Nexus Brain</h3>
+                  <p className="text-slate-400 text-sm mb-4">
+                    Configure your AI provider to enable natural language interactions with your CRM.
+                    Ask questions, add contacts, log interactions, and manage tasks - all through conversation.
+                  </p>
+                  <button
+                    onClick={() => setSettingsOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 rounded-lg transition-all border border-violet-500/20"
+                  >
+                    <Settings size={16} />
+                    Configure API Key
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <StatCard icon={Users} label="Contacts" value={totalContacts} sublabel={`${activeContacts} active`} color="violet" />
+              <StatCard icon={Clock} label="Interactions" value={recentInteractions} sublabel="last 30 days" color="cyan" />
+              <StatCard icon={ListTodo} label="Tasks" value={pendingTasks} sublabel="pending" color="amber" />
+              <StatCard icon={TrendingUp} label="Active Rate" value={`${totalContacts > 0 ? Math.round((activeContacts / totalContacts) * 100) : 0}%`} sublabel="of contacts" color="emerald" />
+            </div>
+
+            {/* Two column layout for tasks and celebrations */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Upcoming Tasks */}
+              <div className="glass rounded-2xl p-6">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <CheckSquare size={20} className="text-violet-400" />
+                  Upcoming Tasks
+                </h3>
+                {upcomingTasks.length > 0 ? (
+                  <div className="space-y-3">
+                    {upcomingTasks.map(task => {
+                      const contact = contacts.find(c => c.id === task.contactId);
+                      const isOverdue = task.dueDate && new Date(task.dueDate) < today;
+                      return (
+                        <div
+                          key={task.id}
+                          className="flex items-center gap-3 p-3 glass-light rounded-xl hover:bg-white/10 transition-all cursor-pointer group"
+                          onClick={onViewTasks}
+                        >
+                          <div className={`w-2 h-2 rounded-full ${
+                            task.priority === 'high' ? 'bg-rose-500 shadow-lg shadow-rose-500/50' :
+                            task.priority === 'medium' ? 'bg-amber-500 shadow-lg shadow-amber-500/50' : 'bg-slate-500'
+                          }`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-white truncate group-hover:text-violet-300 transition-colors">{task.title}</div>
+                            <div className={`text-xs ${isOverdue ? 'text-rose-400' : 'text-slate-500'}`}>
+                              {isOverdue ? 'Overdue: ' : ''}{task.dueDate}
+                              {contact && ` · ${contact.firstName}`}
+                            </div>
+                          </div>
+                          <ChevronRight size={14} className="text-slate-600 group-hover:text-violet-400 group-hover:translate-x-1 transition-all" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500 text-center py-8">No upcoming tasks</p>
+                )}
+              </div>
+
+              {/* Upcoming Celebrations */}
+              <div className="glass rounded-2xl p-6">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Cake size={20} className="text-pink-400" />
+                  Upcoming Celebrations
+                </h3>
+                {upcomingDates.length > 0 ? (
+                  <div className="space-y-3">
+                    {upcomingDates.slice(0, 4).map((item, idx) => (
+                      <div
+                        key={`${item.contact.id}-${idx}`}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-pink-500/10 to-violet-500/10 border border-pink-500/20 hover:from-pink-500/20 hover:to-violet-500/20 transition-all cursor-pointer group"
+                        onClick={() => onSelectContact(item.contact)}
+                      >
+                        <div className="relative">
+                          <img
+                            src={item.contact.avatar || `https://ui-avatars.com/api/?name=${item.contact.firstName}+${item.contact.lastName}`}
+                            alt=""
+                            className="w-10 h-10 rounded-xl object-cover ring-2 ring-white/10"
+                          />
+                          <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-lg flex items-center justify-center shadow-lg ${
+                            item.type === 'birthday' ? 'bg-pink-500 shadow-pink-500/50' : 'bg-amber-500 shadow-amber-500/50'
+                          }`}>
+                            {item.type === 'birthday' ? <Cake size={10} className="text-white" /> : <Star size={10} className="text-white" />}
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-white truncate group-hover:text-pink-300 transition-colors">
+                            {item.contact.firstName} {item.contact.lastName}
+                          </div>
+                          <div className={`text-xs ${
+                            item.daysUntil === 0 ? 'text-pink-400 font-medium' :
+                            item.daysUntil <= 7 ? 'text-amber-400' : 'text-slate-500'
+                          }`}>
+                            {item.daysUntil === 0 ? 'Today!' : item.daysUntil === 1 ? 'Tomorrow' : `in ${item.daysUntil} days`}
+                            {' · '}{item.label}
+                          </div>
+                        </div>
+                        <ChevronRight size={14} className="text-slate-600 group-hover:text-pink-400 group-hover:translate-x-1 transition-all" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500 text-center py-8">No upcoming celebrations</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <LLMSettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      </div>
+    );
+  }
+
+  // Slide-out panel mode (original)
   return (
     <>
       {/* Backdrop */}
