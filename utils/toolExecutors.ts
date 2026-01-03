@@ -1,0 +1,523 @@
+import { Contact, Interaction, Task, InteractionType, ToolResult, TaskFrequency } from '../types';
+import * as firestoreService from '../services/firestoreService';
+
+export interface CRMData {
+  contacts: Contact[];
+  interactions: Interaction[];
+  tasks: Task[];
+}
+
+export interface ToolExecutorContext {
+  userId: string;
+  data: CRMData;
+}
+
+type ToolArguments = Record<string, unknown>;
+
+// Helper to find contact by ID or name
+function findContact(contacts: Contact[], args: { contactId?: string; contactName?: string }): Contact | null {
+  if (args.contactId) {
+    return contacts.find(c => c.id === args.contactId) || null;
+  }
+  if (args.contactName) {
+    const name = args.contactName.toLowerCase();
+    return contacts.find(c =>
+      `${c.firstName} ${c.lastName}`.toLowerCase().includes(name) ||
+      c.firstName.toLowerCase().includes(name) ||
+      c.lastName.toLowerCase().includes(name)
+    ) || null;
+  }
+  return null;
+}
+
+// Helper to find task by ID or title
+function findTask(tasks: Task[], args: { taskId?: string; taskTitle?: string }): Task | null {
+  if (args.taskId) {
+    return tasks.find(t => t.id === args.taskId) || null;
+  }
+  if (args.taskTitle) {
+    const title = args.taskTitle.toLowerCase();
+    return tasks.find(t => t.title.toLowerCase().includes(title)) || null;
+  }
+  return null;
+}
+
+// Query executors
+function executeSearchContacts(contacts: Contact[], args: ToolArguments): Contact[] {
+  let results = [...contacts];
+
+  const query = args.query as string | undefined;
+  const status = args.status as string | undefined;
+  const tags = args.tags as string[] | undefined;
+  const limit = (args.limit as number) || 10;
+
+  if (query) {
+    const q = query.toLowerCase();
+    results = results.filter(c =>
+      c.firstName.toLowerCase().includes(q) ||
+      c.lastName.toLowerCase().includes(q) ||
+      c.email.toLowerCase().includes(q) ||
+      c.company.toLowerCase().includes(q) ||
+      c.tags.some(t => t.toLowerCase().includes(q))
+    );
+  }
+
+  if (status && status !== 'all') {
+    results = results.filter(c => c.status === status);
+  }
+
+  if (tags && tags.length > 0) {
+    const tagsLower = tags.map(t => t.toLowerCase());
+    results = results.filter(c =>
+      c.tags.some(t => tagsLower.includes(t.toLowerCase()))
+    );
+  }
+
+  return results.slice(0, limit);
+}
+
+function executeGetContactDetails(
+  contacts: Contact[],
+  interactions: Interaction[],
+  tasks: Task[],
+  args: ToolArguments
+): { contact: Contact; recentInteractions: Interaction[]; pendingTasks: Task[] } | null {
+  const contact = findContact(contacts, args as { contactId?: string; contactName?: string });
+  if (!contact) return null;
+
+  const recentInteractions = interactions
+    .filter(i => i.contactId === contact.id)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 5);
+
+  const pendingTasks = tasks.filter(t => t.contactId === contact.id && !t.completed);
+
+  return { contact, recentInteractions, pendingTasks };
+}
+
+function executeSearchInteractions(
+  contacts: Contact[],
+  interactions: Interaction[],
+  args: ToolArguments
+): Interaction[] {
+  let results = [...interactions];
+
+  const contactId = args.contactId as string | undefined;
+  const contactName = args.contactName as string | undefined;
+  const type = args.type as string | undefined;
+  const startDate = args.startDate as string | undefined;
+  const endDate = args.endDate as string | undefined;
+  const query = args.query as string | undefined;
+  const limit = (args.limit as number) || 20;
+
+  // Resolve contact name to ID if needed
+  if (contactName && !contactId) {
+    const contact = findContact(contacts, { contactName });
+    if (contact) {
+      results = results.filter(i => i.contactId === contact.id);
+    }
+  } else if (contactId) {
+    results = results.filter(i => i.contactId === contactId);
+  }
+
+  if (type) {
+    results = results.filter(i => i.type === type);
+  }
+
+  if (startDate) {
+    results = results.filter(i => new Date(i.date) >= new Date(startDate));
+  }
+
+  if (endDate) {
+    results = results.filter(i => new Date(i.date) <= new Date(endDate));
+  }
+
+  if (query) {
+    const q = query.toLowerCase();
+    results = results.filter(i => i.notes.toLowerCase().includes(q));
+  }
+
+  return results
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, limit);
+}
+
+function executeSearchTasks(
+  contacts: Contact[],
+  tasks: Task[],
+  args: ToolArguments
+): Task[] {
+  let results = [...tasks];
+
+  const completed = args.completed as boolean | undefined;
+  const priority = args.priority as string | undefined;
+  const contactId = args.contactId as string | undefined;
+  const contactName = args.contactName as string | undefined;
+  const dueBefore = args.dueBefore as string | undefined;
+  const dueAfter = args.dueAfter as string | undefined;
+  const overdue = args.overdue as boolean | undefined;
+  const limit = (args.limit as number) || 20;
+
+  if (completed !== undefined) {
+    results = results.filter(t => t.completed === completed);
+  }
+
+  if (priority) {
+    results = results.filter(t => t.priority === priority);
+  }
+
+  // Resolve contact name to ID if needed
+  if (contactName && !contactId) {
+    const contact = findContact(contacts, { contactName });
+    if (contact) {
+      results = results.filter(t => t.contactId === contact.id);
+    }
+  } else if (contactId) {
+    results = results.filter(t => t.contactId === contactId);
+  }
+
+  if (dueBefore) {
+    results = results.filter(t => t.dueDate && new Date(t.dueDate) <= new Date(dueBefore));
+  }
+
+  if (dueAfter) {
+    results = results.filter(t => t.dueDate && new Date(t.dueDate) >= new Date(dueAfter));
+  }
+
+  if (overdue) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    results = results.filter(t =>
+      !t.completed && t.dueDate && new Date(t.dueDate) < today
+    );
+  }
+
+  return results.slice(0, limit);
+}
+
+function executeGetStats(data: CRMData, args: ToolArguments): Record<string, unknown> {
+  const metric = args.metric as string;
+  const { contacts, interactions, tasks } = data;
+  const today = new Date();
+
+  switch (metric) {
+    case 'overview':
+      return {
+        totalContacts: contacts.length,
+        activeContacts: contacts.filter(c => c.status === 'active').length,
+        driftingContacts: contacts.filter(c => c.status === 'drifting').length,
+        lostContacts: contacts.filter(c => c.status === 'lost').length,
+        totalInteractions: interactions.length,
+        totalTasks: tasks.length,
+        pendingTasks: tasks.filter(t => !t.completed).length,
+        overdueTasks: tasks.filter(t => !t.completed && t.dueDate && new Date(t.dueDate) < today).length
+      };
+
+    case 'interactionsByType':
+      const byType: Record<string, number> = {};
+      interactions.forEach(i => {
+        byType[i.type] = (byType[i.type] || 0) + 1;
+      });
+      return byType;
+
+    case 'contactsByStatus':
+      return {
+        active: contacts.filter(c => c.status === 'active').length,
+        drifting: contacts.filter(c => c.status === 'drifting').length,
+        lost: contacts.filter(c => c.status === 'lost').length
+      };
+
+    case 'upcomingBirthdays':
+      const currentMonth = today.getMonth() + 1;
+      const currentDay = today.getDate();
+      const upcoming = contacts
+        .filter(c => c.birthday)
+        .map(c => {
+          const [month, day] = c.birthday!.split('-').map(Number);
+          let daysUntil = 0;
+          const bday = new Date(today.getFullYear(), month - 1, day);
+          if (bday < today) {
+            bday.setFullYear(today.getFullYear() + 1);
+          }
+          daysUntil = Math.ceil((bday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          return { name: `${c.firstName} ${c.lastName}`, birthday: c.birthday, daysUntil };
+        })
+        .filter(b => b.daysUntil <= 30)
+        .sort((a, b) => a.daysUntil - b.daysUntil);
+      return { upcoming };
+
+    case 'overdueTasks':
+      return {
+        tasks: tasks
+          .filter(t => !t.completed && t.dueDate && new Date(t.dueDate) < today)
+          .map(t => ({ id: t.id, title: t.title, dueDate: t.dueDate, priority: t.priority }))
+      };
+
+    case 'recentActivity':
+      const recentInteractions = interactions
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 10)
+        .map(i => {
+          const contact = contacts.find(c => c.id === i.contactId);
+          return {
+            type: i.type,
+            date: i.date,
+            contact: contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown',
+            notes: i.notes.substring(0, 50) + (i.notes.length > 50 ? '...' : '')
+          };
+        });
+      return { recentInteractions };
+
+    default:
+      return { error: 'Unknown metric' };
+  }
+}
+
+// Create/Update executors
+async function executeAddContact(
+  userId: string,
+  args: ToolArguments
+): Promise<{ success: boolean; contactId?: string; contact?: Partial<Contact> }> {
+  const contact: Omit<Contact, 'id'> = {
+    firstName: args.firstName as string,
+    lastName: args.lastName as string,
+    email: (args.email as string) || '',
+    phone: (args.phone as string) || '',
+    company: (args.company as string) || '',
+    position: (args.position as string) || '',
+    tags: (args.tags as string[]) || [],
+    notes: (args.notes as string) || '',
+    birthday: args.birthday as string | undefined,
+    lastContacted: null,
+    nextFollowUp: null,
+    avatar: '',
+    status: 'active',
+    relatedContactIds: []
+  };
+
+  const contactId = await firestoreService.addContact(userId, contact);
+  return { success: true, contactId, contact: { ...contact, id: contactId } };
+}
+
+async function executeAddInteraction(
+  userId: string,
+  contacts: Contact[],
+  args: ToolArguments
+): Promise<{ success: boolean; interactionId?: string; error?: string }> {
+  // Find contact
+  const contact = findContact(contacts, args as { contactId?: string; contactName?: string });
+  if (!contact) {
+    return { success: false, error: 'Contact not found' };
+  }
+
+  const interaction: Omit<Interaction, 'id'> = {
+    contactId: contact.id,
+    type: args.type as InteractionType,
+    notes: args.notes as string,
+    date: (args.date as string) || new Date().toISOString().split('T')[0]
+  };
+
+  const interactionId = await firestoreService.addInteraction(userId, interaction);
+
+  // Update contact's lastContacted
+  await firestoreService.updateContact(userId, contact.id, {
+    lastContacted: interaction.date
+  });
+
+  return { success: true, interactionId };
+}
+
+async function executeAddTask(
+  userId: string,
+  contacts: Contact[],
+  args: ToolArguments
+): Promise<{ success: boolean; taskId?: string; error?: string }> {
+  // Find contact if specified
+  let contactId: string | undefined;
+  if (args.contactId || args.contactName) {
+    const contact = findContact(contacts, args as { contactId?: string; contactName?: string });
+    if (contact) {
+      contactId = contact.id;
+    }
+  }
+
+  const task: Omit<Task, 'id'> = {
+    title: args.title as string,
+    description: args.description as string | undefined,
+    contactId,
+    dueDate: args.dueDate as string | undefined,
+    completed: false,
+    priority: (args.priority as 'low' | 'medium' | 'high') || 'medium',
+    frequency: (args.frequency as TaskFrequency) || 'none'
+  };
+
+  const taskId = await firestoreService.addTask(userId, task);
+  return { success: true, taskId };
+}
+
+async function executeUpdateContact(
+  userId: string,
+  contacts: Contact[],
+  args: ToolArguments
+): Promise<{ success: boolean; error?: string }> {
+  const contact = findContact(contacts, args as { contactId?: string; contactName?: string });
+  if (!contact) {
+    return { success: false, error: 'Contact not found' };
+  }
+
+  const updates = args.updates as Partial<Contact>;
+  await firestoreService.updateContact(userId, contact.id, updates);
+  return { success: true };
+}
+
+async function executeUpdateTask(
+  userId: string,
+  tasks: Task[],
+  args: ToolArguments
+): Promise<{ success: boolean; error?: string }> {
+  const task = findTask(tasks, args as { taskId?: string; taskTitle?: string });
+  if (!task) {
+    return { success: false, error: 'Task not found' };
+  }
+
+  const updates = args.updates as Partial<Task>;
+  await firestoreService.updateTask(userId, task.id, updates);
+  return { success: true };
+}
+
+// Main executor function
+export async function executeToolCall(
+  toolName: string,
+  args: ToolArguments,
+  context: ToolExecutorContext
+): Promise<ToolResult> {
+  const { userId, data } = context;
+  const { contacts, interactions, tasks } = data;
+
+  try {
+    let result: unknown;
+
+    switch (toolName) {
+      // Query tools
+      case 'searchContacts':
+        result = executeSearchContacts(contacts, args);
+        break;
+      case 'getContactDetails':
+        result = executeGetContactDetails(contacts, interactions, tasks, args);
+        break;
+      case 'searchInteractions':
+        result = executeSearchInteractions(contacts, interactions, args);
+        break;
+      case 'searchTasks':
+        result = executeSearchTasks(contacts, tasks, args);
+        break;
+      case 'getStats':
+        result = executeGetStats(data, args);
+        break;
+
+      // Create tools
+      case 'addContact':
+        result = await executeAddContact(userId, args);
+        break;
+      case 'addInteraction':
+        result = await executeAddInteraction(userId, contacts, args);
+        break;
+      case 'addTask':
+        result = await executeAddTask(userId, contacts, args);
+        break;
+
+      // Update tools
+      case 'updateContact':
+        result = await executeUpdateContact(userId, contacts, args);
+        break;
+      case 'updateTask':
+        result = await executeUpdateTask(userId, tasks, args);
+        break;
+
+      default:
+        return {
+          toolCallId: '',
+          name: toolName,
+          result: { error: `Unknown tool: ${toolName}` },
+          success: false,
+          error: `Unknown tool: ${toolName}`
+        };
+    }
+
+    return {
+      toolCallId: '',
+      name: toolName,
+      result,
+      success: true
+    };
+  } catch (error) {
+    return {
+      toolCallId: '',
+      name: toolName,
+      result: null,
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+// Format tool results for display
+export function formatToolResultForDisplay(result: ToolResult): string {
+  if (!result.success) {
+    return `Error: ${result.error}`;
+  }
+
+  const data = result.result;
+
+  if (Array.isArray(data)) {
+    if (data.length === 0) return 'No results found.';
+
+    // Check if it's contacts
+    if ('firstName' in data[0]) {
+      return `Found ${data.length} contact(s):\n${data.map((c: Contact) =>
+        `• ${c.firstName} ${c.lastName} (${c.company || 'No company'}) - ${c.status}`
+      ).join('\n')}`;
+    }
+
+    // Check if it's interactions
+    if ('notes' in data[0] && 'type' in data[0]) {
+      return `Found ${data.length} interaction(s):\n${data.map((i: Interaction) =>
+        `• ${i.date}: ${i.type} - ${i.notes.substring(0, 50)}...`
+      ).join('\n')}`;
+    }
+
+    // Check if it's tasks
+    if ('title' in data[0] && 'priority' in data[0]) {
+      return `Found ${data.length} task(s):\n${data.map((t: Task) =>
+        `• ${t.completed ? '✓' : '○'} ${t.title} (${t.priority}${t.dueDate ? `, due: ${t.dueDate}` : ''})`
+      ).join('\n')}`;
+    }
+  }
+
+  if (typeof data === 'object' && data !== null) {
+    // Contact details
+    if ('contact' in data && 'recentInteractions' in data) {
+      const d = data as { contact: Contact; recentInteractions: Interaction[]; pendingTasks: Task[] };
+      return `Contact: ${d.contact.firstName} ${d.contact.lastName}\n` +
+        `Company: ${d.contact.company || 'N/A'}\n` +
+        `Position: ${d.contact.position || 'N/A'}\n` +
+        `Status: ${d.contact.status}\n` +
+        `Tags: ${d.contact.tags.join(', ') || 'None'}\n` +
+        `Recent Interactions: ${d.recentInteractions.length}\n` +
+        `Pending Tasks: ${d.pendingTasks.length}`;
+    }
+
+    // Success response from create/update
+    if ('success' in data && data.success) {
+      if ('contactId' in data) return `Contact created successfully!`;
+      if ('interactionId' in data) return `Interaction logged successfully!`;
+      if ('taskId' in data) return `Task created successfully!`;
+      return 'Operation completed successfully!';
+    }
+
+    // Stats
+    return JSON.stringify(data, null, 2);
+  }
+
+  return String(data);
+}

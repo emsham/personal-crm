@@ -67,3 +67,74 @@ export interface Task {
   frequency: TaskFrequency;
   createdAt?: string;
 }
+
+// LLM Chat Types
+export type LLMProvider = 'gemini' | 'openai';
+
+export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
+
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface ToolResult {
+  toolCallId: string;
+  name: string;
+  result: unknown;
+  success: boolean;
+  error?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: MessageRole;
+  content: string;
+  timestamp: Date;
+  toolCalls?: ToolCall[];
+  toolResults?: ToolResult[];
+  isStreaming?: boolean;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface LLMSettings {
+  provider: LLMProvider;
+  geminiApiKey?: string;
+  openaiApiKey?: string;
+}
+
+export interface QueryResult {
+  type: 'contacts' | 'interactions' | 'tasks' | 'stats' | 'text';
+  data: Contact[] | Interaction[] | Task[] | Record<string, number> | string;
+  summary?: string;
+}
+
+// Tool Definition for LLM function calling
+export interface ToolParameter {
+  type: string;
+  description?: string;
+  enum?: string[];
+  items?: { type: string };
+  properties?: Record<string, ToolParameter>;
+  required?: string[];
+  default?: unknown;
+  format?: string;
+}
+
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: {
+    type: 'object';
+    properties: Record<string, ToolParameter>;
+    required?: string[];
+  };
+}

@@ -8,8 +8,10 @@ import ContactDetail from './components/ContactDetail';
 import AddContactForm from './components/AddContactForm';
 import AuthPage from './components/AuthPage';
 import TaskList from './components/TaskList';
+import { ChatPanel } from './components/chat';
 import { Contact, Interaction, InteractionType, View, Task } from './types';
 import { useAuth } from './contexts/AuthContext';
+import { useChat } from './contexts/ChatContext';
 import {
   subscribeToContacts,
   subscribeToInteractions,
@@ -28,6 +30,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 const App: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
+  const { setCRMData } = useChat();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -71,6 +74,11 @@ const App: React.FC = () => {
       unsubscribeTasks();
     };
   }, [user]);
+
+  // Update ChatContext with CRM data for tool execution
+  useEffect(() => {
+    setCRMData({ contacts, interactions, tasks });
+  }, [contacts, interactions, tasks, setCRMData]);
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -390,7 +398,8 @@ const App: React.FC = () => {
   }
 
   const renderDashboard = () => (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* Header with greeting and add button */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold text-slate-900">
@@ -406,70 +415,48 @@ const App: React.FC = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <StatsCard
-          title="Total Contacts"
-          value={contacts.length}
-          icon={Sparkles}
-          color="bg-indigo-500"
-        />
-        <StatsCard
-          title="Interactions (30 Days)"
-          value={totalInteractionsLast30Days}
-          icon={Clock}
-          color="bg-blue-500"
-        />
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="text-2xl font-bold text-slate-900">{contacts.length}</div>
+          <div className="text-sm text-slate-500">Contacts</div>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="text-2xl font-bold text-slate-900">{totalInteractionsLast30Days}</div>
+          <div className="text-sm text-slate-500">Interactions (30d)</div>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="text-2xl font-bold text-slate-900">{tasks.filter(t => !t.completed).length}</div>
+          <div className="text-sm text-slate-500">Pending Tasks</div>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="text-2xl font-bold text-slate-900">{contacts.filter(c => c.status === 'active').length}</div>
+          <div className="text-sm text-slate-500">Active Contacts</div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="font-bold text-lg text-slate-900">Interaction Velocity</h3>
-            <select className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1 text-sm font-medium text-slate-600">
-              <option>Last 7 Days</option>
-            </select>
-          </div>
-          <div className="h-[300px] w-full">
-            {dataLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="animate-spin text-indigo-600" size={32} />
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={interactionStats}>
-                  <defs>
-                    <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
-                  <Area type="monotone" dataKey="count" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
+      {/* AI Chat Panel - Center of Dashboard */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden" style={{ height: '500px' }}>
+        <ChatPanel contacts={contacts} />
+      </div>
 
+      {/* Bottom Section: Tasks and Celebrations */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Upcoming Tasks */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-          <h3 className="font-bold text-lg text-slate-900 mb-6">Upcoming Tasks</h3>
-          <div className="space-y-4">
+          <h3 className="font-bold text-lg text-slate-900 mb-4">Upcoming Tasks</h3>
+          <div className="space-y-3">
             {tasks
               .filter(t => !t.completed && t.dueDate)
               .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
-              .slice(0, 5)
+              .slice(0, 4)
               .map(task => {
                 const contact = contacts.find(c => c.id === task.contactId);
                 const isOverdue = task.dueDate && new Date(task.dueDate) < new Date(new Date().toDateString());
                 return (
                   <div
                     key={task.id}
-                    className="group flex items-center space-x-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors cursor-pointer"
+                    className="group flex items-center space-x-3 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
                     onClick={() => {
                       if (contact) {
                         setSelectedContact(contact);
@@ -480,20 +467,19 @@ const App: React.FC = () => {
                     }}
                   >
                     {contact ? (
-                      <img src={contact.avatar} alt="" className="w-12 h-12 rounded-xl object-cover" />
+                      <img src={contact.avatar} alt="" className="w-10 h-10 rounded-lg object-cover" />
                     ) : (
-                      <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center">
-                        <CheckSquare size={20} className="text-slate-400" />
+                      <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
+                        <CheckSquare size={18} className="text-slate-400" />
                       </div>
                     )}
-                    <div className="flex-1">
-                      <h4 className="text-sm font-bold text-slate-900">{task.title}</h4>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-slate-900 truncate">{task.title}</h4>
                       <p className={`text-xs ${isOverdue ? 'text-red-500 font-medium' : 'text-slate-500'}`}>
                         {isOverdue ? 'Overdue: ' : 'Due: '}{task.dueDate}
-                        {contact && ` · ${contact.firstName} ${contact.lastName}`}
                       </p>
                     </div>
-                    <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                    <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-500 transition-colors" />
                   </div>
                 );
               })}
@@ -503,59 +489,60 @@ const App: React.FC = () => {
           </div>
           <button
             onClick={() => setView(View.TASKS)}
-            className="w-full mt-6 py-3 text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors border border-indigo-100 rounded-xl"
+            className="w-full mt-4 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
           >
-            View All Tasks
+            View All Tasks →
           </button>
         </div>
-      </div>
 
-      {/* Upcoming Birthdays & Important Dates */}
-      {upcomingDates.length > 0 && (
+        {/* Upcoming Celebrations */}
         <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-6 rounded-3xl border border-pink-100 shadow-sm">
-          <h3 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
-            <Cake size={20} className="text-pink-500" /> Upcoming Celebrations
+          <h3 className="font-bold text-lg text-slate-900 mb-4 flex items-center gap-2">
+            <Cake size={18} className="text-pink-500" /> Upcoming Celebrations
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {upcomingDates.slice(0, 6).map((item, index) => (
-              <div
-                key={`${item.contact.id}-${item.label}-${index}`}
-                className="group flex items-center space-x-4 p-4 bg-white rounded-2xl hover:shadow-md transition-all cursor-pointer"
-                onClick={() => {
-                  setSelectedContact(item.contact);
-                  setView(View.CONTACTS);
-                }}
-              >
-                <div className="relative">
-                  <img src={item.contact.avatar} alt="" className="w-12 h-12 rounded-xl object-cover" />
-                  <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center ${
-                    item.type === 'birthday' ? 'bg-pink-500' : 'bg-amber-500'
-                  }`}>
-                    {item.type === 'birthday' ? (
-                      <Cake size={12} className="text-white" />
-                    ) : (
-                      <Star size={12} className="text-white" />
-                    )}
+          {upcomingDates.length > 0 ? (
+            <div className="space-y-3">
+              {upcomingDates.slice(0, 4).map((item, index) => (
+                <div
+                  key={`${item.contact.id}-${item.label}-${index}`}
+                  className="group flex items-center space-x-3 p-3 bg-white rounded-xl hover:shadow-md transition-all cursor-pointer"
+                  onClick={() => {
+                    setSelectedContact(item.contact);
+                    setView(View.CONTACTS);
+                  }}
+                >
+                  <div className="relative">
+                    <img src={item.contact.avatar} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                    <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ${
+                      item.type === 'birthday' ? 'bg-pink-500' : 'bg-amber-500'
+                    }`}>
+                      {item.type === 'birthday' ? (
+                        <Cake size={10} className="text-white" />
+                      ) : (
+                        <Star size={10} className="text-white" />
+                      )}
+                    </div>
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium text-slate-900 truncate">
+                      {item.contact.firstName} {item.contact.lastName}
+                    </h4>
+                    <p className={`text-xs font-medium ${
+                      item.daysUntil === 0 ? 'text-pink-600' : item.daysUntil <= 7 ? 'text-amber-600' : 'text-slate-500'
+                    }`}>
+                      {item.daysUntil === 0 ? 'Today!' : item.daysUntil === 1 ? 'Tomorrow' : `in ${item.daysUntil} days`}
+                      {' · '}{item.label}
+                    </p>
+                  </div>
+                  <ChevronRight size={14} className="text-slate-300 group-hover:text-pink-500 transition-colors" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-bold text-slate-900 truncate">
-                    {item.contact.firstName} {item.contact.lastName}
-                  </h4>
-                  <p className="text-xs text-slate-500">{item.label}</p>
-                  <p className={`text-xs font-medium ${
-                    item.daysUntil === 0 ? 'text-pink-600' : item.daysUntil <= 7 ? 'text-amber-600' : 'text-slate-400'
-                  }`}>
-                    {item.daysUntil === 0 ? 'Today!' : item.daysUntil === 1 ? 'Tomorrow' : `in ${item.daysUntil} days`}
-                    {' · '}{formatDateForDisplay(item.date)}
-                  </p>
-                </div>
-                <ChevronRight size={16} className="text-slate-300 group-hover:text-pink-500 transition-colors" />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500 text-center py-4">No upcoming celebrations in the next 30 days.</p>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 
