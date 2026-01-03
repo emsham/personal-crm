@@ -384,10 +384,17 @@ const App: React.FC = () => {
   // Show loading spinner while checking auth
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="animate-spin mx-auto text-indigo-600 mb-4" size={48} />
-          <p className="text-slate-500">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="orb orb-1" />
+        <div className="orb orb-2" />
+        <div className="text-center relative">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-violet-500/25">
+              <Loader2 className="animate-spin text-white" size={32} />
+            </div>
+            <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-violet-500 to-cyan-500 opacity-20 blur-2xl" />
+          </div>
+          <p className="text-slate-400 font-medium">Loading Nexus...</p>
         </div>
       </div>
     );
@@ -449,35 +456,38 @@ const App: React.FC = () => {
     return (
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h2 className="text-2xl font-bold text-slate-900">Your Network</h2>
+          <div>
+            <h2 className="text-2xl font-bold text-white">Your Network</h2>
+            <p className="text-slate-400 text-sm mt-1">Manage and nurture your professional relationships</p>
+          </div>
           <div className="flex gap-3">
             <button
               onClick={() => setShowAddModal(true)}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all"
+              className="bg-gradient-to-r from-violet-500 to-cyan-500 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:shadow-lg hover:shadow-violet-500/25 transition-all"
             >
               <Plus size={18} /> New Contact
             </button>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
               <input
                 type="text"
                 placeholder="Search name, company, tags..."
-                className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none w-full md:w-64"
+                className="pl-10 pr-4 py-2.5 input-dark rounded-xl w-full md:w-64"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 border rounded-xl transition-colors relative ${
+              className={`p-2.5 rounded-xl transition-all relative ${
                 showFilters || activeFiltersCount > 0
-                  ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
-                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  ? 'bg-violet-500/20 text-violet-400 ring-1 ring-violet-500/50'
+                  : 'glass text-slate-400 hover:text-white hover:bg-white/10'
               }`}
             >
               <Filter size={20} />
               {activeFiltersCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg">
                   {activeFiltersCount}
                 </span>
               )}
@@ -487,16 +497,16 @@ const App: React.FC = () => {
 
         {/* Filter Panel */}
         {showFilters && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+          <div className="glass rounded-2xl p-5">
             <div className="flex flex-wrap gap-4 items-end">
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">
                   Status
                 </label>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as Contact['status'] | 'all')}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none min-w-[140px]"
+                  className="px-4 py-2.5 input-dark rounded-xl text-sm min-w-[140px]"
                 >
                   <option value="all">All Statuses</option>
                   <option value="active">Active</option>
@@ -505,13 +515,13 @@ const App: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">
                   Tag
                 </label>
                 <select
                   value={tagFilter}
                   onChange={(e) => setTagFilter(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none min-w-[140px]"
+                  className="px-4 py-2.5 input-dark rounded-xl text-sm min-w-[140px]"
                 >
                   <option value="all">All Tags</option>
                   {allTags.map(tag => (
@@ -525,13 +535,13 @@ const App: React.FC = () => {
                     setStatusFilter('all');
                     setTagFilter('all');
                   }}
-                  className="text-sm text-slate-500 hover:text-slate-700 underline"
+                  className="text-sm text-violet-400 hover:text-violet-300 font-medium"
                 >
                   Clear filters
                 </button>
               )}
               <div className="ml-auto text-sm text-slate-500">
-                {filteredContacts.length} of {contacts.length} contacts
+                <span className="text-white font-semibold">{filteredContacts.length}</span> of {contacts.length} contacts
               </div>
             </div>
           </div>
@@ -539,13 +549,18 @@ const App: React.FC = () => {
 
         {dataLoading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="animate-spin text-indigo-600" size={32} />
+            <div className="relative">
+              <Loader2 className="animate-spin text-violet-500" size={32} />
+              <div className="absolute inset-0 blur-xl bg-violet-500/30" />
+            </div>
           </div>
         ) : filteredContacts.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-            <Search size={48} className="mx-auto mb-4 text-slate-300" />
-            <h3 className="text-lg font-bold text-slate-900 mb-2">No contacts found</h3>
-            <p className="text-slate-500 mb-4">
+          <div className="glass rounded-2xl p-12 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center mx-auto mb-4">
+              <Search size={32} className="text-slate-600" />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-2">No contacts found</h3>
+            <p className="text-slate-400 mb-6">
               {contacts.length === 0
                 ? "You haven't added any contacts yet."
                 : "Try adjusting your search or filters."}
@@ -553,7 +568,7 @@ const App: React.FC = () => {
             {contacts.length === 0 ? (
               <button
                 onClick={() => setShowAddModal(true)}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold inline-flex items-center gap-2 hover:bg-indigo-700 transition-all"
+                className="bg-gradient-to-r from-violet-500 to-cyan-500 text-white px-5 py-2.5 rounded-xl font-semibold inline-flex items-center gap-2 hover:shadow-lg hover:shadow-violet-500/25 transition-all"
               >
                 <Plus size={18} /> Add Your First Contact
               </button>
@@ -564,7 +579,7 @@ const App: React.FC = () => {
                   setStatusFilter('all');
                   setTagFilter('all');
                 }}
-                className="text-indigo-600 font-bold hover:text-indigo-700"
+                className="text-violet-400 font-semibold hover:text-violet-300 transition-colors"
               >
                 Clear all filters
               </button>
@@ -581,28 +596,35 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen flex noise">
+      {/* Background orbs */}
+      <div className="orb orb-1" />
+      <div className="orb orb-2" />
+      <div className="orb orb-3" />
+
       <Sidebar currentView={currentView} setView={(v) => { setView(v); setSelectedContact(null); }} />
 
-      <main className="flex-1 ml-64 p-8">
+      <main className="flex-1 ml-72 p-8">
         <header className="flex justify-between items-center mb-10">
-          <div className="flex items-center space-x-2 text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
-            <span>Personal CRM</span>
-            <span>/</span>
-            <span className="text-indigo-600">{currentView}</span>
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 text-xs font-semibold text-slate-500 uppercase tracking-[0.15em]">
+              <span>Nexus</span>
+              <ChevronRight size={12} className="text-slate-600" />
+              <span className="gradient-text font-bold">{currentView}</span>
+            </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="flex -space-x-2">
               {contacts.slice(0, 3).map((c, i) => (
-                <img key={i} className="w-8 h-8 rounded-full border-2 border-white" src={c.avatar} alt="" />
+                <img key={i} className="w-8 h-8 rounded-xl border-2 border-dark-900 ring-1 ring-white/10 object-cover" src={c.avatar} alt="" />
               ))}
               {contacts.length > 3 && (
-                <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                <div className="w-8 h-8 rounded-xl border-2 border-dark-900 bg-gradient-to-br from-violet-500/20 to-cyan-500/20 flex items-center justify-center text-[10px] font-bold text-slate-300 ring-1 ring-white/10">
                   +{contacts.length - 3}
                 </div>
               )}
             </div>
-            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold overflow-hidden">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-white font-bold overflow-hidden ring-2 ring-white/10 shadow-lg shadow-violet-500/20">
               {user.photoURL ? (
                 <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
               ) : (
@@ -626,16 +648,16 @@ const App: React.FC = () => {
         {currentView === View.ANALYTICS && (
           <div className="space-y-8">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Analytics</h2>
-              <p className="text-slate-500 mt-1">Insights into your network and interactions</p>
+              <h2 className="text-2xl font-bold text-white">Analytics</h2>
+              <p className="text-slate-400 mt-1">Insights into your network and interactions</p>
             </div>
 
             {/* Monthly Interactions Trend */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-              <h3 className="font-bold text-lg text-slate-900 mb-6">Interaction Trend (6 Months)</h3>
+            <div className="glass rounded-2xl p-6 card-hover">
+              <h3 className="font-bold text-lg text-white mb-6">Interaction Trend (6 Months)</h3>
               <div className="h-[300px]">
                 {interactions.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-slate-400">
+                  <div className="flex items-center justify-center h-full text-slate-500">
                     No interaction data yet
                   </div>
                 ) : (
@@ -643,38 +665,42 @@ const App: React.FC = () => {
                     <AreaChart data={monthlyInteractions}>
                       <defs>
                         <linearGradient id="colorInteractions" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/>
-                          <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                      <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                      <Area type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorInteractions)" name="Interactions" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                      <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15,23,42,0.9)', backdropFilter: 'blur(12px)' }} labelStyle={{ color: '#f8fafc' }} itemStyle={{ color: '#a78bfa' }} />
+                      <Area type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorInteractions)" name="Interactions" />
                     </AreaChart>
                   </ResponsiveContainer>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Interaction Types */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                <h3 className="font-bold text-lg text-slate-900 mb-6">By Interaction Type</h3>
+              <div className="glass rounded-2xl p-6 card-hover">
+                <h3 className="font-bold text-lg text-white mb-6">By Interaction Type</h3>
                 <div className="h-[250px]">
                   {interactionsByType.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-slate-400">
+                    <div className="flex items-center justify-center h-full text-slate-500">
                       No interaction data yet
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={interactionsByType} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
-                        <XAxis type="number" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                        <YAxis type="category" dataKey="type" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} width={80} />
-                        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                        <Bar dataKey="count" fill="#6366f1" radius={[0, 8, 8, 0]} name="Count" />
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(255,255,255,0.05)" />
+                        <XAxis type="number" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                        <YAxis type="category" dataKey="type" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} width={80} />
+                        <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15,23,42,0.9)', backdropFilter: 'blur(12px)' }} labelStyle={{ color: '#f8fafc' }} itemStyle={{ color: '#a78bfa' }} />
+                        <Bar dataKey="count" fill="url(#barGradient)" radius={[0, 8, 8, 0]} name="Count">
+                          {interactionsByType.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   )}
@@ -682,11 +708,11 @@ const App: React.FC = () => {
               </div>
 
               {/* Tag Distribution */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                <h3 className="font-bold text-lg text-slate-900 mb-6">Contact Tags</h3>
+              <div className="glass rounded-2xl p-6 card-hover">
+                <h3 className="font-bold text-lg text-white mb-6">Contact Tags</h3>
                 <div className="h-[250px]">
                   {tagDistribution.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-slate-400">
+                    <div className="flex items-center justify-center h-full text-slate-500">
                       No tags yet
                     </div>
                   ) : (
@@ -699,14 +725,17 @@ const App: React.FC = () => {
                           cx="50%"
                           cy="50%"
                           outerRadius={80}
+                          innerRadius={40}
                           label={({ tag, percent }) => `${tag} (${(percent * 100).toFixed(0)}%)`}
                           labelLine={false}
+                          stroke="rgba(0,0,0,0.3)"
+                          strokeWidth={2}
                         >
                           {tagDistribution.map((_, index) => (
                             <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                        <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15,23,42,0.9)', backdropFilter: 'blur(12px)' }} labelStyle={{ color: '#f8fafc' }} itemStyle={{ color: '#a78bfa' }} />
                       </PieChart>
                     </ResponsiveContainer>
                   )}
@@ -715,34 +744,34 @@ const App: React.FC = () => {
             </div>
 
             {/* Top Contacts */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-              <h3 className="font-bold text-lg text-slate-900 mb-6">Most Contacted</h3>
+            <div className="glass rounded-2xl p-6">
+              <h3 className="font-bold text-lg text-white mb-6">Most Contacted</h3>
               {topContacts.length === 0 ? (
-                <div className="text-center py-8 text-slate-400">
+                <div className="text-center py-8 text-slate-500">
                   No interaction data yet
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {topContacts.map((item, index) => (
                     <div
                       key={item.contact!.id}
-                      className="flex items-center gap-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="flex items-center gap-4 p-4 rounded-xl glass-light hover:bg-white/10 transition-all cursor-pointer group"
                       onClick={() => {
                         setSelectedContact(item.contact!);
                         setView(View.CONTACTS);
                       }}
                     >
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-violet-500/20">
                         {index + 1}
                       </div>
-                      <img src={item.contact!.avatar} alt="" className="w-12 h-12 rounded-xl object-cover" />
+                      <img src={item.contact!.avatar} alt="" className="w-12 h-12 rounded-xl object-cover ring-2 ring-white/10" />
                       <div className="flex-1">
-                        <h4 className="font-bold text-slate-900">{item.contact!.firstName} {item.contact!.lastName}</h4>
-                        <p className="text-sm text-slate-500">{item.contact!.company}</p>
+                        <h4 className="font-semibold text-white group-hover:text-violet-300 transition-colors">{item.contact!.firstName} {item.contact!.lastName}</h4>
+                        <p className="text-sm text-slate-400">{item.contact!.company}</p>
                       </div>
                       <div className="text-right">
-                        <div className="text-2xl font-bold text-indigo-600">{item.count}</div>
-                        <div className="text-xs text-slate-400">interactions</div>
+                        <div className="text-2xl font-bold gradient-text">{item.count}</div>
+                        <div className="text-xs text-slate-500">interactions</div>
                       </div>
                     </div>
                   ))}

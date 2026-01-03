@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Loader2, Sparkles, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const AuthPage: React.FC = () => {
@@ -43,52 +43,62 @@ const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-indigo-500 rounded-2xl flex items-center justify-center font-bold text-3xl text-white mx-auto mb-4">
-            N
+    <div className="min-h-screen flex items-center justify-center p-4 overflow-hidden">
+      {/* Background elements */}
+      <div className="orb orb-1" />
+      <div className="orb orb-2" />
+      <div className="orb orb-3" />
+
+      <div className="w-full max-w-md relative z-10">
+        {/* Logo and branding */}
+        <div className="text-center mb-10">
+          <div className="relative inline-block mb-6">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-cyan-500 flex items-center justify-center shadow-2xl shadow-violet-500/30">
+              <Sparkles size={36} className="text-white" />
+            </div>
+            <div className="absolute -inset-3 rounded-3xl bg-gradient-to-br from-violet-500 via-purple-500 to-cyan-500 opacity-20 blur-xl animate-pulse-slow" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">Nexus</h1>
-          <p className="text-slate-500 mt-2">Your Personal CRM</p>
+          <h1 className="text-4xl font-bold text-white mb-2">Nexus</h1>
+          <p className="text-slate-400">AI-Powered Personal CRM</p>
         </div>
 
-        <div className="bg-white rounded-3xl p-8 shadow-xl border border-slate-100">
-          <h2 className="text-xl font-bold text-slate-900 mb-6">
-            {isSignUp ? 'Create an account' : 'Welcome back'}
+        {/* Auth card */}
+        <div className="glass-strong rounded-3xl p-8 shadow-2xl">
+          <h2 className="text-xl font-bold text-white mb-6">
+            {isSignUp ? 'Create your account' : 'Welcome back'}
           </h2>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm backdrop-blur-sm">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleEmailAuth} className="space-y-4">
+          <form onSubmit={handleEmailAuth} className="space-y-5">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Mail size={14} /> Email
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <Mail size={12} /> Email
               </label>
               <input
                 type="email"
                 required
                 placeholder="you@example.com"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                className="w-full px-4 py-3.5 input-dark rounded-xl focus:ring-2 focus:ring-violet-500/50 transition-all"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Lock size={14} /> Password
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <Lock size={12} /> Password
               </label>
               <input
                 type="password"
                 required
                 placeholder="••••••••"
                 minLength={6}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                className="w-full px-4 py-3.5 input-dark rounded-xl focus:ring-2 focus:ring-violet-500/50 transition-all"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -97,30 +107,34 @@ const AuthPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2 group"
             >
               {loading ? (
                 <Loader2 className="animate-spin" size={20} />
               ) : isSignUp ? (
                 <>
                   <User size={20} /> Create Account
+                  <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform" />
                 </>
               ) : (
-                'Sign In'
+                <>
+                  Sign In
+                  <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform" />
+                </>
               )}
             </button>
           </form>
 
-          <div className="my-6 flex items-center gap-4">
-            <div className="flex-1 h-px bg-slate-200" />
-            <span className="text-xs font-medium text-slate-400">OR</span>
-            <div className="flex-1 h-px bg-slate-200" />
+          <div className="my-8 flex items-center gap-4">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">or continue with</span>
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
           </div>
 
           <button
             onClick={handleGoogleAuth}
             disabled={loading}
-            className="w-full py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+            className="w-full py-3.5 glass text-slate-300 font-semibold rounded-xl hover:bg-white/10 transition-all disabled:opacity-50 flex items-center justify-center gap-3 group"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -140,22 +154,27 @@ const AuthPage: React.FC = () => {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            Continue with Google
+            <span className="group-hover:text-white transition-colors">Continue with Google</span>
           </button>
 
-          <p className="mt-6 text-center text-sm text-slate-500">
+          <p className="mt-8 text-center text-sm text-slate-500">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
             <button
               onClick={() => {
                 setIsSignUp(!isSignUp);
                 setError('');
               }}
-              className="text-indigo-600 font-semibold hover:text-indigo-800"
+              className="text-violet-400 font-semibold hover:text-violet-300 transition-colors"
             >
               {isSignUp ? 'Sign in' : 'Sign up'}
             </button>
           </p>
         </div>
+
+        {/* Footer */}
+        <p className="mt-8 text-center text-xs text-slate-600">
+          By continuing, you agree to our Terms of Service and Privacy Policy
+        </p>
       </div>
     </div>
   );

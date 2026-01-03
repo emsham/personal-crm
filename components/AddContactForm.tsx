@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { X, User, Briefcase, Mail, Phone, Tag, AlignLeft, Users, Check, Cake } from 'lucide-react';
+import { X, User, Briefcase, Mail, Phone, Tag, AlignLeft, Users, Cake, Sparkles } from 'lucide-react';
 import { Contact } from '../types';
 
 interface AddContactFormProps {
@@ -26,7 +26,7 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
 
   const filteredExisting = useMemo(() => {
     if (!searchRelated) return [];
-    return existingContacts.filter(c => 
+    return existingContacts.filter(c =>
       `${c.firstName} ${c.lastName}`.toLowerCase().includes(searchRelated.toLowerCase()) &&
       !selectedRelatedIds.includes(c.id)
     );
@@ -34,7 +34,7 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const newContact: Contact = {
       id: Date.now().toString(),
       firstName: formData.firstName,
@@ -50,7 +50,7 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
       avatar: `https://picsum.photos/seed/${formData.firstName}${formData.lastName}/200`,
       status: 'active',
       relatedContactIds: selectedRelatedIds,
-      birthday: formData.birthday ? formData.birthday.slice(5) : undefined, // Convert YYYY-MM-DD to MM-DD
+      birthday: formData.birthday ? formData.birthday.slice(5) : undefined,
     };
 
     onAdd(newContact);
@@ -58,108 +58,113 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
   };
 
   const toggleRelated = (id: string) => {
-    setSelectedRelatedIds(prev => 
+    setSelectedRelatedIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
     setSearchRelated('');
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden my-8 animate-in zoom-in-95 duration-200">
-        <div className="flex justify-between items-center p-8 border-b border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="glass-strong w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden my-8 border border-white/10">
+        <div className="flex justify-between items-center p-8 border-b border-white/5">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">Add New Contact</h2>
-            <p className="text-slate-500 text-sm">Expand your network with a new relationship.</p>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
+                <Sparkles size={20} className="text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-white">Add New Contact</h2>
+            </div>
+            <p className="text-slate-400 text-sm mt-2">Expand your network with a new relationship.</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl text-slate-400 hover:text-white transition-all">
             <X size={24} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <User size={14} /> First Name
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <User size={12} /> First Name
               </label>
               <input
                 required
                 type="text"
                 placeholder="Jane"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                className="w-full px-4 py-3.5 input-dark rounded-xl"
                 value={formData.firstName}
                 onChange={e => setFormData({ ...formData, firstName: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <User size={14} /> Last Name
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <User size={12} /> Last Name
               </label>
               <input
                 required
                 type="text"
                 placeholder="Doe"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                className="w-full px-4 py-3.5 input-dark rounded-xl"
                 value={formData.lastName}
                 onChange={e => setFormData({ ...formData, lastName: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Briefcase size={14} /> Company
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <Briefcase size={12} /> Company
               </label>
               <input
                 type="text"
                 placeholder="Global Corp"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                className="w-full px-4 py-3.5 input-dark rounded-xl"
                 value={formData.company}
                 onChange={e => setFormData({ ...formData, company: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Briefcase size={14} /> Position
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <Briefcase size={12} /> Position
               </label>
               <input
                 type="text"
                 placeholder="Product Manager"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                className="w-full px-4 py-3.5 input-dark rounded-xl"
                 value={formData.position}
                 onChange={e => setFormData({ ...formData, position: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Mail size={14} /> Email
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <Mail size={12} /> Email
               </label>
               <input
                 type="email"
                 placeholder="jane.doe@example.com"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                className="w-full px-4 py-3.5 input-dark rounded-xl"
                 value={formData.email}
                 onChange={e => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Phone size={14} /> Phone
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <Phone size={12} /> Phone
               </label>
               <input
                 type="tel"
                 placeholder="+1 555-0000"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                className="w-full px-4 py-3.5 input-dark rounded-xl"
                 value={formData.phone}
                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Cake size={14} /> Birthday
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <Cake size={12} /> Birthday
               </label>
               <input
                 type="date"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                className="w-full px-4 py-3.5 input-dark rounded-xl"
                 value={formData.birthday}
                 onChange={e => setFormData({ ...formData, birthday: e.target.value })}
               />
@@ -167,28 +172,28 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-              <Users size={14} /> Related Contacts
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+              <Users size={12} /> Related Contacts
             </label>
             <div className="relative">
               <input
                 type="text"
                 placeholder="Search to link existing contacts..."
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                className="w-full px-4 py-3.5 input-dark rounded-xl"
                 value={searchRelated}
                 onChange={e => setSearchRelated(e.target.value)}
               />
               {filteredExisting.length > 0 && (
-                <div className="absolute z-10 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                <div className="absolute z-10 w-full mt-2 glass-strong border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
                   {filteredExisting.map(contact => (
                     <button
                       key={contact.id}
                       type="button"
                       onClick={() => toggleRelated(contact.id)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 text-left transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 text-left transition-colors"
                     >
-                      <img src={contact.avatar} className="w-8 h-8 rounded-full" alt="" />
-                      <span className="text-sm font-medium text-slate-700">{contact.firstName} {contact.lastName}</span>
+                      <img src={contact.avatar} className="w-8 h-8 rounded-lg ring-2 ring-white/10" alt="" />
+                      <span className="text-sm font-medium text-white">{contact.firstName} {contact.lastName}</span>
                     </button>
                   ))}
                 </div>
@@ -198,10 +203,10 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
               {selectedRelatedIds.map(id => {
                 const contact = existingContacts.find(c => c.id === id);
                 return contact ? (
-                  <div key={id} className="flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full border border-indigo-100">
-                    <img src={contact.avatar} className="w-4 h-4 rounded-full" alt="" />
+                  <div key={id} className="flex items-center gap-2 px-3 py-1.5 bg-violet-500/20 text-violet-300 text-xs font-bold rounded-lg border border-violet-500/30">
+                    <img src={contact.avatar} className="w-4 h-4 rounded-md" alt="" />
                     {contact.firstName}
-                    <button type="button" onClick={() => toggleRelated(id)}><X size={12}/></button>
+                    <button type="button" onClick={() => toggleRelated(id)} className="hover:text-white transition-colors"><X size={12}/></button>
                   </div>
                 ) : null;
               })}
@@ -209,26 +214,26 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-              <Tag size={14} /> Tags (comma separated)
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+              <Tag size={12} /> Tags (comma separated)
             </label>
             <input
               type="text"
               placeholder="Engineering, Mentor, Investor"
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+              className="w-full px-4 py-3.5 input-dark rounded-xl"
               value={formData.tags}
               onChange={e => setFormData({ ...formData, tags: e.target.value })}
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-              <AlignLeft size={14} /> Initial Notes
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+              <AlignLeft size={12} /> Initial Notes
             </label>
             <textarea
               placeholder="Met at the networking event last week..."
               rows={3}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all resize-none"
+              className="w-full px-4 py-3.5 input-dark rounded-xl resize-none"
               value={formData.notes}
               onChange={e => setFormData({ ...formData, notes: e.target.value })}
             />
@@ -238,13 +243,13 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-4 text-slate-500 font-bold hover:bg-slate-50 rounded-2xl transition-all"
+              className="flex-1 py-4 text-slate-400 font-semibold hover:text-white hover:bg-white/5 rounded-xl transition-all"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all"
+              className="flex-1 py-4 bg-gradient-to-r from-violet-500 to-cyan-500 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/30 transition-all"
             >
               Save Contact
             </button>
