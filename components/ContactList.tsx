@@ -44,11 +44,11 @@ const ContactList: React.FC<ContactListProps> = ({ contacts, onSelectContact }) 
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center">
                   <div className="relative">
-                    <img
-                      className="h-11 w-11 rounded-xl object-cover ring-2 ring-white/10 group-hover:ring-violet-500/50 transition-all"
-                      src={contact.avatar}
-                      alt=""
-                    />
+                    <div className="h-11 w-11 rounded-xl bg-black ring-2 ring-white/10 group-hover:ring-violet-500/50 transition-all flex items-center justify-center">
+                      <span className="text-sm font-bold text-white">
+                        {contact.firstName?.charAt(0).toUpperCase() || ''}{contact.lastName?.charAt(0).toUpperCase() || ''}
+                      </span>
+                    </div>
                     {contact.status === 'active' && (
                       <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-dark-900 shadow-lg shadow-emerald-500/50" />
                     )}

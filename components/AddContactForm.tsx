@@ -192,7 +192,9 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
                       onClick={() => toggleRelated(contact.id)}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 text-left transition-colors"
                     >
-                      <img src={contact.avatar} className="w-8 h-8 rounded-lg ring-2 ring-white/10" alt="" />
+                      <div className="w-8 h-8 rounded-lg bg-black ring-2 ring-white/10 flex items-center justify-center">
+                        <span className="text-xs font-bold text-white">{contact.firstName?.charAt(0).toUpperCase() || ''}{contact.lastName?.charAt(0).toUpperCase() || ''}</span>
+                      </div>
                       <span className="text-sm font-medium text-white">{contact.firstName} {contact.lastName}</span>
                     </button>
                   ))}
@@ -204,7 +206,9 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
                 const contact = existingContacts.find(c => c.id === id);
                 return contact ? (
                   <div key={id} className="flex items-center gap-2 px-3 py-1.5 bg-violet-500/20 text-violet-300 text-xs font-bold rounded-lg border border-violet-500/30">
-                    <img src={contact.avatar} className="w-4 h-4 rounded-md" alt="" />
+                    <div className="w-4 h-4 rounded-md bg-black flex items-center justify-center">
+                      <span className="text-[8px] font-bold text-white">{contact.firstName?.charAt(0).toUpperCase() || ''}</span>
+                    </div>
                     {contact.firstName}
                     <button type="button" onClick={() => toggleRelated(id)} className="hover:text-white transition-colors"><X size={12}/></button>
                   </div>

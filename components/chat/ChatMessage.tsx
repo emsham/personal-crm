@@ -188,11 +188,11 @@ const ToolResultCard: React.FC<{ result: ToolResult; contacts: Contact[]; onSele
                 className="flex items-center gap-4 p-4 hover:bg-white/5 transition-colors group cursor-pointer"
                 onClick={() => onSelectContact?.(contact)}
               >
-                <img
-                  src={contact.avatar || `https://ui-avatars.com/api/?name=${contact.firstName}+${contact.lastName}`}
-                  alt=""
-                  className="w-10 h-10 rounded-xl object-cover ring-2 ring-white/10"
-                />
+                <div className="w-10 h-10 rounded-xl bg-black ring-2 ring-white/10 flex items-center justify-center">
+                  <span className="text-sm font-bold text-white">
+                    {contact.firstName?.charAt(0).toUpperCase() || ''}{contact.lastName?.charAt(0).toUpperCase() || ''}
+                  </span>
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-white group-hover:text-violet-300 transition-colors truncate">
                     {contact.firstName} {contact.lastName}
@@ -307,11 +307,11 @@ const ToolResultCard: React.FC<{ result: ToolResult; contacts: Contact[]; onSele
         <div className="rounded-2xl overflow-hidden glass-light">
           <div className="p-5 bg-gradient-to-r from-violet-500/20 to-cyan-500/20 border-b border-white/5">
             <div className="flex items-center gap-4">
-              <img
-                src={d.contact.avatar || `https://ui-avatars.com/api/?name=${d.contact.firstName}+${d.contact.lastName}`}
-                alt=""
-                className="w-14 h-14 rounded-xl object-cover ring-2 ring-white/20 shadow-lg"
-              />
+              <div className="w-14 h-14 rounded-xl bg-black ring-2 ring-white/20 shadow-lg flex items-center justify-center">
+                <span className="text-xl font-bold text-white">
+                  {d.contact.firstName?.charAt(0).toUpperCase() || ''}{d.contact.lastName?.charAt(0).toUpperCase() || ''}
+                </span>
+              </div>
               <div>
                 <h4 className="text-lg font-semibold text-white">{d.contact.firstName} {d.contact.lastName}</h4>
                 <p className="text-sm text-slate-400">

@@ -789,7 +789,11 @@ const App: React.FC = () => {
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-violet-500/20">
                         {index + 1}
                       </div>
-                      <img src={item.contact!.avatar} alt="" className="w-12 h-12 rounded-xl object-cover ring-2 ring-white/10" />
+                      <div className="w-12 h-12 rounded-xl bg-black ring-2 ring-white/10 flex items-center justify-center">
+                        <span className="text-lg font-bold text-white">
+                          {item.contact!.firstName?.charAt(0).toUpperCase() || ''}{item.contact!.lastName?.charAt(0).toUpperCase() || ''}
+                        </span>
+                      </div>
                       <div className="flex-1">
                         <h4 className="font-semibold text-white group-hover:text-violet-300 transition-colors">{item.contact!.firstName} {item.contact!.lastName}</h4>
                         <p className="text-sm text-slate-400">{item.contact!.company}</p>

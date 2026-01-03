@@ -391,7 +391,11 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
             ) : (
               <div className="text-center">
                 <div className="relative inline-block mb-4">
-                  <img className="h-32 w-32 rounded-3xl mx-auto object-cover shadow-2xl ring-4 ring-white/10" src={contact.avatar} alt="" />
+                  <div className="h-32 w-32 rounded-3xl mx-auto bg-black shadow-2xl ring-4 ring-white/10 flex items-center justify-center">
+                    <span className="text-4xl font-bold text-white">
+                      {contact.firstName?.charAt(0).toUpperCase() || ''}{contact.lastName?.charAt(0).toUpperCase() || ''}
+                    </span>
+                  </div>
                   {contact.status === 'active' && (
                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/50 border-2 border-dark-900">
                       <Check size={12} className="text-white" />
@@ -484,11 +488,11 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                           className="group relative"
                           title={`${related.firstName} ${related.lastName}`}
                         >
-                          <img
-                            src={related.avatar}
-                            className="w-10 h-10 rounded-xl ring-2 ring-white/10 group-hover:ring-violet-500/50 group-hover:scale-110 transition-all cursor-pointer"
-                            alt={related.firstName}
-                          />
+                          <div className="w-10 h-10 rounded-xl bg-black ring-2 ring-white/10 group-hover:ring-violet-500/50 group-hover:scale-110 transition-all cursor-pointer flex items-center justify-center">
+                            <span className="text-sm font-bold text-white">
+                              {related.firstName?.charAt(0).toUpperCase() || ''}{related.lastName?.charAt(0).toUpperCase() || ''}
+                            </span>
+                          </div>
                         </button>
                       ))}
                     </div>

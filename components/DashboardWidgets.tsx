@@ -184,11 +184,11 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
                         onClick={() => onSelectContact(item.contact)}
                       >
                         <div className="relative">
-                          <img
-                            src={item.contact.avatar || `https://ui-avatars.com/api/?name=${item.contact.firstName}+${item.contact.lastName}`}
-                            alt=""
-                            className="w-10 h-10 rounded-xl object-cover ring-2 ring-white/10"
-                          />
+                          <div className="w-10 h-10 rounded-xl bg-black ring-2 ring-white/10 flex items-center justify-center">
+                            <span className="text-sm font-bold text-white">
+                              {item.contact.firstName?.charAt(0).toUpperCase() || ''}{item.contact.lastName?.charAt(0).toUpperCase() || ''}
+                            </span>
+                          </div>
                           <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-lg flex items-center justify-center shadow-lg ${
                             item.type === 'birthday' ? 'bg-pink-500 shadow-pink-500/50' : 'bg-amber-500 shadow-amber-500/50'
                           }`}>
@@ -305,11 +305,11 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
                     onClick={() => onSelectContact(item.contact)}
                   >
                     <div className="relative">
-                      <img
-                        src={item.contact.avatar || `https://ui-avatars.com/api/?name=${item.contact.firstName}+${item.contact.lastName}`}
-                        alt=""
-                        className="w-10 h-10 rounded-xl object-cover ring-2 ring-white/10"
-                      />
+                      <div className="w-10 h-10 rounded-xl bg-black ring-2 ring-white/10 flex items-center justify-center">
+                        <span className="text-sm font-bold text-white">
+                          {item.contact.firstName?.charAt(0).toUpperCase() || ''}{item.contact.lastName?.charAt(0).toUpperCase() || ''}
+                        </span>
+                      </div>
                       <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-lg flex items-center justify-center shadow-lg ${
                         item.type === 'birthday' ? 'bg-pink-500 shadow-pink-500/50' : 'bg-amber-500 shadow-amber-500/50'
                       }`}>

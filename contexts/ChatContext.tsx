@@ -156,6 +156,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsStreaming(true);
     setError(null);
 
+    // Create abort controller for this request
+    abortControllerRef.current = new AbortController();
+    const abortSignal = abortControllerRef.current.signal;
+
     try {
       // Create LLM service
       const llmService = createLLMService(settings.provider, apiKey);
@@ -186,6 +190,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       for await (const chunk of stream) {
+        // Check if aborted (user navigated away)
+        if (abortSignal.aborted) {
+          console.log('Streaming aborted by user');
+          break;
+        }
         if (chunk.type === 'text' && chunk.content) {
           currentContent += chunk.content;
           // Update the session with streamed content
@@ -257,6 +266,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let iteration = 0;
 
         while (iteration < maxIterations) {
+          // Check if aborted before starting new iteration
+          if (abortSignal.aborted) {
+            console.log('Tool call loop aborted by user');
+            break;
+          }
+
           iteration++;
           let followUpContent = '';
           const followUpToolCalls: ToolCall[] = [];
@@ -271,6 +286,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
 
             for await (const chunk of followUpStream) {
+              // Check if aborted (user navigated away)
+              if (abortSignal.aborted) {
+                console.log('Follow-up streaming aborted by user');
+                break;
+              }
               if (chunk.type === 'text' && chunk.content) {
                 followUpContent += chunk.content;
                 // Update with streaming follow-up

@@ -32,11 +32,21 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
     sendMessage,
     createNewSession,
     selectSession,
+    stopStreaming,
   } = useChat();
   const { currentProviderConfigured, settings } = useLLMSettings();
 
   const messages = currentSession?.messages || [];
   const hasMessages = messages.length > 0;
+
+  // Stop streaming when component unmounts (user navigates away)
+  useEffect(() => {
+    return () => {
+      if (isStreaming) {
+        stopStreaming();
+      }
+    };
+  }, [isStreaming, stopStreaming]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
