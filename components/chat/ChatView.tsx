@@ -10,7 +10,7 @@ interface ChatViewProps {
   contacts: Contact[];
   tasks: Task[];
   onShowDashboard: () => void;
-  onSelectContact?: (contact: Contact) => void;
+  onSelectContact?: (contact: Contact, fromChat?: boolean) => void;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, onSelectContact }) => {
@@ -349,7 +349,7 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
                   message={message}
                   contacts={contacts}
                   isLatest={index === messages.length - 1}
-                  onSelectContact={onSelectContact}
+                  onSelectContact={(contact) => onSelectContact?.(contact, true)}
                 />
               ))}
 

@@ -12,13 +12,20 @@ interface ChatMessageProps {
 const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], isLatest = false, onSelectContact }) => {
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
-  const [hasAnimated, setHasAnimated] = useState(false);
+  // Use ref to track animation without causing re-renders
+  const hasAnimatedRef = useRef(false);
+  const [, forceUpdate] = useState(0);
   const contentRef = useRef<string>('');
 
-  // Track if we've animated this message
+  // Mark as animated after first render - only triggers one re-render
   useEffect(() => {
-    if (!hasAnimated) {
-      setHasAnimated(true);
+    if (!hasAnimatedRef.current) {
+      // Small delay to ensure animation plays before removing class
+      const timer = setTimeout(() => {
+        hasAnimatedRef.current = true;
+        forceUpdate(n => n + 1);
+      }, 600);
+      return () => clearTimeout(timer);
     }
   }, []);
 
@@ -27,14 +34,16 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
     contentRef.current = message.content;
   }
 
+  const shouldAnimate = !hasAnimatedRef.current;
+
   if (isTool && message.toolResults) {
-    return <ToolResultsDisplay results={message.toolResults} contacts={contacts} hasAnimated={hasAnimated} onSelectContact={onSelectContact} />;
+    return <ToolResultsDisplay results={message.toolResults} contacts={contacts} hasAnimated={hasAnimatedRef.current} onSelectContact={onSelectContact} />;
   }
 
   // User message - minimal, right-aligned
   if (isUser) {
     return (
-      <div className={`flex justify-end ${!hasAnimated ? 'animate-slide-in-from-bottom-2' : ''}`}>
+      <div className={`flex justify-end ${shouldAnimate ? 'animate-slide-in-from-bottom-2' : ''}`}>
         <div className="max-w-[70%] px-5 py-3 rounded-2xl rounded-br-md bg-gradient-to-r from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/20">
           <p className="text-sm leading-relaxed">{message.content}</p>
         </div>
@@ -44,7 +53,7 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
 
   // AI message - full-width, content-like
   return (
-    <div className={!hasAnimated ? 'animate-slide-in-from-bottom-4' : ''}>
+    <div className={shouldAnimate ? 'animate-slide-in-from-bottom-4' : ''}>
       {/* AI response header */}
       <div className="flex items-center gap-3 mb-3">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/20">

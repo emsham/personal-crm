@@ -109,9 +109,27 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
 
         {/* Action buttons */}
         <div className="space-y-1">
-          <button className="w-full flex items-center space-x-3 px-4 py-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all group">
-            <Settings size={18} className="group-hover:rotate-90 transition-transform duration-300" />
-            <span className="text-sm font-medium">Settings</span>
+          <button
+            onClick={() => onNavigate('/settings')}
+            className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all group relative overflow-hidden ${
+              currentView === View.SETTINGS
+                ? 'text-white'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            {currentView === View.SETTINGS && (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-r from-violet-500/20 to-cyan-500/20 rounded-xl" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-violet-500 to-cyan-500 rounded-r-full" />
+              </>
+            )}
+            <Settings size={18} className="relative z-10 group-hover:rotate-90 transition-transform duration-300" />
+            <span className="text-sm font-medium relative z-10">Settings</span>
+            {currentView === View.SETTINGS && (
+              <div className="ml-auto relative z-10">
+                <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-lg shadow-cyan-400/50" />
+              </div>
+            )}
           </button>
           <button
             onClick={handleSignOut}

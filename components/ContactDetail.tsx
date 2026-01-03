@@ -10,6 +10,8 @@ interface ContactDetailProps {
   tasks: Task[];
   allContacts: Contact[];
   onBack: () => void;
+  onBackToChat?: () => void;
+  fromChat?: boolean;
   onSelectContact: (contact: Contact) => void;
   onUpdateContact: (contactId: string, updates: Partial<Contact>) => void;
   onDeleteContact: (contactId: string) => void;
@@ -27,6 +29,8 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
   tasks,
   allContacts,
   onBack,
+  onBackToChat,
+  fromChat,
   onSelectContact,
   onUpdateContact,
   onDeleteContact,
@@ -51,6 +55,31 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
     importantDates: contact.importantDates || [],
   });
   const [newImportantDate, setNewImportantDate] = useState({ label: '', date: '' });
+  const [hasAnimated, setHasAnimated] = useState(false);
+
+  // Mark as animated after first render to prevent re-animation on updates
+  React.useEffect(() => {
+    const timer = setTimeout(() => setHasAnimated(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Sync editedContact when contact prop changes (but only when not editing)
+  React.useEffect(() => {
+    if (!isEditingContact) {
+      setEditedContact({
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        email: contact.email,
+        phone: contact.phone,
+        company: contact.company,
+        position: contact.position,
+        tags: contact.tags.join(', '),
+        notes: contact.notes,
+        birthday: contact.birthday || '',
+        importantDates: contact.importantDates || [],
+      });
+    }
+  }, [contact, isEditingContact]);
 
   const [newInteractionNotes, setNewInteractionNotes] = useState('');
   const [newInteractionDate, setNewInteractionDate] = useState(new Date().toISOString().split('T')[0]);
@@ -206,15 +235,26 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className={`space-y-6 ${!hasAnimated ? 'animate-in fade-in slide-in-from-bottom-4 duration-500' : ''}`}>
       <div className="flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="flex items-center space-x-2 text-slate-400 hover:text-violet-400 transition-colors"
-        >
-          <ArrowLeft size={20} />
-          <span className="font-medium">Back to Network</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="flex items-center space-x-2 text-slate-400 hover:text-violet-400 transition-colors"
+          >
+            <ArrowLeft size={20} />
+            <span className="font-medium">Back to Network</span>
+          </button>
+          {fromChat && onBackToChat && (
+            <button
+              onClick={onBackToChat}
+              className="flex items-center space-x-2 px-3 py-1.5 text-violet-400 hover:text-white bg-violet-500/10 hover:bg-violet-500/20 rounded-lg transition-all border border-violet-500/20"
+            >
+              <MessageSquare size={16} />
+              <span className="font-medium text-sm">Return to Chat</span>
+            </button>
+          )}
+        </div>
         <div className="flex gap-2">
           {!isEditingContact ? (
             <button
@@ -414,14 +454,18 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                 </div>
 
                 <div className="mt-8 space-y-3">
-                  <a href={`mailto:${contact.email}`} className="flex items-center space-x-3 w-full p-4 glass-light rounded-xl hover:bg-white/10 transition-all group">
-                    <Mail className="text-violet-400" size={18} />
-                    <span className="text-slate-300 text-sm truncate group-hover:text-white transition-colors">{contact.email}</span>
-                  </a>
-                  <div className="flex items-center space-x-3 w-full p-4 glass-light rounded-xl">
-                    <Phone className="text-violet-400" size={18} />
-                    <span className="text-slate-300 text-sm">{contact.phone || 'No phone'}</span>
-                  </div>
+                  {contact.email && (
+                    <a href={`mailto:${contact.email}`} className="flex items-center space-x-3 w-full p-4 glass-light rounded-xl hover:bg-white/10 transition-all group">
+                      <Mail className="text-violet-400" size={18} />
+                      <span className="text-slate-300 text-sm truncate group-hover:text-white transition-colors">{contact.email}</span>
+                    </a>
+                  )}
+                  {contact.phone && (
+                    <div className="flex items-center space-x-3 w-full p-4 glass-light rounded-xl">
+                      <Phone className="text-violet-400" size={18} />
+                      <span className="text-slate-300 text-sm">{contact.phone}</span>
+                    </div>
+                  )}
                 </div>
 
                 {contact.notes && (

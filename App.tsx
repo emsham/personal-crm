@@ -9,6 +9,7 @@ import AddContactForm from './components/AddContactForm';
 import AuthPage from './components/AuthPage';
 import TaskList from './components/TaskList';
 import DashboardWidgets from './components/DashboardWidgets';
+import SettingsPage from './components/SettingsPage';
 import { ChatView } from './components/chat';
 import { Contact, Interaction, InteractionType, View, Task } from './types';
 import { useAuth } from './contexts/AuthContext';
@@ -54,6 +55,7 @@ const App: React.FC = () => {
     if (path.startsWith('/contacts')) return View.CONTACTS;
     if (path.startsWith('/tasks')) return View.TASKS;
     if (path.startsWith('/analytics')) return View.ANALYTICS;
+    if (path.startsWith('/settings')) return View.SETTINGS;
     return View.DASHBOARD;
   }, [location.pathname]);
 
@@ -441,8 +443,8 @@ const App: React.FC = () => {
           contacts={contacts}
           tasks={tasks}
           onShowDashboard={() => setShowDashboardWidgets(true)}
-          onSelectContact={(contact) => {
-            navigate(`/contacts/${contact.id}`);
+          onSelectContact={(contact, fromChat) => {
+            navigate(`/contacts/${contact.id}`, { state: { fromChat } });
           }}
         />
         <DashboardWidgets
@@ -468,6 +470,8 @@ const App: React.FC = () => {
   const ContactDetailPage: React.FC = () => {
     const { contactId } = useParams<{ contactId: string }>();
     const contact = contacts.find(c => c.id === contactId);
+    const locationState = location.state as { fromChat?: boolean } | null;
+    const fromChat = locationState?.fromChat ?? false;
 
     if (!contact) {
       return (
@@ -491,6 +495,8 @@ const App: React.FC = () => {
         tasks={tasks}
         allContacts={contacts}
         onBack={() => navigate('/contacts')}
+        onBackToChat={() => navigate('/')}
+        fromChat={fromChat}
         onSelectContact={(c) => navigate(`/contacts/${c.id}`)}
         onUpdateContact={handleUpdateContact}
         onDeleteContact={async (id) => {
@@ -672,6 +678,9 @@ const App: React.FC = () => {
               onToggleTask={handleToggleTask}
               onDeleteTask={handleDeleteTask}
             />
+          } />
+          <Route path="/settings" element={
+            <SettingsPage onBack={() => navigate('/')} />
           } />
           <Route path="/analytics" element={
           <div className="space-y-8">

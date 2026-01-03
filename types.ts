@@ -51,7 +51,8 @@ export enum View {
   DASHBOARD = 'dashboard',
   CONTACTS = 'contacts',
   TASKS = 'tasks',
-  ANALYTICS = 'analytics'
+  ANALYTICS = 'analytics',
+  SETTINGS = 'settings'
 }
 
 export type TaskFrequency = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
