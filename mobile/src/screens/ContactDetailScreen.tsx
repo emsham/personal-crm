@@ -617,17 +617,24 @@ export const ContactDetailScreen: React.FC = () => {
             <Text style={styles.emptyText}>No interactions yet</Text>
           ) : (
             interactions.slice(0, 10).map((interaction) => (
-              <View key={interaction.id} style={styles.interactionCard}>
+              <TouchableOpacity
+                key={interaction.id}
+                style={styles.interactionCard}
+                onPress={() => navigation.navigate('EditInteraction', { interactionId: interaction.id })}
+              >
                 <View style={styles.interactionHeader}>
                   <Text style={styles.interactionType}>{interaction.type}</Text>
-                  <Text style={styles.interactionDate}>
-                    {new Date(interaction.date).toLocaleDateString()}
-                  </Text>
+                  <View style={styles.interactionHeaderRight}>
+                    <Text style={styles.interactionDate}>
+                      {new Date(interaction.date).toLocaleDateString()}
+                    </Text>
+                    <Text style={styles.editHint}>Tap to edit</Text>
+                  </View>
                 </View>
                 {interaction.notes && (
                   <Text style={styles.interactionNotes}>{interaction.notes}</Text>
                 )}
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </View>
@@ -816,6 +823,14 @@ const styles = StyleSheet.create({
   interactionDate: {
     color: '#64748b',
     fontSize: 13,
+  },
+  interactionHeaderRight: {
+    alignItems: 'flex-end',
+  },
+  editHint: {
+    color: '#3b82f6',
+    fontSize: 11,
+    marginTop: 2,
   },
   interactionNotes: {
     color: '#e2e8f0',

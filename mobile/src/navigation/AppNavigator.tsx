@@ -15,7 +15,9 @@ import {
   TasksScreen,
   AddContactScreen,
   AddTaskScreen,
+  EditTaskScreen,
   LogInteractionScreen,
+  EditInteractionScreen,
   DashboardScreen,
 } from '../screens';
 
@@ -27,7 +29,9 @@ export type RootStackParamList = {
   ContactDetail: { contactId: string };
   AddContact: undefined;
   AddTask: { contactId?: string };
+  EditTask: { taskId: string };
   LogInteraction: { contactId?: string };
+  EditInteraction: { interactionId: string };
 };
 
 export type MainTabParamList = {
@@ -163,9 +167,19 @@ export const AppNavigator: React.FC = () => {
               options={{ title: 'Add Task', presentation: 'modal' }}
             />
             <Stack.Screen
+              name="EditTask"
+              component={EditTaskScreen}
+              options={{ title: 'Edit Task', presentation: 'modal' }}
+            />
+            <Stack.Screen
               name="LogInteraction"
               component={LogInteractionScreen}
               options={{ title: 'Log Interaction', presentation: 'modal' }}
+            />
+            <Stack.Screen
+              name="EditInteraction"
+              component={EditInteractionScreen}
+              options={{ title: 'Edit Interaction', presentation: 'modal' }}
             />
           </>
         ) : (

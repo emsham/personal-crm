@@ -6,4 +6,6 @@ export { ContactDetailScreen } from './ContactDetailScreen';
 export { TasksScreen } from './TasksScreen';
 export { AddContactScreen } from './AddContactScreen';
 export { AddTaskScreen } from './AddTaskScreen';
+export { EditTaskScreen } from './EditTaskScreen';
 export { LogInteractionScreen } from './LogInteractionScreen';
+export { EditInteractionScreen } from './EditInteractionScreen';

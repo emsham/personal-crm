@@ -61,14 +61,17 @@ export const TasksScreen: React.FC = () => {
   });
 
   const renderTask = ({ item }: { item: Task }) => (
-    <TouchableOpacity
-      style={[styles.taskCard, item.completed && styles.taskCompleted]}
-      onPress={() => toggleTaskComplete(item)}
-    >
-      <View style={[styles.checkbox, item.completed && styles.checkboxChecked]}>
+    <View style={[styles.taskCard, item.completed && styles.taskCompleted]}>
+      <TouchableOpacity
+        style={[styles.checkbox, item.completed && styles.checkboxChecked]}
+        onPress={() => toggleTaskComplete(item)}
+      >
         {item.completed && <Text style={styles.checkmark}>✓</Text>}
-      </View>
-      <View style={styles.taskInfo}>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.taskInfo}
+        onPress={() => navigation.navigate('EditTask', { taskId: item.id })}
+      >
         <Text style={[styles.taskTitle, item.completed && styles.taskTitleCompleted]}>
           {item.title}
         </Text>
@@ -81,12 +84,13 @@ export const TasksScreen: React.FC = () => {
               {new Date(item.dueDate).toLocaleDateString()}
             </Text>
           )}
-          <View style={[styles.priorityBadge, styles[`priority_${item.priority}`]]}>
+          <View style={[styles.priorityBadge, styles[`priority_${item.priority}` as keyof typeof styles]]}>
             <Text style={styles.priorityText}>{item.priority}</Text>
           </View>
         </View>
-      </View>
-    </TouchableOpacity>
+        <Text style={styles.editHint}>Tap to edit</Text>
+      </TouchableOpacity>
+    </View>
   );
 
   const pendingCount = tasks.filter((t) => !t.completed).length;
@@ -248,6 +252,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94a3b8',
     textTransform: 'capitalize',
+  },
+  editHint: {
+    color: '#3b82f6',
+    fontSize: 11,
+    marginTop: 6,
   },
   emptyText: {
     color: '#64748b',
