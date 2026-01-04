@@ -7,14 +7,15 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
 import { useLLMSettings } from '../contexts/LLMSettingsContext';
+import { useNotifications } from '../contexts/NotificationContext';
 import {
   subscribeToContacts,
   subscribeToTasks,
@@ -39,6 +40,7 @@ const MAX_TOOL_ITERATIONS = 5;
 export const HomeScreen: React.FC = () => {
   const { user } = useAuth();
   const { settings, currentProviderConfigured } = useLLMSettings();
+  const { scheduleContactNotifications, scheduleTaskNotifications, permissionStatus } = useNotifications();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const flatListRef = useRef<FlatList>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -70,6 +72,20 @@ export const HomeScreen: React.FC = () => {
       unsubInteractions();
     };
   }, [user]);
+
+  // Schedule notifications when contacts change
+  useEffect(() => {
+    if (contacts.length > 0 && permissionStatus === 'granted') {
+      scheduleContactNotifications(contacts);
+    }
+  }, [contacts, permissionStatus, scheduleContactNotifications]);
+
+  // Schedule notifications when tasks change
+  useEffect(() => {
+    if (tasks.length > 0 && permissionStatus === 'granted') {
+      scheduleTaskNotifications(tasks);
+    }
+  }, [tasks, permissionStatus, scheduleTaskNotifications]);
 
   // Scroll to bottom when messages change
   useEffect(() => {

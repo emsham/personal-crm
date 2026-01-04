@@ -15,16 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nexuscrm.app",
-      "infoPlist": {
-        "CFBundleURLTypes": [
-          {
-            "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.1083737231478-845muapveab5lgdlhbr771b34667u1bl"
-            ]
-          }
-        ]
-      }
+      "bundleIdentifier": "com.nexuscrm.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -40,7 +31,25 @@
     },
     "plugins": [
       "expo-web-browser",
-      "@react-native-google-signin/google-signin"
-    ]
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.1083737231478-845muapveab5lgdlh-br771b34667u1bl"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#3b82f6",
+          "defaultChannel": "default"
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ],
+    "notification": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#3b82f6"
+    }
   }
 }

@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View, StyleSheet } from 'react-native';
+import { Text, View, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useLLMSettings } from '../contexts/LLMSettingsContext';
+import { useNotifications } from '../contexts/NotificationContext';
 import {
   LoginScreen,
   HomeScreen,
@@ -59,19 +60,146 @@ const TabIcon: React.FC<{ name: string; focused: boolean; isAIConfigured?: boole
   );
 };
 
-// Placeholder Settings screen
+// Settings screen with notification settings
 const SettingsScreen: React.FC = () => {
   const { signOut, user } = useAuth();
+  const { permissionStatus, settings, updateSettings, requestPermission } = useNotifications();
+  const [showReminderPicker, setShowReminderPicker] = useState(false);
+
+  const reminderOptions: { value: number; label: string }[] = [
+    { value: 0, label: 'No reminder' },
+    { value: 15, label: '15 minutes' },
+    { value: 30, label: '30 minutes' },
+    { value: 60, label: '1 hour' },
+    { value: 120, label: '2 hours' },
+  ];
+
+  const getSelectedReminderLabel = (): string => {
+    const option = reminderOptions.find((o) => o.value === settings.defaultReminderMinutes);
+    return option?.label || '30 minutes';
+  };
+
   return (
-    <View style={styles.settingsContainer}>
+    <ScrollView style={styles.settingsContainer} contentContainerStyle={styles.settingsContent}>
       <Text style={styles.settingsTitle}>Settings</Text>
       <Text style={styles.settingsEmail}>{user?.email}</Text>
-      <View style={styles.signOutButton}>
-        <Text style={styles.signOutText} onPress={signOut}>
-          Sign Out
-        </Text>
+
+      {/* Notifications Section */}
+      <View style={styles.settingsSection}>
+        <Text style={styles.sectionHeader}>Notifications</Text>
+
+        {permissionStatus !== 'granted' && (
+          <TouchableOpacity
+            style={styles.permissionButton}
+            onPress={requestPermission}
+          >
+            <Text style={styles.permissionButtonText}>
+              {permissionStatus === 'denied' ? 'Notifications Denied - Open Settings' : 'Enable Notifications'}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        <View style={styles.settingRow}>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingLabel}>All Notifications</Text>
+            <Text style={styles.settingHint}>Master toggle for all notifications</Text>
+          </View>
+          <Switch
+            value={settings.enabled}
+            onValueChange={(value) => updateSettings({ enabled: value })}
+            trackColor={{ false: '#334155', true: '#3b82f6' }}
+            thumbColor="#fff"
+          />
+        </View>
+
+        <View style={[styles.settingRow, !settings.enabled && styles.settingDisabled]}>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingLabel}>Birthday Reminders</Text>
+            <Text style={styles.settingHint}>Get notified on contact birthdays</Text>
+          </View>
+          <Switch
+            value={settings.birthdaysEnabled}
+            onValueChange={(value) => updateSettings({ birthdaysEnabled: value })}
+            trackColor={{ false: '#334155', true: '#3b82f6' }}
+            thumbColor="#fff"
+            disabled={!settings.enabled}
+          />
+        </View>
+
+        <View style={[styles.settingRow, !settings.enabled && styles.settingDisabled]}>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingLabel}>Important Dates</Text>
+            <Text style={styles.settingHint}>Anniversaries and other dates</Text>
+          </View>
+          <Switch
+            value={settings.importantDatesEnabled}
+            onValueChange={(value) => updateSettings({ importantDatesEnabled: value })}
+            trackColor={{ false: '#334155', true: '#3b82f6' }}
+            thumbColor="#fff"
+            disabled={!settings.enabled}
+          />
+        </View>
+
+        <View style={[styles.settingRow, !settings.enabled && styles.settingDisabled]}>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingLabel}>Task Reminders</Text>
+            <Text style={styles.settingHint}>Get notified for task due dates</Text>
+          </View>
+          <Switch
+            value={settings.tasksEnabled}
+            onValueChange={(value) => updateSettings({ tasksEnabled: value })}
+            trackColor={{ false: '#334155', true: '#3b82f6' }}
+            thumbColor="#fff"
+            disabled={!settings.enabled}
+          />
+        </View>
+
+        <Text style={styles.settingSubheader}>Default Reminder Time</Text>
+        <TouchableOpacity
+          style={[styles.reminderPickerButton, !settings.enabled && styles.settingDisabled]}
+          onPress={() => settings.enabled && setShowReminderPicker(!showReminderPicker)}
+        >
+          <Text style={styles.reminderPickerText}>{getSelectedReminderLabel()}</Text>
+          <Text style={styles.dropdownArrow}>{showReminderPicker ? '▲' : '▼'}</Text>
+        </TouchableOpacity>
+
+        {showReminderPicker && (
+          <View style={styles.reminderList}>
+            {reminderOptions.map((option, index) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.reminderItem,
+                  settings.defaultReminderMinutes === option.value && styles.reminderItemSelected,
+                  index === reminderOptions.length - 1 && styles.reminderItemLast,
+                ]}
+                onPress={() => {
+                  updateSettings({ defaultReminderMinutes: option.value });
+                  setShowReminderPicker(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.reminderItemText,
+                    settings.defaultReminderMinutes === option.value && styles.reminderItemTextSelected,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
-    </View>
+
+      {/* Account Section */}
+      <View style={styles.settingsSection}>
+        <Text style={styles.sectionHeader}>Account</Text>
+        <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 };
 
@@ -219,8 +347,9 @@ const styles = StyleSheet.create({
   settingsContainer: {
     flex: 1,
     backgroundColor: '#0f172a',
+  },
+  settingsContent: {
     padding: 24,
-    alignItems: 'center',
     paddingTop: 60,
   },
   settingsTitle: {
@@ -228,17 +357,120 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 8,
+    textAlign: 'center',
   },
   settingsEmail: {
     fontSize: 16,
     color: '#94a3b8',
     marginBottom: 32,
+    textAlign: 'center',
+  },
+  settingsSection: {
+    marginBottom: 32,
+  },
+  sectionHeader: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 16,
+  },
+  permissionButton: {
+    backgroundColor: '#3b82f6',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  permissionButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1e293b',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  settingDisabled: {
+    opacity: 0.5,
+  },
+  settingInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  settingLabel: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  settingHint: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 4,
+  },
+  settingSubheader: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  reminderPickerButton: {
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  reminderPickerText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  dropdownArrow: {
+    color: '#64748b',
+    fontSize: 12,
+  },
+  reminderList: {
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+    overflow: 'hidden',
+  },
+  reminderItem: {
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  reminderItemSelected: {
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  reminderItemLast: {
+    borderBottomWidth: 0,
+  },
+  reminderItemText: {
+    color: '#94a3b8',
+    fontSize: 14,
+  },
+  reminderItemTextSelected: {
+    color: '#3b82f6',
+    fontWeight: '600',
   },
   signOutButton: {
     backgroundColor: '#ef4444',
     paddingHorizontal: 32,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderRadius: 12,
+    alignItems: 'center',
   },
   signOutText: {
     color: '#fff',

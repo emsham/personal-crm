@@ -51,6 +51,8 @@ export interface Task {
   description?: string;
   contactId?: string;
   dueDate?: string;
+  dueTime?: string; // HH:MM format (optional)
+  reminderBefore?: number; // Minutes before to remind (optional, uses default if not set)
   completed: boolean;
   priority: 'low' | 'medium' | 'high';
   frequency: TaskFrequency;
