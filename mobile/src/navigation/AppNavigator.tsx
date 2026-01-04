@@ -15,12 +15,14 @@ import {
   AddContactScreen,
   AddTaskScreen,
   LogInteractionScreen,
+  DashboardScreen,
 } from '../screens';
 
 // Type definitions
 export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
+  Dashboard: undefined;
   ContactDetail: { contactId: string };
   AddContact: undefined;
   AddTask: { contactId?: string };
@@ -40,7 +42,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 // Simple tab icons
 const TabIcon: React.FC<{ name: string; focused: boolean }> = ({ name, focused }) => {
   const icons: Record<string, string> = {
-    Home: '🏠',
+    Home: '✨',
     Contacts: '👥',
     Tasks: '✓',
     Settings: '⚙️',
@@ -97,7 +99,7 @@ const MainTabs: React.FC = () => {
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Dashboard' }} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'AI', headerShown: false }} />
       <Tab.Screen name="Contacts" component={ContactsScreen} />
       <Tab.Screen name="Tasks" component={TasksScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
@@ -130,6 +132,11 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen
               name="Main"
               component={MainTabs}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Dashboard"
+              component={DashboardScreen}
               options={{ headerShown: false }}
             />
             <Stack.Screen

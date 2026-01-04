@@ -1,12 +1,6 @@
-// Re-export from shared module for backwards compatibility
-export { CRM_TOOLS } from '../shared/ai/toolDefinitions';
-export type { ToolDefinition } from '../shared/ai/types';
+import { ToolDefinition } from './types';
 
-// Original implementation preserved below for reference - now using shared module
-/*
-import { ToolDefinition } from '../types';
-
-const CRM_TOOLS_OLD: ToolDefinition[] = [
+export const CRM_TOOLS: ToolDefinition[] = [
   // Query Tools
   {
     name: 'searchContacts',
@@ -352,4 +346,3 @@ const CRM_TOOLS_OLD: ToolDefinition[] = [
 
 // Note: No delete tools are included for safety
 // Users must use the UI to delete contacts, interactions, or tasks
-*/

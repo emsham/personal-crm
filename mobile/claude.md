@@ -10,7 +10,7 @@ React Native mobile companion app for the Nexus CRM web application.
 - **Database**: Firestore (shared with web app)
 - **Navigation**: React Navigation (native-stack + bottom-tabs)
 - **Google Sign-In**: @react-native-google-signin/google-signin (requires development build)
-- **AI Integration**: Gemini & OpenAI APIs (BYOK - Bring Your Own Key)
+- **AI Integration**: Gemini & OpenAI APIs (BYOK - Bring Your Own Key) with streaming and tool calling
 
 ## Project Structure
 
@@ -18,39 +18,87 @@ React Native mobile companion app for the Nexus CRM web application.
 mobile/
 ├── src/
 │   ├── components/
-│   │   └── LLMSettingsModal.tsx  # AI provider configuration modal
+│   │   ├── LLMSettingsModal.tsx      # AI provider configuration modal
+│   │   └── chat/
+│   │       ├── ChatMessage.tsx       # Message bubbles with tool call indicators
+│   │       ├── ChatInput.tsx         # Auto-resize input with send/stop
+│   │       ├── ToolResultCard.tsx    # Rich display of tool results (contacts, tasks, stats)
+│   │       └── index.ts              # Component exports
 │   ├── config/
-│   │   └── firebase.ts           # Firebase initialization with AsyncStorage persistence
+│   │   └── firebase.ts               # Firebase initialization with AsyncStorage persistence
 │   ├── contexts/
-│   │   ├── AuthContext.tsx       # Auth state management
-│   │   └── LLMSettingsContext.tsx # AI settings (API keys, provider selection)
+│   │   ├── AuthContext.tsx           # Auth state management
+│   │   └── LLMSettingsContext.tsx    # AI settings (API keys, provider selection)
 │   ├── navigation/
-│   │   └── AppNavigator.tsx      # Tab and stack navigation setup
+│   │   └── AppNavigator.tsx          # Tab and stack navigation setup
 │   ├── screens/
 │   │   ├── LoginScreen.tsx
-│   │   ├── HomeScreen.tsx        # Dashboard with AI chat, stats, recent contacts
+│   │   ├── HomeScreen.tsx            # Full-screen AI chat (AI-first interface)
+│   │   ├── DashboardScreen.tsx       # Stats, quick actions, recent contacts
 │   │   ├── ContactsScreen.tsx
-│   │   ├── ContactDetailScreen.tsx # View/edit contact with full field support
-│   │   ├── AddContactScreen.tsx  # Create contact with related contacts picker
+│   │   ├── ContactDetailScreen.tsx   # View/edit contact with full field support
+│   │   ├── AddContactScreen.tsx      # Create contact with related contacts picker
 │   │   ├── TasksScreen.tsx
 │   │   ├── AddTaskScreen.tsx
 │   │   └── LogInteractionScreen.tsx
 │   ├── services/
-│   │   ├── authService.ts        # Auth operations (sign in, sign up, Google)
-│   │   ├── firestoreService.ts   # Firestore CRUD operations
-│   │   └── aiService.ts          # Gemini & OpenAI API integration
-│   └── types.ts                  # Shared TypeScript types
-├── app.json                      # Expo configuration
-└── App.tsx                       # Entry point with providers
+│   │   ├── authService.ts            # Auth operations (sign in, sign up, Google)
+│   │   ├── firestoreService.ts       # Firestore CRUD operations
+│   │   ├── aiService.ts              # Streaming AI with OpenAI/Gemini + tool calling
+│   │   └── toolExecutors.ts          # CRM tool execution (search, add, update)
+│   ├── shared/
+│   │   └── ai/
+│   │       ├── types.ts              # Shared AI types (ToolCall, LLMStreamChunk, etc.)
+│   │       ├── toolDefinitions.ts    # 12 CRM tools (same as web app)
+│   │       ├── systemPrompt.ts       # AI system prompt builder
+│   │       └── index.ts              # Module exports
+│   └── types.ts                      # Shared TypeScript types
+├── app.json                          # Expo configuration
+└── App.tsx                           # Entry point with providers
 ```
 
-## Features
+## AI-First Architecture
 
-### Dashboard (HomeScreen)
+The mobile app now matches the web app's AI-first design:
+
+### Home Screen (AI Chat)
+- **Full-screen chat interface** - AI is the primary interaction method
+- **Streaming responses** - Real-time text streaming from OpenAI/Gemini
+- **Tool calling** - AI can search contacts, add tasks, log interactions, get stats
+- **Rich tool results** - Contacts, tasks, interactions displayed as interactive cards
+- **Dashboard access** - Button to access stats/quick actions when needed
+
+### AI Capabilities (12 CRM Tools)
+**Query Tools:**
+- `searchContacts` - Search by name, company, email, tags, status
+- `getContactDetails` - Full contact info with interactions & tasks
+- `searchInteractions` - Filter by contact, type, date, content
+- `searchTasks` - Filter by status, priority, due date, contact
+- `getStats` - CRM metrics (overview, by type, birthdays, overdue)
+
+**Create Tools:**
+- `addContact` - Create new contacts with related contacts linking
+- `addInteraction` - Log meetings, calls, emails, etc.
+- `addTask` - Create tasks with contact linking
+
+**Update Tools:**
+- `updateContact` - Modify contact info
+- `updateTask` - Mark complete, change priority, reschedule
+
+### Streaming Implementation
+- Uses SSE (Server-Sent Events) parsing for OpenAI
+- Fetch-based streaming for Gemini
+- AbortController support for cancellation
+- Multi-turn tool execution loop (up to 5 iterations)
+
+## Dashboard Screen
 - Stats grid (active contacts, needs attention, pending tasks, overdue)
-- **AI Chat**: Integrated Nexus AI with quick suggestions and conversation history
 - Quick actions (Add Contact, Log Interaction, Add Task)
-- Recent Contacts list (clickable, navigates to detail)
+- Upcoming tasks (due within 7 days)
+- Recent contacts list
+- Contacts needing attention (drifting status)
+
+## Features
 
 ### Contact Management
 - **Full editing support**: All fields editable (name, company, position, email, phone, birthday, tags, notes)
@@ -63,14 +111,9 @@ mobile/
 - Supports **Gemini** and **OpenAI** providers
 - API keys stored locally in AsyncStorage (never sent to our servers)
 - Direct API calls from app to provider
-- Context-aware responses using contact and task data
-- Quick suggestion buttons on dashboard
-
-### Contact Picker Component
-- Search bar with real-time filtering
-- Scrollable list with max height
-- Shows contact name and company
-- Used in: AddContactScreen, ContactDetailScreen (linked contacts), AddTaskScreen
+- **Streaming responses** with real-time updates
+- **Tool calling** with rich result display
+- Same 12 tools as web app via shared module
 
 ## Development
 
@@ -99,7 +142,7 @@ Copy `.env.example` to `.env` and fill in Firebase credentials:
 - Google Sign-In requires native module, won't work in Expo Go
 - iOS bundle identifier: `com.nexuscrm.app`
 - Firestore queries filter by `userId` to scope data per user
-- Types are duplicated from `shared/types.ts` due to Metro bundler limitations
+- Shared AI module copied to `src/shared/ai/` due to Metro bundler limitations
 - Bottom tab bar uses `useSafeAreaInsets()` for proper spacing on notched iPhones
 - AI API keys stored in AsyncStorage with `nexus_llm_` prefix
 
@@ -108,9 +151,14 @@ Copy `.env.example` to `.env` and fill in Firebase credentials:
 - **Unauthenticated**: LoginScreen (email/password + Google)
 - **Authenticated**:
   - Tab Navigator:
-    - Home (dashboard with AI chat)
+    - AI (full-screen chat - primary interface)
     - Contacts (list → detail with edit/delete → add/log interaction)
     - Tasks (list → add)
+    - Settings (sign out)
+  - Stack screens:
+    - Dashboard (accessible from AI screen)
+    - ContactDetail
+    - AddContact, AddTask, LogInteraction (modals)
 
 ## Data Types
 
@@ -119,3 +167,9 @@ Key types from `types.ts`:
 - `Task`: title, description?, contactId?, dueDate?, priority, frequency, completed
 - `Interaction`: contactId, date, type, notes
 - `ImportantDate`: id, label, date (MM-DD format)
+
+Key AI types from `shared/ai/types.ts`:
+- `ToolCall`: id, name, arguments
+- `ToolResult`: toolCallId, name, result, success, error?
+- `LLMStreamChunk`: type (text/tool_call/done/error), content?, toolCall?
+- `ChatMessage`: id, role, content, toolCalls?, toolResults?, isStreaming?

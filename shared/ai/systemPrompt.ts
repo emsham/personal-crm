@@ -1,12 +1,6 @@
-// Re-export from shared module for backwards compatibility
-export { buildSystemPrompt } from '../shared/ai/systemPrompt';
-export type { CRMData } from '../shared/ai/types';
+import { CRMData } from './types';
 
-// Original implementation preserved below for reference - now using shared module
-/*
-import { CRMData } from './toolExecutors';
-
-function buildSystemPromptOld(data: CRMData): string {
+export function buildSystemPrompt(data: CRMData): string {
   const { contacts, interactions, tasks } = data;
 
   const activeContacts = contacts.filter(c => c.status === 'active').length;
@@ -111,4 +105,3 @@ ${recentInteractionTypes ? `- Recent Interaction Types: ${recentInteractionTypes
 - Only ask for clarification when truly ambiguous (e.g., multiple contacts with same name)
 - Keep track of context across the conversation`;
 }
-*/

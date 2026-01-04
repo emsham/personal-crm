@@ -1,5 +1,6 @@
 export { LoginScreen } from './LoginScreen';
 export { HomeScreen } from './HomeScreen';
+export { DashboardScreen } from './DashboardScreen';
 export { ContactsScreen } from './ContactsScreen';
 export { ContactDetailScreen } from './ContactDetailScreen';
 export { TasksScreen } from './TasksScreen';
