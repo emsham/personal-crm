@@ -6,6 +6,7 @@ import { Text, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../contexts/AuthContext';
+import { useLLMSettings } from '../contexts/LLMSettingsContext';
 import {
   LoginScreen,
   HomeScreen,
@@ -40,9 +41,9 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 // Simple tab icons
-const TabIcon: React.FC<{ name: string; focused: boolean }> = ({ name, focused }) => {
+const TabIcon: React.FC<{ name: string; focused: boolean; isAIConfigured?: boolean }> = ({ name, focused, isAIConfigured }) => {
   const icons: Record<string, string> = {
-    Home: '✨',
+    Home: isAIConfigured ? '✨' : '📊',
     Contacts: '👥',
     Tasks: '✓',
     Settings: '⚙️',
@@ -73,11 +74,14 @@ const SettingsScreen: React.FC = () => {
 // Main tab navigator
 const MainTabs: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const { currentProviderConfigured } = useLLMSettings();
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused }) => <TabIcon name={route.name} focused={focused} />,
+        tabBarIcon: ({ focused }) => (
+          <TabIcon name={route.name} focused={focused} isAIConfigured={currentProviderConfigured} />
+        ),
         tabBarActiveTintColor: '#3b82f6',
         tabBarInactiveTintColor: '#64748b',
         tabBarStyle: {
@@ -99,7 +103,11 @@ const MainTabs: React.FC = () => {
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'AI', headerShown: false }} />
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{ title: currentProviderConfigured ? 'AI' : 'Dashboard', headerShown: false }}
+      />
       <Tab.Screen name="Contacts" component={ContactsScreen} />
       <Tab.Screen name="Tasks" component={TasksScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
