@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,17 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
-import { addContact } from '../services/firestoreService';
+import { addContact, subscribeToContacts } from '../services/firestoreService';
 import type { Contact } from '../types';
 
 export const AddContactScreen: React.FC = () => {
   const navigation = useNavigation();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [showRelatedPicker, setShowRelatedPicker] = useState(false);
+  const [selectedRelatedIds, setSelectedRelatedIds] = useState<string[]>([]);
+  const [relatedSearchQuery, setRelatedSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -30,6 +34,12 @@ export const AddContactScreen: React.FC = () => {
     notes: '',
     birthday: '',
   });
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = subscribeToContacts(user.uid, setContacts);
+    return unsubscribe;
+  }, [user]);
 
   const handleSubmit = async () => {
     if (!formData.firstName.trim() || !formData.lastName.trim()) {
@@ -57,7 +67,7 @@ export const AddContactScreen: React.FC = () => {
         status: 'active',
         lastContacted: null,
         nextFollowUp: null,
-        relatedContactIds: [],
+        relatedContactIds: selectedRelatedIds,
         birthday: formData.birthday || undefined,
       };
 
@@ -137,6 +147,110 @@ export const AddContactScreen: React.FC = () => {
           value={formData.tags}
           onChangeText={(text) => setFormData({ ...formData, tags: text })}
         />
+
+        <Text style={styles.sectionTitle}>Related Contacts</Text>
+        <TouchableOpacity
+          style={styles.relatedPicker}
+          onPress={() => setShowRelatedPicker(!showRelatedPicker)}
+        >
+          <Text style={styles.relatedPickerText}>
+            {selectedRelatedIds.length > 0
+              ? `${selectedRelatedIds.length} contact(s) linked`
+              : 'Link existing contacts (optional)'}
+          </Text>
+        </TouchableOpacity>
+
+        {selectedRelatedIds.length > 0 && (
+          <View style={styles.selectedRelatedContainer}>
+            {selectedRelatedIds.map((id) => {
+              const contact = contacts.find((c) => c.id === id);
+              return contact ? (
+                <TouchableOpacity
+                  key={id}
+                  style={styles.selectedRelatedTag}
+                  onPress={() =>
+                    setSelectedRelatedIds(selectedRelatedIds.filter((rid) => rid !== id))
+                  }
+                >
+                  <View style={styles.relatedAvatar}>
+                    <Text style={styles.relatedAvatarText}>
+                      {contact.firstName[0]}{contact.lastName[0]}
+                    </Text>
+                  </View>
+                  <Text style={styles.selectedRelatedName}>{contact.firstName}</Text>
+                  <Text style={styles.removeRelated}>×</Text>
+                </TouchableOpacity>
+              ) : null;
+            })}
+          </View>
+        )}
+
+        {showRelatedPicker && (
+          <View style={styles.relatedPickerContainer}>
+            <TextInput
+              style={styles.relatedSearchInput}
+              placeholder="Search contacts..."
+              placeholderTextColor="#64748b"
+              value={relatedSearchQuery}
+              onChangeText={setRelatedSearchQuery}
+              autoFocus
+            />
+            <ScrollView
+              style={styles.relatedList}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+            >
+              {contacts
+                .filter((c) => {
+                  if (selectedRelatedIds.includes(c.id)) return false;
+                  if (relatedSearchQuery) {
+                    const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
+                    return fullName.includes(relatedSearchQuery.toLowerCase());
+                  }
+                  return true;
+                })
+                .map((contact) => (
+                  <TouchableOpacity
+                    key={contact.id}
+                    style={styles.relatedItem}
+                    onPress={() => {
+                      setSelectedRelatedIds([...selectedRelatedIds, contact.id]);
+                      setShowRelatedPicker(false);
+                      setRelatedSearchQuery('');
+                    }}
+                  >
+                    <View style={styles.relatedAvatar}>
+                      <Text style={styles.relatedAvatarText}>
+                        {contact.firstName[0]}{contact.lastName[0]}
+                      </Text>
+                    </View>
+                    <View style={styles.relatedItemInfo}>
+                      <Text style={styles.relatedItemText}>
+                        {contact.firstName} {contact.lastName}
+                      </Text>
+                      {contact.company && (
+                        <Text style={styles.relatedItemCompany}>{contact.company}</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              {contacts.filter((c) => {
+                if (selectedRelatedIds.includes(c.id)) return false;
+                if (relatedSearchQuery) {
+                  const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
+                  return fullName.includes(relatedSearchQuery.toLowerCase());
+                }
+                return true;
+              }).length === 0 && (
+                <Text style={styles.noContactsText}>
+                  {relatedSearchQuery ? 'No matching contacts' : 'No contacts available'}
+                </Text>
+              )}
+            </ScrollView>
+          </View>
+        )}
+
+        <Text style={styles.sectionTitle}>Notes</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
           placeholder="Notes"
@@ -208,6 +322,103 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 100,
     paddingTop: 16,
+  },
+  relatedPicker: {
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 12,
+  },
+  relatedPickerText: {
+    color: '#94a3b8',
+    fontSize: 16,
+  },
+  selectedRelatedContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  selectedRelatedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.3)',
+    gap: 6,
+  },
+  selectedRelatedName: {
+    color: '#a78bfa',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  removeRelated: {
+    color: '#a78bfa',
+    fontSize: 18,
+    marginLeft: 2,
+  },
+  relatedPickerContainer: {
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    overflow: 'hidden',
+  },
+  relatedSearchInput: {
+    backgroundColor: '#0f172a',
+    padding: 12,
+    fontSize: 14,
+    color: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  relatedList: {
+    maxHeight: 200,
+  },
+  relatedItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  relatedItemInfo: {
+    flex: 1,
+  },
+  relatedAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#3b82f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  relatedAvatarText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  relatedItemText: {
+    color: '#fff',
+    fontSize: 14,
+  },
+  relatedItemCompany: {
+    color: '#64748b',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  noContactsText: {
+    color: '#64748b',
+    fontSize: 14,
+    textAlign: 'center',
+    padding: 16,
   },
   buttonContainer: {
     flexDirection: 'row',
