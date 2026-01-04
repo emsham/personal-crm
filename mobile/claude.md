@@ -61,9 +61,23 @@ mobile/
 
 The mobile app now matches the web app's AI-first design:
 
-### Home Screen (AI Chat)
+### Conditional Home Screen
+The Home tab adapts based on AI configuration status:
+
+**When AI is NOT configured:**
+- Shows Dashboard view as the default home screen
+- Prominent "Enable AI Assistant" banner at top (tappable to open settings)
+- Full dashboard with stats, quick actions, tasks, and contacts
+- Bottom tab shows "Dashboard" with 📊 icon
+
+**When AI IS configured:**
+- Shows full-screen AI chat interface
+- Dashboard accessible via "Dashboard" button in header
+- Bottom tab shows "AI" with ✨ icon
+
+### AI Chat Features
 - **Full-screen chat interface** - AI is the primary interaction method
-- **Streaming responses** - Real-time text streaming from OpenAI/Gemini
+- **Non-streaming responses** - Uses standard fetch (React Native doesn't support ReadableStream)
 - **Tool calling** - AI can search contacts, add tasks, log interactions, get stats
 - **Rich tool results** - Contacts, tasks, interactions displayed as interactive cards
 - **Dashboard access** - Button to access stats/quick actions when needed
@@ -85,9 +99,9 @@ The mobile app now matches the web app's AI-first design:
 - `updateContact` - Modify contact info
 - `updateTask` - Mark complete, change priority, reschedule
 
-### Streaming Implementation
-- Uses SSE (Server-Sent Events) parsing for OpenAI
-- Fetch-based streaming for Gemini
+### API Implementation
+- **Non-streaming fetch** - React Native's fetch doesn't support ReadableStream, so we use standard JSON responses
+- Uses callback interface (`onText`, `onToolCall`, `onDone`, `onError`) for consistent API
 - AbortController support for cancellation
 - Multi-turn tool execution loop (up to 5 iterations)
 
@@ -150,13 +164,15 @@ Copy `.env.example` to `.env` and fill in Firebase credentials:
 
 - **Unauthenticated**: LoginScreen (email/password + Google)
 - **Authenticated**:
-  - Tab Navigator:
-    - AI (full-screen chat - primary interface)
+  - Tab Navigator (dynamic based on AI config):
+    - Home tab:
+      - **AI not configured**: "Dashboard" (📊) - shows dashboard with "Enable AI" banner
+      - **AI configured**: "AI" (✨) - shows full-screen chat
     - Contacts (list → detail with edit/delete → add/log interaction)
     - Tasks (list → add)
     - Settings (sign out)
   - Stack screens:
-    - Dashboard (accessible from AI screen)
+    - Dashboard (accessible from AI chat header when AI is configured)
     - ContactDetail
     - AddContact, AddTask, LogInteraction (modals)
 
