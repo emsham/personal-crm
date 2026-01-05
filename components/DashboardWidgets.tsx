@@ -147,7 +147,19 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
                   <div className="space-y-3">
                     {upcomingTasks.map(task => {
                       const contact = contacts.find(c => c.id === task.contactId);
-                      const isOverdue = task.dueDate && parseLocalDate(task.dueDate) < today;
+                      // Check if task is overdue - either past date, or today with time passed
+                      let isOverdue = false;
+                      if (task.dueDate) {
+                        const dueDate = parseLocalDate(task.dueDate);
+                        if (dueDate < today) {
+                          isOverdue = true;
+                        } else if (dueDate.getTime() === today.getTime() && task.dueTime) {
+                          const [hours, minutes] = task.dueTime.split(':').map(Number);
+                          const dueDateTime = new Date(dueDate);
+                          dueDateTime.setHours(hours, minutes, 0, 0);
+                          isOverdue = dueDateTime < new Date();
+                        }
+                      }
                       return (
                         <div
                           key={task.id}
@@ -268,7 +280,19 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
               <div className="space-y-2">
                 {upcomingTasks.map(task => {
                   const contact = contacts.find(c => c.id === task.contactId);
-                  const isOverdue = task.dueDate && parseLocalDate(task.dueDate) < today;
+                  // Check if task is overdue - either past date, or today with time passed
+                  let isOverdue = false;
+                  if (task.dueDate) {
+                    const dueDate = parseLocalDate(task.dueDate);
+                    if (dueDate < today) {
+                      isOverdue = true;
+                    } else if (dueDate.getTime() === today.getTime() && task.dueTime) {
+                      const [hours, minutes] = task.dueTime.split(':').map(Number);
+                      const dueDateTime = new Date(dueDate);
+                      dueDateTime.setHours(hours, minutes, 0, 0);
+                      isOverdue = dueDateTime < new Date();
+                    }
+                  }
                   return (
                     <div
                       key={task.id}

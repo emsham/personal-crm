@@ -3,6 +3,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { LLMSettingsProvider } from './src/contexts/LLMSettingsContext';
 import { NotificationProvider } from './src/contexts/NotificationContext';
+import { ChatProvider } from './src/contexts/ChatContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 
 export default function App() {
@@ -11,8 +12,10 @@ export default function App() {
       <AuthProvider>
         <LLMSettingsProvider>
           <NotificationProvider>
-            <StatusBar style="light" />
-            <AppNavigator />
+            <ChatProvider>
+              <StatusBar style="light" />
+              <AppNavigator />
+            </ChatProvider>
           </NotificationProvider>
         </LLMSettingsProvider>
       </AuthProvider>

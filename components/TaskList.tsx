@@ -121,8 +121,43 @@ const TaskList: React.FC<TaskListProps> = ({
     handleCancelEdit();
   };
 
+  const isOverdue = (dueDate?: string, dueTime?: string) => {
+    if (!dueDate) return false;
+    const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const due = new Date(dueDate + 'T00:00:00');
+
+    // If due date is before today, it's overdue
+    if (due < today) return true;
+
+    // If due date is today and time is specified, check if time has passed
+    if (due.getTime() === today.getTime() && dueTime) {
+      const [hours, minutes] = dueTime.split(':').map(Number);
+      const dueDateTime = new Date(due);
+      dueDateTime.setHours(hours, minutes, 0, 0);
+      return dueDateTime < now;
+    }
+
+    return false;
+  };
+
   const pendingTasks = tasks.filter(t => !t.completed);
   const completedTasks = tasks.filter(t => t.completed);
+  const overdueTasks = pendingTasks.filter(t => isOverdue(t.dueDate, t.dueTime));
+  const upcomingTasks = pendingTasks.filter(t => !isOverdue(t.dueDate, t.dueTime));
+
+  // Sort pending tasks: overdue first, then by due date
+  const sortedPendingTasks = [...pendingTasks].sort((a, b) => {
+    const aOverdue = isOverdue(a.dueDate, a.dueTime);
+    const bOverdue = isOverdue(b.dueDate, b.dueTime);
+    if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+    if (a.dueDate && b.dueDate) return new Date(a.dueDate + 'T00:00:00').getTime() - new Date(b.dueDate + 'T00:00:00').getTime();
+    if (a.dueDate && !b.dueDate) return -1;
+    if (!a.dueDate && b.dueDate) return 1;
+    return 0;
+  });
 
   const getContactName = (contactId?: string) => {
     if (!contactId) return null;
@@ -138,21 +173,16 @@ const TaskList: React.FC<TaskListProps> = ({
     }
   };
 
-  const isOverdue = (dueDate?: string) => {
-    if (!dueDate) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const due = new Date(dueDate + 'T00:00:00');
-    return due < today;
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white">Tasks</h2>
           <p className="text-slate-400 text-sm mt-1">
-            <span className="text-white font-semibold">{pendingTasks.length}</span> pending, <span className="text-slate-500">{completedTasks.length}</span> completed
+            {overdueTasks.length > 0 && (
+              <><span className="text-rose-400 font-semibold">{overdueTasks.length}</span> overdue, </>
+            )}
+            <span className="text-white font-semibold">{upcomingTasks.length}</span> upcoming, <span className="text-slate-500">{completedTasks.length}</span> completed
           </p>
         </div>
         <button
@@ -313,12 +343,12 @@ const TaskList: React.FC<TaskListProps> = ({
           <h3 className="font-semibold text-white">Pending Tasks</h3>
         </div>
         <div className="divide-y divide-white/5">
-          {pendingTasks.length === 0 ? (
+          {sortedPendingTasks.length === 0 ? (
             <div className="px-6 py-10 text-center text-slate-500">
               No pending tasks. Create one to get started!
             </div>
           ) : (
-            pendingTasks.map(task => (
+            sortedPendingTasks.map(task => (
               editingTaskId === task.id ? (
                 /* Edit Form */
                 <div key={task.id} className="px-6 py-4 bg-white/5">
@@ -459,7 +489,7 @@ const TaskList: React.FC<TaskListProps> = ({
                 </div>
               ) : (
                 /* View Mode */
-                <div key={task.id} className="px-6 py-4 flex items-start gap-4 hover:bg-white/5 transition-colors group">
+                <div key={task.id} className={`px-6 py-4 flex items-start gap-4 hover:bg-white/5 transition-colors group ${isOverdue(task.dueDate, task.dueTime) ? 'bg-rose-500/10 border-l-4 border-l-rose-500' : ''}`}>
                   <button
                     onClick={() => onToggleTask(task.id, true)}
                     className="mt-1 w-5 h-5 rounded-lg border-2 border-slate-600 hover:border-violet-500 hover:bg-violet-500/20 transition-all flex-shrink-0"
@@ -467,6 +497,11 @@ const TaskList: React.FC<TaskListProps> = ({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-white">{task.title}</span>
+                      {isOverdue(task.dueDate, task.dueTime) && (
+                        <span className="text-[10px] px-2 py-1 rounded-lg bg-rose-500 text-white font-bold uppercase tracking-wide">
+                          OVERDUE
+                        </span>
+                      )}
                       <span className={`text-[10px] px-2 py-1 rounded-lg border font-semibold uppercase tracking-wide ${getPriorityStyles(task.priority)}`}>
                         {task.priority}
                       </span>
@@ -482,9 +517,9 @@ const TaskList: React.FC<TaskListProps> = ({
                     )}
                     <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                       {task.dueDate && (
-                        <span className={`flex items-center gap-1 ${isOverdue(task.dueDate) ? 'text-rose-400 font-medium' : ''}`}>
+                        <span className={`flex items-center gap-1 ${isOverdue(task.dueDate, task.dueTime) ? 'text-rose-400 font-medium' : ''}`}>
                           <Calendar size={12} />
-                          {isOverdue(task.dueDate) ? 'Overdue: ' : ''}{task.dueDate}
+                          {isOverdue(task.dueDate, task.dueTime) ? 'Overdue: ' : ''}{task.dueDate}
                           {task.dueTime && (
                             <span className="flex items-center gap-1 ml-1">
                               <Clock size={10} /> {task.dueTime}

@@ -195,8 +195,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       const notificationIds: string[] = [];
 
-      // Parse due date and time
-      const dueDate = new Date(task.dueDate);
+      // Parse due date in local timezone (adding T00:00:00 prevents UTC interpretation)
+      const dueDate = new Date(task.dueDate + 'T00:00:00');
 
       if (task.dueTime) {
         // If time is set, use exact time

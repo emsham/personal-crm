@@ -64,3 +64,32 @@ export interface CRMState {
   interactions: Interaction[];
   tasks: Task[];
 }
+
+// Chat types for AI conversations
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'tool';
+  content: string;
+  timestamp: Date;
+  toolCalls?: Array<{
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+  }>;
+  toolResults?: Array<{
+    toolCallId: string;
+    name: string;
+    result: unknown;
+    success: boolean;
+    error?: string;
+  }>;
+  isStreaming?: boolean;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: Date;
+  updatedAt: Date;
+}

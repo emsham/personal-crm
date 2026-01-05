@@ -22,13 +22,16 @@ mobile/
 │   │   └── chat/
 │   │       ├── ChatMessage.tsx       # Message bubbles with tool call indicators
 │   │       ├── ChatInput.tsx         # Auto-resize input with send/stop
+│   │       ├── ChatHistoryModal.tsx  # Chat history browser (sessions grouped by date)
 │   │       ├── ToolResultCard.tsx    # Rich display of tool results (contacts, tasks, stats)
 │   │       └── index.ts              # Component exports
 │   ├── config/
 │   │   └── firebase.ts               # Firebase initialization with AsyncStorage persistence
 │   ├── contexts/
 │   │   ├── AuthContext.tsx           # Auth state management
-│   │   └── LLMSettingsContext.tsx    # AI settings (API keys, provider selection)
+│   │   ├── LLMSettingsContext.tsx    # AI settings (API keys, provider selection)
+│   │   ├── NotificationContext.tsx   # Push notification scheduling and permissions
+│   │   └── ChatContext.tsx           # Chat session management (Firestore sync)
 │   ├── navigation/
 │   │   └── AppNavigator.tsx          # Tab and stack navigation setup
 │   ├── screens/
@@ -45,6 +48,7 @@ mobile/
 │   │   ├── authService.ts            # Auth operations (sign in, sign up, Google)
 │   │   ├── firestoreService.ts       # Firestore CRUD operations
 │   │   ├── aiService.ts              # Streaming AI with OpenAI/Gemini + tool calling
+│   │   ├── chatService.ts            # Chat session CRUD (Firestore sync with web app)
 │   │   └── toolExecutors.ts          # CRM tool execution (search, add, update)
 │   ├── shared/
 │   │   └── ai/
@@ -81,6 +85,15 @@ The Home tab adapts based on AI configuration status:
 - **Tool calling** - AI can search contacts, add tasks, log interactions, get stats
 - **Rich tool results** - Contacts, tasks, interactions displayed as interactive cards
 - **Dashboard access** - Button to access stats/quick actions when needed
+- **Chat history** - Persistent sessions synced to Firestore (shared with web app)
+
+### Chat History
+- **Firestore persistence** - Conversations saved to `users/{userId}/chatSessions`
+- **Cross-platform sync** - Same sessions visible in web app
+- **Session browser** - History button in header opens session list modal
+- **Date grouping** - Sessions grouped by Today, Yesterday, Last 7 Days, etc.
+- **Auto-title** - Session title generated from first user message
+- **Session management** - Create new, switch between, or delete sessions
 
 ### AI Capabilities (12 CRM Tools)
 **Query Tools:**
@@ -180,9 +193,11 @@ Copy `.env.example` to `.env` and fill in Firebase credentials:
 
 Key types from `types.ts`:
 - `Contact`: firstName, lastName, email, phone, company, position, tags[], notes, birthday?, importantDates[], relatedContactIds[], status
-- `Task`: title, description?, contactId?, dueDate?, priority, frequency, completed
+- `Task`: title, description?, contactId?, dueDate?, dueTime?, reminderBefore?, priority, frequency, completed
 - `Interaction`: contactId, date, type, notes
 - `ImportantDate`: id, label, date (MM-DD format)
+- `ChatSession`: id, title, messages[], createdAt, updatedAt
+- `ChatMessage`: id, role, content, timestamp, toolCalls?, toolResults?, isStreaming?
 
 Key AI types from `shared/ai/types.ts`:
 - `ToolCall`: id, name, arguments

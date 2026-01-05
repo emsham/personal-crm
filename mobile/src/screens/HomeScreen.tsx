@@ -16,6 +16,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
 import { useLLMSettings } from '../contexts/LLMSettingsContext';
 import { useNotifications } from '../contexts/NotificationContext';
+import { useChat } from '../contexts/ChatContext';
 import {
   subscribeToContacts,
   subscribeToTasks,
@@ -30,7 +31,7 @@ import {
 } from '../services/aiService';
 import { executeToolCall, CRMData, ToolResult } from '../services/toolExecutors';
 import { ToolCall } from '../shared/ai/types';
-import { ChatMessage, ChatMessageData, ChatInput } from '../components/chat';
+import { ChatMessage, ChatMessageData, ChatInput, ChatHistoryModal } from '../components/chat';
 import { LLMSettingsModal } from '../components/LLMSettingsModal';
 import type { Contact, Task, Interaction } from '../types';
 import type { RootStackParamList } from '../navigation/AppNavigator';
@@ -41,6 +42,18 @@ export const HomeScreen: React.FC = () => {
   const { user } = useAuth();
   const { settings, currentProviderConfigured } = useLLMSettings();
   const { scheduleContactNotifications, scheduleTaskNotifications, permissionStatus } = useNotifications();
+  const {
+    sessions,
+    currentSessionId,
+    currentMessages,
+    isHistoryOpen,
+    createNewSession,
+    selectSession,
+    deleteSession,
+    setCurrentMessages,
+    saveCurrentSession,
+    toggleHistory,
+  } = useChat();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const flatListRef = useRef<FlatList>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -50,13 +63,22 @@ export const HomeScreen: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [interactions, setInteractions] = useState<Interaction[]>([]);
 
-  // Chat state
+  // Chat state - use context for messages
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Sync local messages with context
+  useEffect(() => {
+    if (currentMessages.length > 0) {
+      setMessages(currentMessages);
+    } else if (!currentSessionId) {
+      setMessages([]);
+    }
+  }, [currentMessages, currentSessionId]);
 
   // Subscribe to data
   useEffect(() => {
@@ -191,24 +213,20 @@ export const HomeScreen: React.FC = () => {
             newToolCalls.push(toolCall);
           },
           onDone: async () => {
-            setMessages((prev) => {
-              const updated = [...prev];
-              const lastMsg = updated[updated.length - 1];
-              if (lastMsg && lastMsg.role === 'assistant') {
-                lastMsg.isStreaming = false;
-                lastMsg.toolCalls = newToolCalls.length > 0 ? newToolCalls : undefined;
-              }
-              return [...updated];
-            });
+            const finalMessages = messagesWithAssistant.map((m, i) =>
+              i === messagesWithAssistant.length - 1
+                ? { ...m, content: responseContent, toolCalls: newToolCalls.length > 0 ? newToolCalls : undefined, isStreaming: false }
+                : m
+            );
+
+            setMessages(finalMessages);
 
             // Process any new tool calls
             if (newToolCalls.length > 0) {
-              const latestMessages = messagesWithAssistant.map((m, i) =>
-                i === messagesWithAssistant.length - 1
-                  ? { ...m, content: responseContent, toolCalls: newToolCalls, isStreaming: false }
-                  : m
-              );
-              await processToolCalls(newToolCalls, latestMessages, iteration + 1);
+              await processToolCalls(newToolCalls, finalMessages, iteration + 1);
+            } else {
+              // No more tool calls, save the session
+              await saveCurrentSession(finalMessages);
             }
           },
           onError: (error) => {
@@ -226,7 +244,7 @@ export const HomeScreen: React.FC = () => {
         abortControllerRef.current?.signal
       );
     },
-    [user, contacts, tasks, interactions, settings]
+    [user, contacts, tasks, interactions, settings, saveCurrentSession]
   );
 
   const handleSend = useCallback(async () => {
@@ -302,25 +320,21 @@ export const HomeScreen: React.FC = () => {
             toolCalls.push(toolCall);
           },
           onDone: async () => {
-            setMessages((prev) => {
-              const updated = [...prev];
-              const lastMsg = updated[updated.length - 1];
-              if (lastMsg && lastMsg.role === 'assistant') {
-                lastMsg.isStreaming = false;
-                lastMsg.toolCalls = toolCalls.length > 0 ? toolCalls : undefined;
-              }
-              return [...updated];
-            });
+            const finalMessages = [...updatedMessages, {
+              ...assistantMessage,
+              content: responseContent,
+              toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+              isStreaming: false,
+            }];
+
+            setMessages(finalMessages);
 
             // Process tool calls if any
             if (toolCalls.length > 0) {
-              const latestMessages = [...updatedMessages, {
-                ...assistantMessage,
-                content: responseContent,
-                toolCalls,
-                isStreaming: false,
-              }];
-              await processToolCalls(toolCalls, latestMessages, 0);
+              await processToolCalls(toolCalls, finalMessages, 0);
+            } else {
+              // No tool calls, save session now
+              await saveCurrentSession(finalMessages);
             }
 
             setIsStreaming(false);
@@ -356,11 +370,13 @@ export const HomeScreen: React.FC = () => {
     contacts,
     tasks,
     processToolCalls,
+    saveCurrentSession,
   ]);
 
   const handleNewChat = useCallback(() => {
+    createNewSession();
     setMessages([]);
-  }, []);
+  }, [createNewSession]);
 
   const handleSuggestion = useCallback(
     (text: string) => {
@@ -687,12 +703,25 @@ export const HomeScreen: React.FC = () => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.dashboardButton}
-            onPress={() => navigation.navigate('Dashboard')}
-          >
-            <Text style={styles.dashboardButtonText}>Dashboard</Text>
-          </TouchableOpacity>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={styles.dashboardButton}
+              onPress={() => navigation.navigate('Dashboard')}
+            >
+              <Text style={styles.dashboardButtonText}>Dashboard</Text>
+            </TouchableOpacity>
+            {sessions.length > 0 && (
+              <TouchableOpacity
+                style={styles.historyButton}
+                onPress={toggleHistory}
+              >
+                <Text style={styles.historyButtonText}>History</Text>
+                <View style={styles.historyBadge}>
+                  <Text style={styles.historyBadgeText}>{sessions.length}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>Nexus AI</Text>
@@ -746,6 +775,15 @@ export const HomeScreen: React.FC = () => {
       </KeyboardAvoidingView>
 
       <LLMSettingsModal visible={showSettings} onClose={() => setShowSettings(false)} />
+      <ChatHistoryModal
+        visible={isHistoryOpen}
+        onClose={toggleHistory}
+        sessions={sessions}
+        currentSessionId={currentSessionId}
+        onSelectSession={selectSession}
+        onDeleteSession={deleteSession}
+        onNewChat={handleNewChat}
+      />
     </SafeAreaView>
   );
 };
@@ -777,6 +815,38 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 13,
     fontWeight: '500',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  historyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 6,
+  },
+  historyButtonText: {
+    color: '#a78bfa',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  historyBadge: {
+    backgroundColor: '#8b5cf6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  historyBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
   },
   headerCenter: {
     alignItems: 'center',

@@ -48,64 +48,109 @@ export const TasksScreen: React.FC = () => {
     return contact ? `${contact.firstName} ${contact.lastName}` : '';
   };
 
-  const isOverdue = (dueDate?: string): boolean => {
+  const isOverdue = (dueDate?: string, dueTime?: string): boolean => {
     if (!dueDate) return false;
+    const now = new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
     const due = new Date(dueDate + 'T00:00:00');
-    return due < today;
+
+    // If due date is before today, it's overdue
+    if (due < today) return true;
+
+    // If due date is today and time is specified, check if time has passed
+    if (due.getTime() === today.getTime() && dueTime) {
+      const [hours, minutes] = dueTime.split(':').map(Number);
+      const dueDateTime = new Date(due);
+      dueDateTime.setHours(hours, minutes, 0, 0);
+      return dueDateTime < now;
+    }
+
+    return false;
   };
 
   const filteredTasks = tasks.filter((task) => showCompleted || !task.completed);
   const sortedTasks = filteredTasks.sort((a, b) => {
+    // Completed tasks go to bottom
     if (a.completed !== b.completed) return a.completed ? 1 : -1;
-    if (a.dueDate && b.dueDate) return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    // Overdue tasks go to top
+    const aOverdue = isOverdue(a.dueDate, a.dueTime);
+    const bOverdue = isOverdue(b.dueDate, b.dueTime);
+    if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+    // Then sort by due date
+    if (a.dueDate && b.dueDate) return new Date(a.dueDate + 'T00:00:00').getTime() - new Date(b.dueDate + 'T00:00:00').getTime();
+    // Tasks with due dates before tasks without
+    if (a.dueDate && !b.dueDate) return -1;
+    if (!a.dueDate && b.dueDate) return 1;
     return 0;
   });
 
-  const renderTask = ({ item }: { item: Task }) => (
-    <View style={[styles.taskCard, item.completed && styles.taskCompleted]}>
-      <TouchableOpacity
-        style={[styles.checkbox, item.completed && styles.checkboxChecked]}
-        onPress={() => toggleTaskComplete(item)}
-      >
-        {item.completed && <Text style={styles.checkmark}>✓</Text>}
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.taskInfo}
-        onPress={() => navigation.navigate('EditTask', { taskId: item.id })}
-      >
-        <Text style={[styles.taskTitle, item.completed && styles.taskTitleCompleted]}>
-          {item.title}
-        </Text>
-        {item.contactId && (
-          <Text style={styles.taskContact}>{getContactName(item.contactId)}</Text>
-        )}
-        <View style={styles.taskMeta}>
-          {item.dueDate && (
-            <Text style={[styles.dueDate, isOverdue(item.dueDate) && !item.completed && styles.overdue]}>
-              {new Date(item.dueDate + 'T00:00:00').toLocaleDateString()}
-              {item.dueTime && ` at ${item.dueTime}`}
-            </Text>
-          )}
-          <View style={[styles.priorityBadge, styles[`priority_${item.priority}` as keyof typeof styles]]}>
-            <Text style={styles.priorityText}>{item.priority}</Text>
-          </View>
-        </View>
-        <Text style={styles.editHint}>Tap to edit</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const renderTask = ({ item }: { item: Task }) => {
+    const taskIsOverdue = !item.completed && isOverdue(item.dueDate, item.dueTime);
 
-  const pendingCount = tasks.filter((t) => !t.completed).length;
+    return (
+      <View style={[
+        styles.taskCard,
+        item.completed && styles.taskCompleted,
+        taskIsOverdue && styles.taskOverdue
+      ]}>
+        <TouchableOpacity
+          style={[styles.checkbox, item.completed && styles.checkboxChecked]}
+          onPress={() => toggleTaskComplete(item)}
+        >
+          {item.completed && <Text style={styles.checkmark}>✓</Text>}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.taskInfo}
+          onPress={() => navigation.navigate('EditTask', { taskId: item.id })}
+        >
+          <View style={styles.taskTitleRow}>
+            <Text style={[styles.taskTitle, item.completed && styles.taskTitleCompleted]}>
+              {item.title}
+            </Text>
+            {taskIsOverdue && (
+              <View style={styles.overdueBadge}>
+                <Text style={styles.overdueBadgeText}>OVERDUE</Text>
+              </View>
+            )}
+          </View>
+          {item.contactId && (
+            <Text style={styles.taskContact}>{getContactName(item.contactId)}</Text>
+          )}
+          <View style={styles.taskMeta}>
+            {item.dueDate && (
+              <Text style={[styles.dueDate, taskIsOverdue && styles.overdueText]}>
+                {new Date(item.dueDate + 'T00:00:00').toLocaleDateString()}
+                {item.dueTime && ` at ${item.dueTime}`}
+              </Text>
+            )}
+            <View style={[styles.priorityBadge, styles[`priority_${item.priority}` as keyof typeof styles]]}>
+              <Text style={styles.priorityText}>{item.priority}</Text>
+            </View>
+          </View>
+          <Text style={styles.editHint}>Tap to edit</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const overdueCount = tasks.filter((t) => !t.completed && isOverdue(t.dueDate, t.dueTime)).length;
+  const upcomingCount = tasks.filter((t) => !t.completed && !isOverdue(t.dueDate, t.dueTime)).length;
   const completedCount = tasks.filter((t) => t.completed).length;
 
   return (
     <View style={styles.container}>
       <View style={styles.summary}>
+        {overdueCount > 0 && (
+          <View style={[styles.summaryItem, styles.summaryOverdue]}>
+            <Text style={[styles.summaryNumber, styles.summaryNumberOverdue]}>{overdueCount}</Text>
+            <Text style={[styles.summaryLabel, styles.summaryLabelOverdue]}>Overdue</Text>
+          </View>
+        )}
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryNumber}>{pendingCount}</Text>
-          <Text style={styles.summaryLabel}>Pending</Text>
+          <Text style={styles.summaryNumber}>{upcomingCount}</Text>
+          <Text style={styles.summaryLabel}>Upcoming</Text>
         </View>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryNumber}>{completedCount}</Text>
@@ -157,15 +202,26 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
+  summaryOverdue: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
   summaryNumber: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#fff',
   },
+  summaryNumberOverdue: {
+    color: '#ef4444',
+  },
   summaryLabel: {
     fontSize: 14,
     color: '#94a3b8',
     marginTop: 4,
+  },
+  summaryLabelOverdue: {
+    color: '#f87171',
   },
   toggleButton: {
     marginHorizontal: 16,
@@ -186,6 +242,11 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
+  },
+  taskOverdue: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#ef4444',
   },
   taskCompleted: {
     opacity: 0.6,
@@ -211,6 +272,12 @@ const styles = StyleSheet.create({
   taskInfo: {
     flex: 1,
   },
+  taskTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   taskTitle: {
     fontSize: 16,
     fontWeight: '500',
@@ -235,8 +302,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748b',
   },
-  overdue: {
+  overdueText: {
     color: '#ef4444',
+    fontWeight: '500',
+  },
+  overdueBadge: {
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  overdueBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   priorityBadge: {
     paddingHorizontal: 8,

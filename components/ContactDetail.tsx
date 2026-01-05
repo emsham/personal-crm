@@ -247,12 +247,26 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
     }
   };
 
-  const isOverdue = (dueDate?: string) => {
+  const isOverdue = (dueDate?: string, dueTime?: string) => {
     if (!dueDate) return false;
+    const now = new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
     const due = new Date(dueDate + 'T00:00:00');
-    return due < today;
+
+    // If due date is before today, it's overdue
+    if (due < today) return true;
+
+    // If due date is today and time is specified, check if time has passed
+    if (due.getTime() === today.getTime() && dueTime) {
+      const [hours, minutes] = dueTime.split(':').map(Number);
+      const dueDateTime = new Date(due);
+      dueDateTime.setHours(hours, minutes, 0, 0);
+      return dueDateTime < now;
+    }
+
+    return false;
   };
 
   return (
@@ -746,8 +760,9 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                           )}
                         </div>
                         {task.dueDate && (
-                          <span className={`text-xs ${isOverdue(task.dueDate) ? 'text-red-400' : 'text-slate-500'}`}>
-                            {isOverdue(task.dueDate) ? 'Overdue: ' : 'Due: '}{task.dueDate}
+                          <span className={`text-xs ${isOverdue(task.dueDate, task.dueTime) ? 'text-red-400' : 'text-slate-500'}`}>
+                            {isOverdue(task.dueDate, task.dueTime) ? 'Overdue: ' : 'Due: '}{task.dueDate}
+                            {task.dueTime && ` at ${task.dueTime}`}
                           </span>
                         )}
                       </div>
