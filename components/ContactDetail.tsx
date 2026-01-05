@@ -249,7 +249,10 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
 
   const isOverdue = (dueDate?: string) => {
     if (!dueDate) return false;
-    return new Date(dueDate) < new Date(new Date().toDateString());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate + 'T00:00:00');
+    return due < today;
   };
 
   return (

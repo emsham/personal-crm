@@ -149,7 +149,14 @@ export const updateTask = async (
   updates: Partial<Task>
 ): Promise<void> => {
   const taskRef = doc(db, 'users', userId, 'tasks', taskId);
-  await updateDoc(taskRef, updates);
+  // Filter out undefined values - Firestore doesn't accept them
+  const cleanUpdates: Record<string, any> = {};
+  Object.entries(updates).forEach(([key, value]) => {
+    if (value !== undefined) {
+      cleanUpdates[key] = value;
+    }
+  });
+  await updateDoc(taskRef, cleanUpdates);
 };
 
 export const deleteTask = async (userId: string, taskId: string): Promise<void> => {

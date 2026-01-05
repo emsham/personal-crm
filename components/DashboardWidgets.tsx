@@ -25,7 +25,13 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
   fullPage = false,
 }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Helper to parse date in local timezone
+  const parseLocalDate = (dateStr: string) => new Date(dateStr + 'T00:00:00');
+
+  // Get start of today for comparisons
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   // Stats
   const totalContacts = contacts.length;
@@ -38,7 +44,7 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
   // Upcoming tasks
   const upcomingTasks = tasks
     .filter(t => !t.completed && t.dueDate)
-    .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
+    .sort((a, b) => parseLocalDate(a.dueDate!).getTime() - parseLocalDate(b.dueDate!).getTime())
     .slice(0, 4);
 
   // Upcoming celebrations
@@ -141,7 +147,7 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
                   <div className="space-y-3">
                     {upcomingTasks.map(task => {
                       const contact = contacts.find(c => c.id === task.contactId);
-                      const isOverdue = task.dueDate && new Date(task.dueDate) < today;
+                      const isOverdue = task.dueDate && parseLocalDate(task.dueDate) < today;
                       return (
                         <div
                           key={task.id}
@@ -262,7 +268,7 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
               <div className="space-y-2">
                 {upcomingTasks.map(task => {
                   const contact = contacts.find(c => c.id === task.contactId);
-                  const isOverdue = task.dueDate && new Date(task.dueDate) < today;
+                  const isOverdue = task.dueDate && parseLocalDate(task.dueDate) < today;
                   return (
                     <div
                       key={task.id}
