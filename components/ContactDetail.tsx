@@ -2,8 +2,6 @@
 import React, { useState } from 'react';
 import { Contact, Interaction, InteractionType, Task, TaskFrequency, ImportantDate } from '../types';
 import { Mail, Phone, Calendar, Tag, Plus, MessageSquare, Sparkles, Send, ArrowLeft, Loader2, Users, CheckSquare, Check, Trash2, X, Edit3, Save, Cake, Star, Clock, Bell, Smartphone } from 'lucide-react';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
 import { generateFollowUpEmail, analyzeRelationship } from '../services/geminiService';
 
 interface ContactDetailProps {
@@ -96,7 +94,8 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTask, setNewTask] = useState({
     title: '',
-    dueDateTime: null as Date | null,
+    dueDate: '',
+    dueTime: '',
     reminderBefore: '' as string | number,
     priority: 'medium' as Task['priority'],
     frequency: 'none' as TaskFrequency,
@@ -111,18 +110,6 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
     { value: 60, label: '1 hour before' },
     { value: 120, label: '2 hours before' },
   ];
-
-  const formatDate = (date: Date | null): string | undefined => {
-    if (!date) return undefined;
-    return date.toISOString().split('T')[0];
-  };
-
-  const formatTime = (date: Date | null): string | undefined => {
-    if (!date) return undefined;
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
-  };
 
   const relatedContacts = allContacts.filter(c => contact.relatedContactIds.includes(c.id));
   const contactTasks = tasks.filter(t => t.contactId === contact.id);
@@ -231,14 +218,14 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
     onAddTask({
       title: newTask.title,
       contactId: contact.id,
-      dueDate: formatDate(newTask.dueDateTime),
-      dueTime: formatTime(newTask.dueDateTime),
+      dueDate: newTask.dueDate || undefined,
+      dueTime: newTask.dueTime || undefined,
       reminderBefore: newTask.reminderBefore !== '' ? Number(newTask.reminderBefore) : undefined,
       priority: newTask.priority,
       frequency: newTask.frequency,
       completed: false,
     });
-    setNewTask({ title: '', dueDateTime: null, reminderBefore: '', priority: 'medium', frequency: 'none' });
+    setNewTask({ title: '', dueDate: '', dueTime: '', reminderBefore: '', priority: 'medium', frequency: 'none' });
     setShowAddTask(false);
   };
 
@@ -658,18 +645,24 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                      <Calendar size={10} /> Due Date & Time
+                      <Calendar size={10} /> Due Date
                     </label>
-                    <DatePicker
-                      selected={newTask.dueDateTime}
-                      onChange={(date) => setNewTask({ ...newTask, dueDateTime: date })}
-                      showTimeSelect
-                      timeFormat="HH:mm"
-                      timeIntervals={15}
-                      dateFormat="MMM d, yyyy h:mm aa"
-                      placeholderText="Select date & time..."
+                    <input
+                      type="date"
+                      value={newTask.dueDate}
+                      onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
                       className="w-full px-3 py-2 input-dark rounded-xl text-sm"
-                      isClearable
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <Clock size={10} /> Due Time
+                    </label>
+                    <input
+                      type="time"
+                      value={newTask.dueTime}
+                      onChange={(e) => setNewTask({ ...newTask, dueTime: e.target.value })}
+                      className="w-full px-3 py-2 input-dark rounded-xl text-sm"
                     />
                   </div>
                   <div>

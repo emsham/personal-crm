@@ -63,6 +63,8 @@ export interface Task {
   description?: string;
   contactId?: string;
   dueDate?: string;
+  dueTime?: string;
+  reminderBefore?: number;
   completed: boolean;
   priority: 'low' | 'medium' | 'high';
   frequency: TaskFrequency;

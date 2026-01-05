@@ -42,22 +42,29 @@ export const DashboardScreen: React.FC = () => {
   const activeContacts = contacts.filter((c) => c.status === 'active').length;
   const driftingContacts = contacts.filter((c) => c.status === 'drifting').length;
   const pendingTasks = tasks.filter((t) => !t.completed).length;
+
+  // Helper to parse date in local timezone
+  const parseLocalDate = (dateStr: string) => new Date(dateStr + 'T00:00:00');
+
+  // Get start of today for comparisons
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const overdueTasks = tasks.filter(
-    (t) => !t.completed && t.dueDate && new Date(t.dueDate) < new Date()
+    (t) => !t.completed && t.dueDate && parseLocalDate(t.dueDate) < today
   ).length;
 
   // Get tasks due soon (within 7 days)
-  const now = new Date();
-  const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
   const upcomingTasks = tasks
     .filter(
       (t) =>
         !t.completed &&
         t.dueDate &&
-        new Date(t.dueDate) >= now &&
-        new Date(t.dueDate) <= weekFromNow
+        parseLocalDate(t.dueDate) >= today &&
+        parseLocalDate(t.dueDate) <= weekFromNow
     )
-    .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
+    .sort((a, b) => parseLocalDate(a.dueDate!).getTime() - parseLocalDate(b.dueDate!).getTime())
     .slice(0, 5);
 
   return (
@@ -132,13 +139,11 @@ export const DashboardScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Upcoming Tasks</Text>
           {upcomingTasks.map((task) => {
             const contact = contacts.find((c) => c.id === task.contactId);
-            const dueDate = task.dueDate ? new Date(task.dueDate) : null;
-            const isToday =
-              dueDate && dueDate.toDateString() === new Date().toDateString();
-            const isTomorrow =
-              dueDate &&
-              dueDate.toDateString() ===
-                new Date(Date.now() + 86400000).toDateString();
+            const dueDate = task.dueDate ? parseLocalDate(task.dueDate) : null;
+            const todayStr = new Date().toDateString();
+            const tomorrowStr = new Date(Date.now() + 86400000).toDateString();
+            const isToday = dueDate && dueDate.toDateString() === todayStr;
+            const isTomorrow = dueDate && dueDate.toDateString() === tomorrowStr;
 
             let dueDateText = task.dueDate;
             if (isToday) dueDateText = 'Today';

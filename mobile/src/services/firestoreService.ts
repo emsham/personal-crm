@@ -99,7 +99,13 @@ export const updateInteraction = async (
   updates: Partial<Interaction>
 ): Promise<void> => {
   const interactionRef = doc(db, 'users', userId, 'interactions', interactionId);
-  await updateDoc(interactionRef, updates);
+  const cleanUpdates: Record<string, unknown> = {};
+  Object.entries(updates).forEach(([key, value]) => {
+    if (value !== undefined) {
+      cleanUpdates[key] = value;
+    }
+  });
+  await updateDoc(interactionRef, cleanUpdates);
 };
 
 export const deleteInteraction = async (userId: string, interactionId: string): Promise<void> => {
@@ -146,7 +152,13 @@ export const updateTask = async (
   updates: Partial<Task>
 ): Promise<void> => {
   const taskRef = doc(db, 'users', userId, 'tasks', taskId);
-  await updateDoc(taskRef, updates);
+  const cleanUpdates: Record<string, unknown> = { updatedAt: serverTimestamp() };
+  Object.entries(updates).forEach(([key, value]) => {
+    if (value !== undefined) {
+      cleanUpdates[key] = value;
+    }
+  });
+  await updateDoc(taskRef, cleanUpdates);
 };
 
 export const deleteTask = async (userId: string, taskId: string): Promise<void> => {

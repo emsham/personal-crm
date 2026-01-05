@@ -50,7 +50,10 @@ export const TasksScreen: React.FC = () => {
 
   const isOverdue = (dueDate?: string): boolean => {
     if (!dueDate) return false;
-    return new Date(dueDate) < new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate + 'T00:00:00');
+    return due < today;
   };
 
   const filteredTasks = tasks.filter((task) => showCompleted || !task.completed);
@@ -81,7 +84,8 @@ export const TasksScreen: React.FC = () => {
         <View style={styles.taskMeta}>
           {item.dueDate && (
             <Text style={[styles.dueDate, isOverdue(item.dueDate) && !item.completed && styles.overdue]}>
-              {new Date(item.dueDate).toLocaleDateString()}
+              {new Date(item.dueDate + 'T00:00:00').toLocaleDateString()}
+              {item.dueTime && ` at ${item.dueTime}`}
             </Text>
           )}
           <View style={[styles.priorityBadge, styles[`priority_${item.priority}` as keyof typeof styles]]}>
