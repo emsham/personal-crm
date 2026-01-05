@@ -391,6 +391,15 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
+    if (!user) return;
+    try {
+      await updateTaskInFirestore(user.uid, taskId, updates);
+    } catch (error) {
+      console.error('Error updating task:', error);
+    }
+  };
+
   // Show loading spinner while checking auth
   if (authLoading) {
     return (
@@ -675,6 +684,7 @@ const App: React.FC = () => {
               tasks={tasks}
               contacts={contacts}
               onAddTask={handleAddTask}
+              onUpdateTask={handleUpdateTask}
               onToggleTask={handleToggleTask}
               onDeleteTask={handleDeleteTask}
             />

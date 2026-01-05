@@ -1,7 +1,9 @@
 
 import React, { useState } from 'react';
 import { Contact, Interaction, InteractionType, Task, TaskFrequency, ImportantDate } from '../types';
-import { Mail, Phone, Calendar, Tag, Plus, MessageSquare, Sparkles, Send, ArrowLeft, Loader2, Users, CheckSquare, Check, Trash2, X, Edit3, Save, Cake, Star } from 'lucide-react';
+import { Mail, Phone, Calendar, Tag, Plus, MessageSquare, Sparkles, Send, ArrowLeft, Loader2, Users, CheckSquare, Check, Trash2, X, Edit3, Save, Cake, Star, Clock, Bell, Smartphone } from 'lucide-react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { generateFollowUpEmail, analyzeRelationship } from '../services/geminiService';
 
 interface ContactDetailProps {
@@ -92,8 +94,35 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isLoading, setIsLoading] = useState({ draft: false, analysis: false });
   const [showAddTask, setShowAddTask] = useState(false);
-  const [newTask, setNewTask] = useState({ title: '', dueDate: '', priority: 'medium' as Task['priority'], frequency: 'none' as TaskFrequency });
+  const [newTask, setNewTask] = useState({
+    title: '',
+    dueDateTime: null as Date | null,
+    reminderBefore: '' as string | number,
+    priority: 'medium' as Task['priority'],
+    frequency: 'none' as TaskFrequency,
+  });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const reminderOptions = [
+    { value: '', label: 'No reminder' },
+    { value: 0, label: 'At time of task' },
+    { value: 15, label: '15 min before' },
+    { value: 30, label: '30 min before' },
+    { value: 60, label: '1 hour before' },
+    { value: 120, label: '2 hours before' },
+  ];
+
+  const formatDate = (date: Date | null): string | undefined => {
+    if (!date) return undefined;
+    return date.toISOString().split('T')[0];
+  };
+
+  const formatTime = (date: Date | null): string | undefined => {
+    if (!date) return undefined;
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
 
   const relatedContacts = allContacts.filter(c => contact.relatedContactIds.includes(c.id));
   const contactTasks = tasks.filter(t => t.contactId === contact.id);
@@ -202,12 +231,14 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
     onAddTask({
       title: newTask.title,
       contactId: contact.id,
-      dueDate: newTask.dueDate || undefined,
+      dueDate: formatDate(newTask.dueDateTime),
+      dueTime: formatTime(newTask.dueDateTime),
+      reminderBefore: newTask.reminderBefore !== '' ? Number(newTask.reminderBefore) : undefined,
       priority: newTask.priority,
       frequency: newTask.frequency,
       completed: false,
     });
-    setNewTask({ title: '', dueDate: '', priority: 'medium', frequency: 'none' });
+    setNewTask({ title: '', dueDateTime: null, reminderBefore: '', priority: 'medium', frequency: 'none' });
     setShowAddTask(false);
   };
 
@@ -615,22 +646,51 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
             </div>
 
             {showAddTask && (
-              <form onSubmit={handleAddTask} className="mb-4 p-4 glass-light rounded-xl">
+              <form onSubmit={handleAddTask} className="mb-4 p-4 glass-light rounded-xl space-y-3">
                 <input
                   type="text"
                   placeholder="Task title..."
-                  className="w-full px-4 py-3 input-dark rounded-xl text-sm mb-3"
+                  className="w-full px-4 py-3 input-dark rounded-xl text-sm"
                   value={newTask.title}
                   onChange={e => setNewTask({ ...newTask, title: e.target.value })}
                   required
                 />
-                <div className="flex gap-2 flex-wrap">
-                  <input
-                    type="date"
-                    className="flex-1 min-w-[120px] px-3 py-2 input-dark rounded-xl text-sm"
-                    value={newTask.dueDate}
-                    onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <Calendar size={10} /> Due Date & Time
+                    </label>
+                    <DatePicker
+                      selected={newTask.dueDateTime}
+                      onChange={(date) => setNewTask({ ...newTask, dueDateTime: date })}
+                      showTimeSelect
+                      timeFormat="HH:mm"
+                      timeIntervals={15}
+                      dateFormat="MMM d, yyyy h:mm aa"
+                      placeholderText="Select date & time..."
+                      className="w-full px-3 py-2 input-dark rounded-xl text-sm"
+                      isClearable
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <Bell size={10} /> Reminder
+                      {newTask.reminderBefore !== '' && (
+                        <Smartphone size={10} className="text-violet-400 ml-1" />
+                      )}
+                    </label>
+                    <select
+                      className="w-full px-3 py-2 input-dark rounded-xl text-sm"
+                      value={newTask.reminderBefore}
+                      onChange={e => setNewTask({ ...newTask, reminderBefore: e.target.value === '' ? '' : Number(e.target.value) })}
+                    >
+                      {reminderOptions.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-2 flex-wrap items-end">
                   <select
                     className="px-3 py-2 input-dark rounded-xl text-sm"
                     value={newTask.frequency}
@@ -654,9 +714,15 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                     <option value="high">High</option>
                   </select>
                   <button type="submit" className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-violet-500/25">
-                    Add
+                    Add Task
                   </button>
                 </div>
+                {newTask.reminderBefore !== '' && (
+                  <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                    <Smartphone size={11} className="text-violet-400" />
+                    Reminder via mobile notification
+                  </p>
+                )}
               </form>
             )}
 

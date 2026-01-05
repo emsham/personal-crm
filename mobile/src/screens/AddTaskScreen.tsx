@@ -32,10 +32,10 @@ export const AddTaskScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [showContactPicker, setShowContactPicker] = useState(false);
+  const [contactSearchQuery, setContactSearchQuery] = useState('');
 
   // Date/Time picker states
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [activePicker, setActivePicker] = useState<'date' | 'time' | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
 
@@ -160,7 +160,7 @@ export const AddTaskScreen: React.FC = () => {
 
   const handleDateChange = (event: any, date?: Date) => {
     if (Platform.OS === 'android') {
-      setShowDatePicker(false);
+      setActivePicker(null);
     }
     if (date) {
       setSelectedDate(date);
@@ -169,7 +169,7 @@ export const AddTaskScreen: React.FC = () => {
 
   const handleTimeChange = (event: any, date?: Date) => {
     if (Platform.OS === 'android') {
-      setShowTimePicker(false);
+      setActivePicker(null);
     }
     if (date) {
       setSelectedTime(date);
@@ -220,7 +220,7 @@ export const AddTaskScreen: React.FC = () => {
         <View style={styles.dateTimeRow}>
           <TouchableOpacity
             style={[styles.pickerButton, styles.dateInput]}
-            onPress={() => setShowDatePicker(true)}
+            onPress={() => setActivePicker('date')}
           >
             <Text style={selectedDate ? styles.pickerButtonTextSelected : styles.pickerButtonText}>
               {selectedDate ? formatDate(selectedDate) : 'Select Date'}
@@ -228,7 +228,7 @@ export const AddTaskScreen: React.FC = () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.pickerButton, styles.timeInput]}
-            onPress={() => setShowTimePicker(true)}
+            onPress={() => setActivePicker('time')}
           >
             <Text style={selectedTime ? styles.pickerButtonTextSelected : styles.pickerButtonText}>
               {selectedTime ? formatTime(selectedTime) : 'Time'}
@@ -243,36 +243,18 @@ export const AddTaskScreen: React.FC = () => {
         <Text style={styles.inputHint}>Time is optional. Leave empty for 9 AM notification.</Text>
 
         {/* iOS shows inline picker */}
-        {showDatePicker && Platform.OS === 'ios' && (
+        {activePicker && Platform.OS === 'ios' && (
           <View style={styles.inlinePicker}>
             <View style={styles.pickerHeader}>
-              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+              <TouchableOpacity onPress={() => setActivePicker(null)}>
                 <Text style={styles.pickerDone}>Done</Text>
               </TouchableOpacity>
             </View>
             <DateTimePicker
-              value={selectedDate || new Date()}
-              mode="date"
+              value={activePicker === 'date' ? (selectedDate || new Date()) : (selectedTime || new Date())}
+              mode={activePicker}
               display="spinner"
-              onChange={handleDateChange}
-              textColor="#fff"
-              themeVariant="dark"
-            />
-          </View>
-        )}
-
-        {showTimePicker && Platform.OS === 'ios' && (
-          <View style={styles.inlinePicker}>
-            <View style={styles.pickerHeader}>
-              <TouchableOpacity onPress={() => setShowTimePicker(false)}>
-                <Text style={styles.pickerDone}>Done</Text>
-              </TouchableOpacity>
-            </View>
-            <DateTimePicker
-              value={selectedTime || new Date()}
-              mode="time"
-              display="spinner"
-              onChange={handleTimeChange}
+              onChange={activePicker === 'date' ? handleDateChange : handleTimeChange}
               textColor="#fff"
               themeVariant="dark"
             />
@@ -280,7 +262,7 @@ export const AddTaskScreen: React.FC = () => {
         )}
 
         {/* Android shows modal picker */}
-        {showDatePicker && Platform.OS === 'android' && (
+        {activePicker === 'date' && Platform.OS === 'android' && (
           <DateTimePicker
             value={selectedDate || new Date()}
             mode="date"
@@ -289,7 +271,7 @@ export const AddTaskScreen: React.FC = () => {
           />
         )}
 
-        {showTimePicker && Platform.OS === 'android' && (
+        {activePicker === 'time' && Platform.OS === 'android' && (
           <DateTimePicker
             value={selectedTime || new Date()}
             mode="time"
@@ -357,7 +339,10 @@ export const AddTaskScreen: React.FC = () => {
         <Text style={styles.sectionTitle}>Link to Contact</Text>
         <TouchableOpacity
           style={styles.contactPicker}
-          onPress={() => setShowContactPicker(!showContactPicker)}
+          onPress={() => {
+            setShowContactPicker(!showContactPicker);
+            if (!showContactPicker) setContactSearchQuery('');
+          }}
         >
           <Text style={selectedContact ? styles.contactPickerTextSelected : styles.contactPickerText}>
             {selectedContact
@@ -368,36 +353,72 @@ export const AddTaskScreen: React.FC = () => {
         </TouchableOpacity>
 
         {showContactPicker && (
-          <View style={styles.contactList}>
-            <TouchableOpacity
-              style={styles.contactItem}
-              onPress={() => {
-                setFormData({ ...formData, contactId: '' });
-                setShowContactPicker(false);
-              }}
+          <View style={styles.contactPickerContainer}>
+            <TextInput
+              style={styles.contactSearchInput}
+              placeholder="Search contacts..."
+              placeholderTextColor="#64748b"
+              value={contactSearchQuery}
+              onChangeText={setContactSearchQuery}
+              autoFocus
+            />
+            <ScrollView
+              style={styles.contactList}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
             >
-              <Text style={styles.contactItemText}>None</Text>
-            </TouchableOpacity>
-            {contacts.map((contact) => (
               <TouchableOpacity
-                key={contact.id}
                 style={styles.contactItem}
                 onPress={() => {
-                  setFormData({ ...formData, contactId: contact.id });
+                  setFormData({ ...formData, contactId: '' });
                   setShowContactPicker(false);
+                  setContactSearchQuery('');
                 }}
               >
-                <View style={styles.contactAvatar}>
-                  <Text style={styles.contactAvatarText}>
-                    {contact.firstName[0]}
-                    {contact.lastName[0]}
-                  </Text>
-                </View>
-                <Text style={styles.contactItemText}>
-                  {contact.firstName} {contact.lastName}
-                </Text>
+                <Text style={styles.contactItemText}>None</Text>
               </TouchableOpacity>
-            ))}
+              {contacts
+                .filter((c) => {
+                  if (!contactSearchQuery) return true;
+                  const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
+                  return fullName.includes(contactSearchQuery.toLowerCase());
+                })
+                .map((contact) => (
+                  <TouchableOpacity
+                    key={contact.id}
+                    style={styles.contactItem}
+                    onPress={() => {
+                      setFormData({ ...formData, contactId: contact.id });
+                      setShowContactPicker(false);
+                      setContactSearchQuery('');
+                    }}
+                  >
+                    <View style={styles.contactAvatar}>
+                      <Text style={styles.contactAvatarText}>
+                        {contact.firstName[0]}
+                        {contact.lastName[0]}
+                      </Text>
+                    </View>
+                    <View style={styles.contactItemInfo}>
+                      <Text style={styles.contactItemText}>
+                        {contact.firstName} {contact.lastName}
+                      </Text>
+                      {contact.company && (
+                        <Text style={styles.contactItemCompany}>{contact.company}</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              {contacts.filter((c) => {
+                if (!contactSearchQuery) return true;
+                const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
+                return fullName.includes(contactSearchQuery.toLowerCase());
+              }).length === 0 && (
+                <Text style={styles.noContactsText}>
+                  {contactSearchQuery ? 'No matching contacts' : 'No contacts available'}
+                </Text>
+              )}
+            </ScrollView>
           </View>
         )}
 
@@ -661,12 +682,23 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
   },
-  contactList: {
+  contactPickerContainer: {
     backgroundColor: '#1e293b',
     borderRadius: 12,
     marginTop: 8,
     borderWidth: 1,
     borderColor: '#334155',
+    overflow: 'hidden',
+  },
+  contactSearchInput: {
+    backgroundColor: '#0f172a',
+    padding: 12,
+    fontSize: 14,
+    color: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  contactList: {
     maxHeight: 200,
   },
   contactItem: {
@@ -690,9 +722,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  contactItemInfo: {
+    flex: 1,
+  },
   contactItemText: {
     color: '#fff',
     fontSize: 14,
+  },
+  contactItemCompany: {
+    color: '#64748b',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  noContactsText: {
+    color: '#64748b',
+    fontSize: 14,
+    textAlign: 'center',
+    padding: 16,
   },
   buttonContainer: {
     flexDirection: 'row',
