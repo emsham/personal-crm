@@ -1,0 +1,158 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================
+    // Helper Functions
+    // ============================================
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if user owns this document path
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Check if a field is a valid string (non-empty)
+    function isValidString(field) {
+      return field is string && field.size() > 0;
+    }
+
+    // Check if tags array is valid
+    function isValidTags(tags) {
+      return tags is list;
+    }
+
+    // Check if status is valid
+    function isValidStatus(status) {
+      return status in ['active', 'drifting', 'lost'];
+    }
+
+    // Check if priority is valid
+    function isValidPriority(priority) {
+      return priority in ['low', 'medium', 'high'];
+    }
+
+    // Check if frequency is valid
+    function isValidFrequency(frequency) {
+      return frequency in ['none', 'daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'];
+    }
+
+    // Check if interaction type is valid
+    function isValidInteractionType(type) {
+      return type in ['Meeting', 'Call', 'Email', 'Coffee', 'Event', 'Other'];
+    }
+
+    // ============================================
+    // User Document Rules
+    // ============================================
+
+    // Block access to root users collection - only subcollections allowed
+    match /users/{userId} {
+      allow read, write: if false;
+
+      // ============================================
+      // Contacts Collection
+      // ============================================
+      match /contacts/{contactId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && isValidString(request.resource.data.firstName)
+          && request.resource.data.lastName is string
+          && request.resource.data.email is string
+          && request.resource.data.phone is string
+          && request.resource.data.company is string
+          && request.resource.data.position is string
+          && isValidTags(request.resource.data.tags)
+          && isValidStatus(request.resource.data.status)
+          && request.resource.data.relatedContactIds is list;
+
+        allow update: if isOwner(userId)
+          && (!('firstName' in request.resource.data) || isValidString(request.resource.data.firstName))
+          && (!('status' in request.resource.data) || isValidStatus(request.resource.data.status))
+          && (!('tags' in request.resource.data) || isValidTags(request.resource.data.tags))
+          && (!('relatedContactIds' in request.resource.data) || request.resource.data.relatedContactIds is list);
+
+        allow delete: if isOwner(userId);
+      }
+
+      // ============================================
+      // Interactions Collection
+      // ============================================
+      match /interactions/{interactionId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && isValidString(request.resource.data.contactId)
+          && isValidString(request.resource.data.date)
+          && isValidInteractionType(request.resource.data.type)
+          && request.resource.data.notes is string;
+
+        allow update: if isOwner(userId)
+          && (!('type' in request.resource.data) || isValidInteractionType(request.resource.data.type));
+
+        allow delete: if isOwner(userId);
+      }
+
+      // ============================================
+      // Tasks Collection
+      // ============================================
+      match /tasks/{taskId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && isValidString(request.resource.data.title)
+          && request.resource.data.completed is bool
+          && isValidPriority(request.resource.data.priority)
+          && isValidFrequency(request.resource.data.frequency);
+
+        allow update: if isOwner(userId)
+          && (!('priority' in request.resource.data) || isValidPriority(request.resource.data.priority))
+          && (!('frequency' in request.resource.data) || isValidFrequency(request.resource.data.frequency))
+          && (!('completed' in request.resource.data) || request.resource.data.completed is bool);
+
+        allow delete: if isOwner(userId);
+      }
+
+      // ============================================
+      // Chat Sessions Collection
+      // ============================================
+      match /chatSessions/{sessionId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && request.resource.data.title is string
+          && request.resource.data.messages is list;
+
+        allow update: if isOwner(userId)
+          && (!('title' in request.resource.data) || request.resource.data.title is string)
+          && (!('messages' in request.resource.data) || request.resource.data.messages is list);
+
+        allow delete: if isOwner(userId);
+      }
+
+      // ============================================
+      // User Profile/Settings (future use)
+      // ============================================
+      match /profile/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /settings/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // ============================================
+    // Deny all other access by default
+    // ============================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

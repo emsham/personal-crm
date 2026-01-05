@@ -23,4 +23,14 @@ dist-ssr
 *.sln
 *.sw?
 
+# Environment files
 .env
+.env.local
+.env.*.local
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+ui-debug.log
