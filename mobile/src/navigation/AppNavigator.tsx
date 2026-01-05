@@ -4,10 +4,12 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useLLMSettings } from '../contexts/LLMSettingsContext';
 import { useNotifications } from '../contexts/NotificationContext';
+import { LLMSettingsModal } from '../components/LLMSettingsModal';
 import {
   LoginScreen,
   HomeScreen,
@@ -45,18 +47,31 @@ export type MainTabParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-// Simple tab icons
+// Tab icons using Ionicons
 const TabIcon: React.FC<{ name: string; focused: boolean; isAIConfigured?: boolean }> = ({ name, focused, isAIConfigured }) => {
-  const icons: Record<string, string> = {
-    Home: isAIConfigured ? '✨' : '📊',
-    Contacts: '👥',
-    Tasks: '✓',
-    Settings: '⚙️',
+  const getIconName = (): keyof typeof Ionicons.glyphMap => {
+    switch (name) {
+      case 'Home':
+        return isAIConfigured
+          ? (focused ? 'sparkles' : 'sparkles-outline')
+          : (focused ? 'grid' : 'grid-outline');
+      case 'Contacts':
+        return focused ? 'people' : 'people-outline';
+      case 'Tasks':
+        return focused ? 'checkbox' : 'checkbox-outline';
+      case 'Settings':
+        return focused ? 'settings' : 'settings-outline';
+      default:
+        return 'ellipse-outline';
+    }
   };
+
   return (
-    <View style={styles.tabIcon}>
-      <Text style={[styles.iconText, focused && styles.iconFocused]}>{icons[name]}</Text>
-    </View>
+    <Ionicons
+      name={getIconName()}
+      size={22}
+      color={focused ? '#3b82f6' : '#64748b'}
+    />
   );
 };
 
@@ -64,7 +79,9 @@ const TabIcon: React.FC<{ name: string; focused: boolean; isAIConfigured?: boole
 const SettingsScreen: React.FC = () => {
   const { signOut, user } = useAuth();
   const { permissionStatus, settings, updateSettings, requestPermission } = useNotifications();
+  const { settings: llmSettings, currentProviderConfigured } = useLLMSettings();
   const [showReminderPicker, setShowReminderPicker] = useState(false);
+  const [showAISettings, setShowAISettings] = useState(false);
 
   const reminderOptions: { value: number; label: string }[] = [
     { value: 0, label: 'No reminder' },
@@ -83,6 +100,34 @@ const SettingsScreen: React.FC = () => {
     <ScrollView style={styles.settingsContainer} contentContainerStyle={styles.settingsContent}>
       <Text style={styles.settingsTitle}>Settings</Text>
       <Text style={styles.settingsEmail}>{user?.email}</Text>
+
+      {/* AI Settings Section */}
+      <View style={styles.settingsSection}>
+        <Text style={styles.sectionHeader}>AI Assistant</Text>
+        <TouchableOpacity
+          style={styles.aiSettingsCard}
+          onPress={() => setShowAISettings(true)}
+        >
+          <View style={styles.aiSettingsLeft}>
+            <View style={[styles.aiIcon, currentProviderConfigured && styles.aiIconConfigured]}>
+              <Ionicons name="sparkles" size={20} color="#fff" />
+            </View>
+            <View style={styles.aiSettingsInfo}>
+              <Text style={styles.aiSettingsTitle}>
+                {currentProviderConfigured
+                  ? `${llmSettings.provider === 'gemini' ? 'Gemini' : 'OpenAI'} Connected`
+                  : 'Configure AI Provider'}
+              </Text>
+              <Text style={styles.aiSettingsHint}>
+                {currentProviderConfigured
+                  ? 'Tap to change provider or API keys'
+                  : 'Add your API key to enable AI features'}
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.aiStatusDot, currentProviderConfigured ? styles.aiStatusActive : styles.aiStatusInactive]} />
+        </TouchableOpacity>
+      </View>
 
       {/* Notifications Section */}
       <View style={styles.settingsSection}>
@@ -199,6 +244,8 @@ const SettingsScreen: React.FC = () => {
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
+
+      <LLMSettingsModal visible={showAISettings} onClose={() => setShowAISettings(false)} />
     </ScrollView>
   );
 };
@@ -333,17 +380,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
   },
-  tabIcon: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconText: {
-    fontSize: 20,
-    opacity: 0.6,
-  },
-  iconFocused: {
-    opacity: 1,
-  },
   settingsContainer: {
     flex: 1,
     backgroundColor: '#0f172a',
@@ -375,6 +411,58 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 16,
+  },
+  aiSettingsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1e293b',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  aiSettingsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  aiIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#334155',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  aiIconConfigured: {
+    backgroundColor: '#8b5cf6',
+  },
+  aiSettingsInfo: {
+    flex: 1,
+  },
+  aiSettingsTitle: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  aiSettingsHint: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 4,
+  },
+  aiStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginLeft: 8,
+  },
+  aiStatusActive: {
+    backgroundColor: '#22c55e',
+  },
+  aiStatusInactive: {
+    backgroundColor: '#eab308',
   },
   permissionButton: {
     backgroundColor: '#3b82f6',

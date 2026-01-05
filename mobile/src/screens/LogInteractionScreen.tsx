@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { addInteraction, subscribeToContacts, updateContact } from '../services/firestoreService';
 import { InteractionType } from '../types';
@@ -145,14 +146,14 @@ export const LogInteractionScreen: React.FC = () => {
               ]}
               onPress={() => setFormData({ ...formData, type })}
             >
-              <Text style={styles.typeEmoji}>
-                {type === InteractionType.MEETING && '🤝'}
-                {type === InteractionType.CALL && '📞'}
-                {type === InteractionType.EMAIL && '✉️'}
-                {type === InteractionType.COFFEE && '☕'}
-                {type === InteractionType.EVENT && '🎉'}
-                {type === InteractionType.OTHER && '📝'}
-              </Text>
+              <View style={styles.typeIconContainer}>
+                {type === InteractionType.MEETING && <Ionicons name="people-outline" size={20} color={formData.type === type ? '#fff' : '#94a3b8'} />}
+                {type === InteractionType.CALL && <Ionicons name="call-outline" size={20} color={formData.type === type ? '#fff' : '#94a3b8'} />}
+                {type === InteractionType.EMAIL && <Ionicons name="mail-outline" size={20} color={formData.type === type ? '#fff' : '#94a3b8'} />}
+                {type === InteractionType.COFFEE && <Ionicons name="cafe-outline" size={20} color={formData.type === type ? '#fff' : '#94a3b8'} />}
+                {type === InteractionType.EVENT && <Ionicons name="calendar-outline" size={20} color={formData.type === type ? '#fff' : '#94a3b8'} />}
+                {type === InteractionType.OTHER && <Ionicons name="document-text-outline" size={20} color={formData.type === type ? '#fff' : '#94a3b8'} />}
+              </View>
               <Text
                 style={[
                   styles.typeText,
@@ -310,9 +311,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(59, 130, 246, 0.2)',
     borderColor: '#3b82f6',
   },
-  typeEmoji: {
-    fontSize: 24,
-    marginBottom: 4,
+  typeIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(148, 163, 184, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   typeText: {
     color: '#94a3b8',

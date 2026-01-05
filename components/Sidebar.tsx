@@ -1,16 +1,26 @@
 
 import React from 'react';
-import { Brain, Users, BarChart3, Settings, LogOut, CheckSquare, Sparkles } from 'lucide-react';
+import { Brain, Users, BarChart3, Settings, LogOut, CheckSquare, Sparkles, X, Menu } from 'lucide-react';
 import { View } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
   currentView: View;
   onNavigate: (path: string) => void;
+  isOpen: boolean;
+  onToggle: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpen, onToggle }) => {
   const { user, signOut } = useAuth();
+
+  const handleNavigation = (path: string) => {
+    onNavigate(path);
+    // Close sidebar on mobile after navigation
+    if (window.innerWidth < 1024) {
+      onToggle();
+    }
+  };
 
   const navItems = [
     { id: View.DASHBOARD, label: 'Nexus Brain', icon: Brain, path: '/' },
@@ -28,9 +38,28 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
   };
 
   return (
-    <div className="w-72 h-full glass-strong flex flex-col fixed left-0 top-0 z-50">
-      {/* Logo Section */}
-      <div className="p-6 flex items-center space-x-3">
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          onClick={onToggle}
+        />
+      )}
+
+      {/* Mobile menu button */}
+      <button
+        onClick={onToggle}
+        className="fixed top-6 left-6 z-[60] lg:hidden p-3 rounded-xl bg-slate-800/90 backdrop-blur-sm border border-white/10 text-white hover:bg-slate-700/90 transition-all shadow-lg"
+      >
+        {isOpen ? <X size={22} /> : <Menu size={22} />}
+      </button>
+
+      <div className={`w-72 h-full glass-strong flex flex-col fixed left-0 top-0 z-50 transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        {/* Logo Section */}
+        <div className="p-6 flex items-center space-x-3">
         <div className="relative">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
             <Sparkles size={20} className="text-white" />
@@ -49,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
         {navItems.map((item) => (
           <button
             key={item.id}
-            onClick={() => onNavigate(item.path)}
+            onClick={() => handleNavigation(item.path)}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all group relative overflow-hidden ${
               currentView === item.id
                 ? 'text-white'
@@ -110,7 +139,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
         {/* Action buttons */}
         <div className="space-y-1">
           <button
-            onClick={() => onNavigate('/settings')}
+            onClick={() => handleNavigation('/settings')}
             className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all group relative overflow-hidden ${
               currentView === View.SETTINGS
                 ? 'text-white'
@@ -141,6 +170,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

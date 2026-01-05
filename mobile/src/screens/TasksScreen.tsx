@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,10 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  Animated,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,6 +18,86 @@ import { subscribeToTasks, subscribeToContacts, updateTask } from '../services/f
 import type { Task, Contact } from '../types';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// Custom animation config for task completion
+const taskCompleteAnimationConfig = {
+  duration: 300,
+  create: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+    property: LayoutAnimation.Properties.opacity,
+  },
+  update: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+  },
+  delete: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+    property: LayoutAnimation.Properties.opacity,
+  },
+};
+
+// Animated checkbox component
+const AnimatedCheckbox: React.FC<{
+  checked: boolean;
+  onPress: () => void;
+}> = ({ checked, onPress }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const checkScale = useRef(new Animated.Value(checked ? 1 : 0)).current;
+
+  const handlePress = () => {
+    // Bounce animation
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.8,
+        duration: 80,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 3,
+        tension: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Checkmark appear/disappear
+    Animated.timing(checkScale, {
+      toValue: checked ? 0 : 1,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+
+    onPress();
+  };
+
+  return (
+    <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
+      <Animated.View
+        style={[
+          styles.checkbox,
+          checked && styles.checkboxChecked,
+          { transform: [{ scale: scaleAnim }] },
+        ]}
+      >
+        <Animated.Text
+          style={[
+            styles.checkmark,
+            {
+              transform: [{ scale: checkScale }],
+              opacity: checkScale,
+            },
+          ]}
+        >
+          ✓
+        </Animated.Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
 export const TasksScreen: React.FC = () => {
   const { user } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -21,6 +105,7 @@ export const TasksScreen: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [completingTasks, setCompletingTasks] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -37,10 +122,27 @@ export const TasksScreen: React.FC = () => {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  const toggleTaskComplete = async (task: Task) => {
+  const toggleTaskComplete = useCallback(async (task: Task) => {
     if (!user) return;
+
+    // Track which task is being completed for animation
+    setCompletingTasks(prev => new Set(prev).add(task.id));
+
+    // Apply layout animation for smooth reordering
+    LayoutAnimation.configureNext(taskCompleteAnimationConfig);
+
+    // Update the task
     await updateTask(user.uid, task.id, { completed: !task.completed });
-  };
+
+    // Remove from completing set after a delay
+    setTimeout(() => {
+      setCompletingTasks(prev => {
+        const next = new Set(prev);
+        next.delete(task.id);
+        return next;
+      });
+    }, 300);
+  }, [user]);
 
   const getContactName = (contactId?: string): string => {
     if (!contactId) return '';
@@ -88,19 +190,19 @@ export const TasksScreen: React.FC = () => {
 
   const renderTask = ({ item }: { item: Task }) => {
     const taskIsOverdue = !item.completed && isOverdue(item.dueDate, item.dueTime);
+    const isCompleting = completingTasks.has(item.id);
 
     return (
-      <View style={[
+      <Animated.View style={[
         styles.taskCard,
         item.completed && styles.taskCompleted,
-        taskIsOverdue && styles.taskOverdue
+        taskIsOverdue && styles.taskOverdue,
+        isCompleting && styles.taskCompleting,
       ]}>
-        <TouchableOpacity
-          style={[styles.checkbox, item.completed && styles.checkboxChecked]}
+        <AnimatedCheckbox
+          checked={item.completed}
           onPress={() => toggleTaskComplete(item)}
-        >
-          {item.completed && <Text style={styles.checkmark}>✓</Text>}
-        </TouchableOpacity>
+        />
         <TouchableOpacity
           style={styles.taskInfo}
           onPress={() => navigation.navigate('EditTask', { taskId: item.id })}
@@ -131,7 +233,7 @@ export const TasksScreen: React.FC = () => {
           </View>
           <Text style={styles.editHint}>Tap to edit</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     );
   };
 
@@ -250,6 +352,10 @@ const styles = StyleSheet.create({
   },
   taskCompleted: {
     opacity: 0.6,
+  },
+  taskCompleting: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: 'rgba(59, 130, 246, 0.3)',
   },
   checkbox: {
     width: 24,

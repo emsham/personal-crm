@@ -48,6 +48,7 @@ const App: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<Contact['status'] | 'all'>('all');
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [showDashboardWidgets, setShowDashboardWidgets] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Derive current view from URL
   const currentView = useMemo(() => {
@@ -447,7 +448,7 @@ const App: React.FC = () => {
 
     // If API key is configured, show Nexus Brain (ChatView)
     return (
-      <div className="h-screen -m-8 overflow-hidden">
+      <div className="h-screen -m-4 md:-m-6 lg:-m-8 overflow-hidden">
         <ChatView
           contacts={contacts}
           tasks={tasks}
@@ -525,43 +526,45 @@ const App: React.FC = () => {
   const renderContactsList = () => {
     return (
       <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-white">Your Network</h2>
+            <h2 className="text-xl md:text-2xl font-bold text-white">Your Network</h2>
             <p className="text-slate-400 text-sm mt-1">Manage and nurture your professional relationships</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => setShowAddModal(true)}
-              className="bg-gradient-to-r from-violet-500 to-cyan-500 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:shadow-lg hover:shadow-violet-500/25 transition-all"
+              className="bg-gradient-to-r from-violet-500 to-cyan-500 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-violet-500/25 transition-all"
             >
               <Plus size={18} /> New Contact
             </button>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-              <input
-                type="text"
-                placeholder="Search name, company, tags..."
-                className="pl-10 pr-4 py-2.5 input-dark rounded-xl w-full md:w-64"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            <div className="flex gap-3 flex-1">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search name, company, tags..."
+                  className="pl-10 pr-4 py-2.5 input-dark rounded-xl w-full"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`p-2.5 rounded-xl transition-all relative flex-shrink-0 ${
+                  showFilters || activeFiltersCount > 0
+                    ? 'bg-violet-500/20 text-violet-400 ring-1 ring-violet-500/50'
+                    : 'glass text-slate-400 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Filter size={20} />
+                {activeFiltersCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg">
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </button>
             </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`p-2.5 rounded-xl transition-all relative ${
-                showFilters || activeFiltersCount > 0
-                  ? 'bg-violet-500/20 text-violet-400 ring-1 ring-violet-500/50'
-                  : 'glass text-slate-400 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Filter size={20} />
-              {activeFiltersCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg">
-                  {activeFiltersCount}
-                </span>
-              )}
-            </button>
           </div>
         </div>
 
@@ -672,9 +675,14 @@ const App: React.FC = () => {
       <div className="orb orb-2" />
       <div className="orb orb-3" />
 
-      <Sidebar currentView={currentView} onNavigate={navigate} />
+      <Sidebar
+        currentView={currentView}
+        onNavigate={navigate}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+      />
 
-      <main className="flex-1 ml-72 p-8">
+      <main className="flex-1 lg:ml-72 p-4 md:p-6 lg:p-8 pt-16 lg:pt-8">
         <Routes>
           <Route path="/" element={renderDashboard()} />
           <Route path="/contacts" element={renderContactsList()} />
@@ -693,16 +701,16 @@ const App: React.FC = () => {
             <SettingsPage onBack={() => navigate('/')} />
           } />
           <Route path="/analytics" element={
-          <div className="space-y-8">
+          <div className="space-y-6 md:space-y-8">
             <div>
-              <h2 className="text-2xl font-bold text-white">Analytics</h2>
-              <p className="text-slate-400 mt-1">Insights into your network and interactions</p>
+              <h2 className="text-xl md:text-2xl font-bold text-white">Analytics</h2>
+              <p className="text-slate-400 mt-1 text-sm md:text-base">Insights into your network and interactions</p>
             </div>
 
             {/* Monthly Interactions Trend */}
-            <div className="glass rounded-2xl p-6 card-hover">
-              <h3 className="font-bold text-lg text-white mb-6">Interaction Trend (6 Months)</h3>
-              <div className="h-[300px]">
+            <div className="glass rounded-2xl p-4 md:p-6 card-hover">
+              <h3 className="font-bold text-base md:text-lg text-white mb-4 md:mb-6">Interaction Trend (6 Months)</h3>
+              <div className="h-[250px] md:h-[300px]">
                 {interactions.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-slate-500">
                     No interaction data yet
@@ -727,7 +735,7 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {/* Interaction Types */}
               <div className="glass rounded-2xl p-6 card-hover">
                 <h3 className="font-bold text-lg text-white mb-6">By Interaction Type</h3>

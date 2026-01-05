@@ -83,12 +83,12 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
   // Full page mode - shown when no API key is configured
   if (fullPage) {
     return (
-      <div className="h-screen -m-8 overflow-hidden flex flex-col">
+      <div className="h-screen -m-4 md:-m-6 lg:-m-8 overflow-hidden flex flex-col">
         {/* Full page header */}
-        <div className="flex-shrink-0 px-8 py-6 border-b border-white/5">
-          <div className="max-w-6xl mx-auto flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white">Welcome to Nexus</h1>
+        <div className="flex-shrink-0 px-4 md:px-6 lg:px-8 py-6 border-b border-white/5">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="pl-14 lg:pl-0">
+              <h1 className="text-xl md:text-2xl font-bold text-white">Welcome to Nexus</h1>
               <p className="text-slate-400 text-sm mt-1">Your personal CRM dashboard</p>
             </div>
             <button
@@ -102,7 +102,7 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
         </div>
 
         {/* Full page content */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
           <div className="max-w-6xl mx-auto">
             {/* AI Setup Card */}
             <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/20">

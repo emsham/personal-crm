@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { subscribeToContacts, subscribeToInteractions, updateContact, deleteContact } from '../services/firestoreService';
 import type { Contact, Interaction, ImportantDate } from '../types';
@@ -256,19 +257,27 @@ export const ContactDetailScreen: React.FC = () => {
 
       <View style={styles.actions}>
         <TouchableOpacity style={styles.actionButton} onPress={handleCall}>
-          <Text style={styles.actionIcon}>📞</Text>
+          <View style={styles.actionIconContainer}>
+            <Ionicons name="call-outline" size={20} color="#3b82f6" />
+          </View>
           <Text style={styles.actionLabel}>Call</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionButton} onPress={handleEmail}>
-          <Text style={styles.actionIcon}>✉️</Text>
+          <View style={styles.actionIconContainer}>
+            <Ionicons name="mail-outline" size={20} color="#3b82f6" />
+          </View>
           <Text style={styles.actionLabel}>Email</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('LogInteraction', { contactId })}>
-          <Text style={styles.actionIcon}>💬</Text>
+          <View style={styles.actionIconContainer}>
+            <Ionicons name="chatbubble-outline" size={20} color="#3b82f6" />
+          </View>
           <Text style={styles.actionLabel}>Log</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('AddTask', { contactId })}>
-          <Text style={styles.actionIcon}>✓</Text>
+          <View style={styles.actionIconContainer}>
+            <Ionicons name="checkbox-outline" size={20} color="#3b82f6" />
+          </View>
           <Text style={styles.actionLabel}>Task</Text>
         </TouchableOpacity>
       </View>
@@ -738,9 +747,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
   },
-  actionIcon: {
-    fontSize: 28,
-    marginBottom: 4,
+  actionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   actionLabel: {
     color: '#94a3b8',

@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useLLMSettings } from '../contexts/LLMSettingsContext';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -506,7 +507,7 @@ export const HomeScreen: React.FC = () => {
           onPress={() => setShowSettings(true)}
         >
           <View style={styles.aiBannerIcon}>
-            <Text style={styles.aiBannerIconText}>AI</Text>
+            <Ionicons name="sparkles" size={20} color="#fff" />
           </View>
           <View style={styles.aiBannerContent}>
             <Text style={styles.aiBannerTitle}>Enable AI Assistant</Text>
@@ -514,7 +515,7 @@ export const HomeScreen: React.FC = () => {
               Configure your API key to unlock AI-powered features
             </Text>
           </View>
-          <Text style={styles.aiBannerArrow}>→</Text>
+          <Ionicons name="chevron-forward" size={20} color="#a78bfa" />
         </TouchableOpacity>
 
         {/* Dashboard Header */}
@@ -550,21 +551,27 @@ export const HomeScreen: React.FC = () => {
             style={styles.actionButton}
             onPress={() => navigation.navigate('AddContact')}
           >
-            <Text style={styles.actionIcon}>+</Text>
+            <View style={styles.actionIconContainer}>
+              <Ionicons name="person-add-outline" size={18} color="#3b82f6" />
+            </View>
             <Text style={styles.actionText}>Add Contact</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('LogInteraction', {})}
           >
-            <Text style={styles.actionIcon}>+</Text>
+            <View style={styles.actionIconContainer}>
+              <Ionicons name="chatbubble-outline" size={18} color="#3b82f6" />
+            </View>
             <Text style={styles.actionText}>Log Interaction</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('AddTask', {})}
           >
-            <Text style={styles.actionIcon}>+</Text>
+            <View style={styles.actionIconContainer}>
+              <Ionicons name="checkbox-outline" size={18} color="#3b82f6" />
+            </View>
             <Text style={styles.actionText}>Add Task</Text>
           </TouchableOpacity>
         </View>
@@ -675,7 +682,7 @@ export const HomeScreen: React.FC = () => {
                         : 'Never contacted'}
                     </Text>
                   </View>
-                  <Text style={styles.warningIcon}>⚠️</Text>
+                  <Ionicons name="alert-circle" size={20} color="#eab308" />
                 </TouchableOpacity>
               ))}
           </View>
@@ -705,43 +712,31 @@ export const HomeScreen: React.FC = () => {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <TouchableOpacity
-              style={styles.dashboardButton}
+              style={styles.iconButton}
               onPress={() => navigation.navigate('Dashboard')}
             >
-              <Text style={styles.dashboardButtonText}>Dashboard</Text>
+              <Ionicons name="grid-outline" size={20} color="#94a3b8" />
             </TouchableOpacity>
             {sessions.length > 0 && (
               <TouchableOpacity
-                style={styles.historyButton}
+                style={styles.iconButton}
                 onPress={toggleHistory}
               >
-                <Text style={styles.historyButtonText}>History</Text>
-                <View style={styles.historyBadge}>
-                  <Text style={styles.historyBadgeText}>{sessions.length}</Text>
-                </View>
+                <Ionicons name="time-outline" size={20} color="#a78bfa" />
               </TouchableOpacity>
             )}
           </View>
 
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>Nexus AI</Text>
-            {currentProviderConfigured && (
-              <Text style={styles.headerSubtitle}>Powered by {providerName}</Text>
-            )}
           </View>
 
           <View style={styles.headerActions}>
             {messages.length > 0 && (
-              <TouchableOpacity style={styles.headerButton} onPress={handleNewChat}>
-                <Text style={styles.headerButtonText}>New</Text>
+              <TouchableOpacity style={styles.iconButton} onPress={handleNewChat}>
+                <Ionicons name="add" size={22} color="#a78bfa" />
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={() => setShowSettings(true)}
-            >
-              <Text style={styles.headerButtonText}>Settings</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -805,48 +800,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1e293b',
   },
-  dashboardButton: {
-    backgroundColor: '#1e293b',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  dashboardButtonText: {
-    color: '#94a3b8',
-    fontSize: 13,
-    fontWeight: '500',
-  },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
+    minWidth: 80,
   },
-  historyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(139, 92, 246, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 6,
-  },
-  historyButtonText: {
-    color: '#a78bfa',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  historyBadge: {
-    backgroundColor: '#8b5cf6',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  iconButton: {
+    width: 36,
+    height: 36,
     borderRadius: 10,
-    minWidth: 20,
+    backgroundColor: '#1e293b',
+    justifyContent: 'center',
     alignItems: 'center',
-  },
-  historyBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '600',
   },
   headerCenter: {
     alignItems: 'center',
@@ -864,18 +830,10 @@ const styles = StyleSheet.create({
   },
   headerActions: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  headerButton: {
-    backgroundColor: 'rgba(139, 92, 246, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  headerButtonText: {
-    color: '#a78bfa',
-    fontSize: 13,
-    fontWeight: '500',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+    minWidth: 80,
   },
   messagesList: {
     flex: 1,
@@ -970,11 +928,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  aiBannerIconText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
   aiBannerContent: {
     flex: 1,
   },
@@ -987,11 +940,6 @@ const styles = StyleSheet.create({
   aiBannerSubtitle: {
     fontSize: 13,
     color: '#a78bfa',
-  },
-  aiBannerArrow: {
-    fontSize: 20,
-    color: '#a78bfa',
-    marginLeft: 8,
   },
   dashboardGreeting: {
     fontSize: 28,
@@ -1058,9 +1006,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 8,
   },
-  actionIcon: {
-    fontSize: 24,
-    color: '#3b82f6',
+  actionIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
   actionText: {
@@ -1153,8 +1105,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94a3b8',
     textTransform: 'capitalize',
-  },
-  warningIcon: {
-    fontSize: 18,
   },
 });
