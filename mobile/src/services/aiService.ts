@@ -267,10 +267,12 @@ export async function streamGemini(
 ): Promise<void> {
   try {
     // Use non-streaming endpoint for React Native compatibility
-    const response = await fetch(`${GEMINI_API_URL}:generateContent?key=${apiKey}`, {
+    // API key passed in header (not URL) for security - prevents logging in network traces
+    const response = await fetch(`${GEMINI_API_URL}:generateContent`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({
         contents: formatMessagesForGemini(messages, systemPrompt),
@@ -364,10 +366,12 @@ export async function sendAIMessage(
     const data = await response.json();
     return data.choices[0]?.message?.content || 'No response';
   } else {
-    const response = await fetch(`${GEMINI_API_URL}:generateContent?key=${options.apiKey}`, {
+    // API key passed in header (not URL) for security - prevents logging in network traces
+    const response = await fetch(`${GEMINI_API_URL}:generateContent`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-goog-api-key': options.apiKey,
       },
       body: JSON.stringify({
         contents: formatMessagesForGemini(messages, systemPrompt),

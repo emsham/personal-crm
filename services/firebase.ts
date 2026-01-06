@@ -12,15 +12,11 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Debug: log config (remove in production)
-console.log('Firebase config loaded:', {
-  apiKey: firebaseConfig.apiKey ? '***' : 'MISSING',
-  authDomain: firebaseConfig.authDomain || 'MISSING',
-  projectId: firebaseConfig.projectId || 'MISSING',
-});
-
+// Validate config - only warn in development
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  console.error('Firebase config is missing! Check your .env file has VITE_FIREBASE_* variables.');
+  if (import.meta.env.DEV) {
+    console.error('Firebase config is missing! Check your .env file has VITE_FIREBASE_* variables.');
+  }
 }
 
 const app = initializeApp(firebaseConfig);
@@ -35,14 +31,12 @@ if (recaptchaSiteKey) {
       provider: new ReCaptchaEnterpriseProvider(recaptchaSiteKey),
       isTokenAutoRefreshEnabled: true,
     });
-    console.log('App Check initialized with reCAPTCHA Enterprise');
   } catch (error) {
-    console.warn('App Check initialization failed:', error);
+    // Only log in development
+    if (import.meta.env.DEV) {
+      console.warn('App Check initialization failed:', error);
+    }
   }
-} else if (import.meta.env.DEV) {
-  // In development, App Check can be bypassed using debug tokens
-  // Set FIREBASE_APPCHECK_DEBUG_TOKEN=true in browser console for local development
-  console.log('App Check: No reCAPTCHA site key provided (development mode)');
 }
 
 export const auth = getAuth(app);

@@ -45,14 +45,12 @@ function formatMessagesForOpenAI(messages: ChatMessage[], systemPrompt?: string)
         if (validToolCalls.length === 0) {
           // No valid tool calls - just include as text message without tool_calls
           // This handles broken/incomplete tool call sequences
-          console.log('Skipping assistant message with unresponded tool calls');
           if (msg.content) {
             formatted.push({ role: 'assistant', content: msg.content });
           }
           continue;
         }
 
-        console.log('Formatting assistant tool calls:', validToolCalls.map(tc => ({ id: tc.id, name: tc.name })));
         const assistantMsg: OpenAIMessage = { role: 'assistant', content: msg.content || null };
         assistantMsg.tool_calls = validToolCalls.map(tc => ({
           id: tc.id,
@@ -68,7 +66,6 @@ function formatMessagesForOpenAI(messages: ChatMessage[], systemPrompt?: string)
       }
     } else if (msg.role === 'tool' && msg.toolResults) {
       for (const result of msg.toolResults) {
-        console.log('Formatting tool result:', { name: result.name, toolCallId: result.toolCallId });
         // OpenAI tool messages only need role, content, and tool_call_id
         formatted.push({
           role: 'tool',
@@ -138,7 +135,6 @@ export function createOpenAIService(apiKey: string): LLMService {
     async *stream(options: LLMCompletionOptions): AsyncGenerator<LLMStreamChunk> {
       try {
         const formattedMessages = formatMessagesForOpenAI(options.messages, options.systemPrompt);
-        console.log('OpenAI request messages:', JSON.stringify(formattedMessages, null, 2));
 
         const response = await fetch(OPENAI_API_URL, {
           method: 'POST',
