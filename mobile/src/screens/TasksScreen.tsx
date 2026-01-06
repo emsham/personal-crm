@@ -10,13 +10,20 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Alert,
+  PanResponder,
+  Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
-import { subscribeToTasks, subscribeToContacts, updateTask } from '../services/firestoreService';
+import { subscribeToTasks, subscribeToContacts, updateTask, deleteTask } from '../services/firestoreService';
 import type { Task, Contact } from '../types';
 import type { RootStackParamList } from '../navigation/AppNavigator';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const SWIPE_THRESHOLD = -100;
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -98,6 +105,67 @@ const AnimatedCheckbox: React.FC<{
   );
 };
 
+// Swipeable task card component
+const SwipeableTaskCard: React.FC<{
+  children: React.ReactNode;
+  onDelete: () => void;
+}> = ({ children, onDelete }) => {
+  const translateX = useRef(new Animated.Value(0)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dy) < 10;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dx < 0) {
+          translateX.setValue(Math.max(gestureState.dx, -SCREEN_WIDTH));
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dx < SWIPE_THRESHOLD || gestureState.vx < -0.5) {
+          // Swipe past threshold - animate out and delete
+          Animated.timing(translateX, {
+            toValue: -SCREEN_WIDTH,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => {
+            onDelete();
+          });
+        } else {
+          // Snap back
+          Animated.spring(translateX, {
+            toValue: 0,
+            useNativeDriver: true,
+            friction: 8,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  return (
+    <View style={styles.swipeContainer}>
+      {/* Red background revealed on swipe */}
+      <View style={styles.deleteBackground}>
+        <Ionicons name="trash-outline" size={24} color="#fff" />
+      </View>
+
+      {/* Swipeable content */}
+      <Animated.View
+        style={[
+          styles.swipeableContent,
+          { transform: [{ translateX }] },
+        ]}
+        {...panResponder.panHandlers}
+      >
+        {children}
+      </Animated.View>
+    </View>
+  );
+};
+
 export const TasksScreen: React.FC = () => {
   const { user } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -131,8 +199,15 @@ export const TasksScreen: React.FC = () => {
     // Apply layout animation for smooth reordering
     LayoutAnimation.configureNext(taskCompleteAnimationConfig);
 
-    // Update the task
-    await updateTask(user.uid, task.id, { completed: !task.completed });
+    // Optimistic update - update local state immediately so animation triggers
+    setTasks(prevTasks =>
+      prevTasks.map(t =>
+        t.id === task.id ? { ...t, completed: !t.completed } : t
+      )
+    );
+
+    // Update Firebase in background (subscription will confirm the change)
+    updateTask(user.uid, task.id, { completed: !task.completed });
 
     // Remove from completing set after a delay
     setTimeout(() => {
@@ -142,6 +217,16 @@ export const TasksScreen: React.FC = () => {
         return next;
       });
     }, 300);
+  }, [user]);
+
+  const handleDeleteTask = useCallback(async (task: Task) => {
+    if (!user) return;
+    LayoutAnimation.configureNext(taskCompleteAnimationConfig);
+    try {
+      await deleteTask(user.uid, task.id);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to delete task');
+    }
   }, [user]);
 
   const getContactName = (contactId?: string): string => {
@@ -193,47 +278,49 @@ export const TasksScreen: React.FC = () => {
     const isCompleting = completingTasks.has(item.id);
 
     return (
-      <Animated.View style={[
-        styles.taskCard,
-        item.completed && styles.taskCompleted,
-        taskIsOverdue && styles.taskOverdue,
-        isCompleting && styles.taskCompleting,
-      ]}>
-        <AnimatedCheckbox
-          checked={item.completed}
-          onPress={() => toggleTaskComplete(item)}
-        />
-        <TouchableOpacity
-          style={styles.taskInfo}
-          onPress={() => navigation.navigate('EditTask', { taskId: item.id })}
-        >
-          <View style={styles.taskTitleRow}>
-            <Text style={[styles.taskTitle, item.completed && styles.taskTitleCompleted]}>
-              {item.title}
-            </Text>
-            {taskIsOverdue && (
-              <View style={styles.overdueBadge}>
-                <Text style={styles.overdueBadgeText}>OVERDUE</Text>
-              </View>
-            )}
-          </View>
-          {item.contactId && (
-            <Text style={styles.taskContact}>{getContactName(item.contactId)}</Text>
-          )}
-          <View style={styles.taskMeta}>
-            {item.dueDate && (
-              <Text style={[styles.dueDate, taskIsOverdue && styles.overdueText]}>
-                {new Date(item.dueDate + 'T00:00:00').toLocaleDateString()}
-                {item.dueTime && ` at ${item.dueTime}`}
+      <SwipeableTaskCard onDelete={() => handleDeleteTask(item)}>
+        <View style={[
+          styles.taskCard,
+          item.completed && styles.taskCompleted,
+          taskIsOverdue && styles.taskOverdue,
+          isCompleting && styles.taskCompleting,
+        ]}>
+          <AnimatedCheckbox
+            checked={item.completed}
+            onPress={() => toggleTaskComplete(item)}
+          />
+          <TouchableOpacity
+            style={styles.taskInfo}
+            onPress={() => navigation.navigate('EditTask', { taskId: item.id })}
+          >
+            <View style={styles.taskTitleRow}>
+              <Text style={[styles.taskTitle, item.completed && styles.taskTitleCompleted]}>
+                {item.title}
               </Text>
-            )}
-            <View style={[styles.priorityBadge, styles[`priority_${item.priority}` as keyof typeof styles]]}>
-              <Text style={styles.priorityText}>{item.priority}</Text>
+              {taskIsOverdue && (
+                <View style={styles.overdueBadge}>
+                  <Text style={styles.overdueBadgeText}>OVERDUE</Text>
+                </View>
+              )}
             </View>
-          </View>
-          <Text style={styles.editHint}>Tap to edit</Text>
-        </TouchableOpacity>
-      </Animated.View>
+            {item.contactId && (
+              <Text style={styles.taskContact}>{getContactName(item.contactId)}</Text>
+            )}
+            <View style={styles.taskMeta}>
+              {item.dueDate && (
+                <Text style={[styles.dueDate, taskIsOverdue && styles.overdueText]}>
+                  {new Date(item.dueDate + 'T00:00:00').toLocaleDateString()}
+                  {item.dueTime && ` at ${item.dueTime}`}
+                </Text>
+              )}
+              <View style={[styles.priorityBadge, styles[`priority_${item.priority}` as keyof typeof styles]]}>
+                <Text style={styles.priorityText}>{item.priority}</Text>
+              </View>
+            </View>
+            <Text style={styles.editHint}>Tap to edit</Text>
+          </TouchableOpacity>
+        </View>
+      </SwipeableTaskCard>
     );
   };
 
@@ -334,7 +421,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   list: {
-    padding: 16,
+    paddingVertical: 16,
     paddingTop: 0,
   },
   taskCard: {
@@ -343,7 +430,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e293b',
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
   },
   taskOverdue: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
@@ -474,5 +560,27 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: '#fff',
     marginTop: -2,
+  },
+  // Swipe to delete styles
+  swipeContainer: {
+    marginBottom: 12,
+    marginHorizontal: 16,
+    overflow: 'hidden',
+    borderRadius: 12,
+  },
+  swipeableContent: {
+    backgroundColor: '#0f172a',
+  },
+  deleteBackground: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: '#ef4444',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    paddingRight: 24,
+    borderRadius: 12,
   },
 });
