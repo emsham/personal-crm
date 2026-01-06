@@ -15,13 +15,13 @@ import { auth } from './firebase';
 const googleProvider = new GoogleAuthProvider();
 
 // Convert Firebase error codes to user-friendly messages
+// Note: We intentionally use generic messages for credential errors to prevent user enumeration
 const getAuthErrorMessage = (error: AuthError): string => {
   switch (error.code) {
     case 'auth/user-not-found':
-      return 'No account found with this email address';
     case 'auth/wrong-password':
-      return 'Incorrect password';
     case 'auth/invalid-credential':
+      // Generic message prevents attackers from determining if an email exists
       return 'Invalid email or password';
     case 'auth/invalid-email':
       return 'Please enter a valid email address';
@@ -36,9 +36,10 @@ const getAuthErrorMessage = (error: AuthError): string => {
     case 'auth/popup-closed-by-user':
       return 'Sign-in was cancelled';
     case 'auth/user-disabled':
-      return 'This account has been disabled';
+      // Generic message - don't reveal account status
+      return 'Unable to sign in. Please contact support';
     default:
-      return error.message || 'Authentication failed';
+      return 'Authentication failed';
   }
 };
 

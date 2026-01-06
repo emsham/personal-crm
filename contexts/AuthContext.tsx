@@ -20,6 +20,9 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  // Email verification helpers
+  isEmailVerified: boolean;
+  requiresEmailVerification: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,6 +48,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
+  // Check if user signed in with email (not Google/OAuth) and hasn't verified
+  const isEmailProvider = user?.providerData?.some(p => p.providerId === 'password') ?? false;
+  const isEmailVerified = user?.emailVerified ?? false;
+  // Only require verification for email/password users, not OAuth users
+  const requiresEmailVerification = isEmailProvider && !isEmailVerified;
+
   const value: AuthContextType = {
     user,
     loading,
@@ -55,6 +64,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     resetPassword,
     resendVerificationEmail,
     refreshUser,
+    isEmailVerified,
+    requiresEmailVerification,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

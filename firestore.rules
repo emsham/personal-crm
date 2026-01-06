@@ -17,14 +17,29 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Check if a field is a valid string (non-empty)
+    // Check if a field is a valid string (non-empty, with max length)
     function isValidString(field) {
-      return field is string && field.size() > 0;
+      return field is string && field.size() > 0 && field.size() <= 1000;
     }
 
-    // Check if tags array is valid
+    // Check if a field is a valid optional string (can be empty, with max length)
+    function isValidOptionalString(field) {
+      return field is string && field.size() <= 5000;
+    }
+
+    // Check if a field is a valid long text field (notes, etc.)
+    function isValidLongText(field) {
+      return field is string && field.size() <= 50000;
+    }
+
+    // Check if tags array is valid (limited size)
     function isValidTags(tags) {
-      return tags is list;
+      return tags is list && tags.size() <= 50;
+    }
+
+    // Check if related contacts array is valid (limited size)
+    function isValidRelatedContacts(contacts) {
+      return contacts is list && contacts.size() <= 100;
     }
 
     // Check if status is valid
@@ -63,20 +78,25 @@ service cloud.firestore {
 
         allow create: if isOwner(userId)
           && isValidString(request.resource.data.firstName)
-          && request.resource.data.lastName is string
-          && request.resource.data.email is string
-          && request.resource.data.phone is string
-          && request.resource.data.company is string
-          && request.resource.data.position is string
+          && isValidOptionalString(request.resource.data.lastName)
+          && isValidOptionalString(request.resource.data.email)
+          && isValidOptionalString(request.resource.data.phone)
+          && isValidOptionalString(request.resource.data.company)
+          && isValidOptionalString(request.resource.data.position)
           && isValidTags(request.resource.data.tags)
           && isValidStatus(request.resource.data.status)
-          && request.resource.data.relatedContactIds is list;
+          && isValidRelatedContacts(request.resource.data.relatedContactIds);
 
         allow update: if isOwner(userId)
           && (!('firstName' in request.resource.data) || isValidString(request.resource.data.firstName))
+          && (!('lastName' in request.resource.data) || isValidOptionalString(request.resource.data.lastName))
+          && (!('email' in request.resource.data) || isValidOptionalString(request.resource.data.email))
+          && (!('phone' in request.resource.data) || isValidOptionalString(request.resource.data.phone))
+          && (!('company' in request.resource.data) || isValidOptionalString(request.resource.data.company))
+          && (!('position' in request.resource.data) || isValidOptionalString(request.resource.data.position))
           && (!('status' in request.resource.data) || isValidStatus(request.resource.data.status))
           && (!('tags' in request.resource.data) || isValidTags(request.resource.data.tags))
-          && (!('relatedContactIds' in request.resource.data) || request.resource.data.relatedContactIds is list);
+          && (!('relatedContactIds' in request.resource.data) || isValidRelatedContacts(request.resource.data.relatedContactIds));
 
         allow delete: if isOwner(userId);
       }
@@ -91,10 +111,13 @@ service cloud.firestore {
           && isValidString(request.resource.data.contactId)
           && isValidString(request.resource.data.date)
           && isValidInteractionType(request.resource.data.type)
-          && request.resource.data.notes is string;
+          && isValidLongText(request.resource.data.notes);
 
         allow update: if isOwner(userId)
-          && (!('type' in request.resource.data) || isValidInteractionType(request.resource.data.type));
+          && (!('type' in request.resource.data) || isValidInteractionType(request.resource.data.type))
+          && (!('notes' in request.resource.data) || isValidLongText(request.resource.data.notes))
+          && (!('contactId' in request.resource.data) || isValidString(request.resource.data.contactId))
+          && (!('date' in request.resource.data) || isValidString(request.resource.data.date));
 
         allow delete: if isOwner(userId);
       }
@@ -112,6 +135,7 @@ service cloud.firestore {
           && isValidFrequency(request.resource.data.frequency);
 
         allow update: if isOwner(userId)
+          && (!('title' in request.resource.data) || isValidString(request.resource.data.title))
           && (!('priority' in request.resource.data) || isValidPriority(request.resource.data.priority))
           && (!('frequency' in request.resource.data) || isValidFrequency(request.resource.data.frequency))
           && (!('completed' in request.resource.data) || request.resource.data.completed is bool);
@@ -125,26 +149,35 @@ service cloud.firestore {
       match /chatSessions/{sessionId} {
         allow read: if isOwner(userId);
 
+        // Limit messages array to prevent storage abuse (1000 messages max)
         allow create: if isOwner(userId)
-          && request.resource.data.title is string
-          && request.resource.data.messages is list;
+          && isValidString(request.resource.data.title)
+          && request.resource.data.messages is list
+          && request.resource.data.messages.size() <= 1000;
 
         allow update: if isOwner(userId)
-          && (!('title' in request.resource.data) || request.resource.data.title is string)
-          && (!('messages' in request.resource.data) || request.resource.data.messages is list);
+          && (!('title' in request.resource.data) || isValidString(request.resource.data.title))
+          && (!('messages' in request.resource.data) || (request.resource.data.messages is list && request.resource.data.messages.size() <= 1000));
 
         allow delete: if isOwner(userId);
       }
 
       // ============================================
-      // User Profile/Settings (future use)
+      // User Profile/Settings
+      // Single document per user - no wildcard nesting allowed
       // ============================================
-      match /profile/{document=**} {
-        allow read, write: if isOwner(userId);
+      match /profile/{docId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().size() <= 50;
+        allow delete: if isOwner(userId);
       }
 
-      match /settings/{document=**} {
-        allow read, write: if isOwner(userId);
+      match /settings/{docId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().size() <= 50;
+        allow delete: if isOwner(userId);
       }
     }
 

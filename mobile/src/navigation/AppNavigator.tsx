@@ -298,7 +298,7 @@ const MainTabs: React.FC = () => {
 
 // Root navigator
 export const AppNavigator: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, requiresEmailVerification } = useAuth();
 
   if (loading) {
     return (
@@ -307,9 +307,6 @@ export const AppNavigator: React.FC = () => {
       </View>
     );
   }
-
-  // Check if user needs to verify email
-  const needsEmailVerification = user && !user.emailVerified;
 
   return (
     <NavigationContainer>
@@ -325,7 +322,9 @@ export const AppNavigator: React.FC = () => {
             component={LoginScreen}
             options={{ headerShown: false }}
           />
-        ) : needsEmailVerification ? (
+        ) : requiresEmailVerification ? (
+          // Only show for email/password users who haven't verified
+          // Google OAuth users bypass this since they're already verified
           <Stack.Screen
             name="EmailVerification"
             component={EmailVerificationScreen}

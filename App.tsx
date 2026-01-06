@@ -33,7 +33,7 @@ import {
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 
 const App: React.FC = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, requiresEmailVerification } = useAuth();
   const { setCRMData } = useChat();
   const { currentProviderConfigured } = useLLMSettings();
   const navigate = useNavigate();
@@ -426,8 +426,9 @@ const App: React.FC = () => {
     return <AuthPage />;
   }
 
-  // Show email verification page if email not verified
-  if (!user.emailVerified) {
+  // Show email verification page for email/password users who haven't verified
+  // Google OAuth users bypass this since they're already verified by Google
+  if (requiresEmailVerification) {
     return <EmailVerification />;
   }
 
