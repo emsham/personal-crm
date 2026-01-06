@@ -65,24 +65,25 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="glass-strong w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden my-8 border border-white/10">
-        <div className="flex justify-between items-center p-4 sm:p-6 md:p-8 border-b border-white/5">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
-                <Sparkles size={20} className="text-white" />
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto overscroll-contain">
+      <div className="min-h-full flex items-center justify-center p-4 py-8">
+        <div className="glass-strong w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-white/10 flex flex-col max-h-[calc(100dvh-4rem)]">
+          <div className="flex-shrink-0 flex justify-between items-center p-4 sm:p-6 md:p-8 border-b border-white/5">
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
+                  <Sparkles size={20} className="text-white" />
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-white">Add New Contact</h2>
               </div>
-              <h2 className="text-xl sm:text-2xl font-bold text-white">Add New Contact</h2>
+              <p className="text-slate-400 text-sm mt-2">Expand your network with a new relationship.</p>
             </div>
-            <p className="text-slate-400 text-sm mt-2">Expand your network with a new relationship.</p>
+            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl text-slate-400 hover:text-white transition-all flex-shrink-0">
+              <X size={24} />
+            </button>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl text-slate-400 hover:text-white transition-all">
-            <X size={24} />
-          </button>
-        </div>
 
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-5">
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
@@ -259,6 +260,7 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );

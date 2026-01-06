@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
     <title>Nexus Personal CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -80,10 +80,21 @@
       }
     </script>
     <style>
+        html {
+            /* Support for dvh units on iOS */
+            height: -webkit-fill-available;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #030712 0%, #0a0f1a 50%, #111827 100%);
             min-height: 100vh;
+            min-height: 100dvh;
+            min-height: -webkit-fill-available;
+            /* Prevent pull-to-refresh on iOS */
+            overscroll-behavior: none;
+            /* Smooth scrolling on iOS */
+            -webkit-overflow-scrolling: touch;
         }
 
         /* Glassmorphism utilities */

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,7 @@ import {
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
+import { RouteProp, useRoute, useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,6 +30,7 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 export const ContactDetailScreen: React.FC = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'ContactDetail'>>();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const isFocused = useIsFocused();
   const { contactId } = route.params;
   const { user } = useAuth();
   const [contact, setContact] = useState<Contact | null>(null);
@@ -108,8 +109,9 @@ export const ContactDetailScreen: React.FC = () => {
     setIsEditing(editing);
   }, []);
 
+  // Only subscribe when screen is focused
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isFocused) return;
 
     const unsubContacts = subscribeToContacts(user.uid, (contacts) => {
       setAllContacts(contacts);
@@ -126,7 +128,7 @@ export const ContactDetailScreen: React.FC = () => {
       unsubContacts();
       unsubInteractions();
     };
-  }, [user, contactId]);
+  }, [user, contactId, isFocused]);
 
   // Sync editedContact when contact changes (but only when not editing)
   useEffect(() => {

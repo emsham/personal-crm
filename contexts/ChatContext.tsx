@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ChatSession, ChatMessage, ToolCall, ToolResult, Contact, Interaction, Task } from '../types';
 import { useLLMSettings } from './LLMSettingsContext';
 import { useAuth } from './AuthContext';
@@ -7,6 +7,22 @@ import { CRM_TOOLS } from '../utils/toolDefinitions';
 import { executeToolCall, CRMData } from '../utils/toolExecutors';
 import { buildSystemPrompt } from '../utils/systemPrompt';
 import * as chatService from '../services/chatService';
+
+// Debounce utility for streaming updates
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): { (...args: Parameters<T>): void; cancel: () => void } {
+  let timeout: NodeJS.Timeout | null = null;
+  const debounced = (...args: Parameters<T>) => {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+  debounced.cancel = () => {
+    if (timeout) clearTimeout(timeout);
+  };
+  return debounced;
+}
 
 // Import services to register them
 import '../services/geminiService';
@@ -51,10 +67,29 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [crmData, setCRMData] = useState<CRMData>({ contacts: [], interactions: [], tasks: [] });
 
-  const abortControllerRef = useRef<AbortController | null>(null);
+  // Local streaming content state to avoid Firestore flicker
+  const [streamingContent, setStreamingContent] = useState<{
+    sessionId: string;
+    messages: ChatMessage[];
+  } | null>(null);
 
-  // Get current session
-  const currentSession = sessions.find(s => s.id === currentSessionId) || null;
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const debouncedSaveRef = useRef<ReturnType<typeof debounce> | null>(null);
+
+  // Get current session - merge streaming content if active
+  const currentSession = useMemo(() => {
+    const session = sessions.find(s => s.id === currentSessionId) || null;
+
+    // If we have streaming content for this session, use it instead
+    if (streamingContent && streamingContent.sessionId === currentSessionId && session) {
+      return {
+        ...session,
+        messages: streamingContent.messages,
+      };
+    }
+
+    return session;
+  }, [sessions, currentSessionId, streamingContent]);
 
   // Subscribe to chat sessions
   useEffect(() => {
@@ -182,6 +217,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let currentContent = '';
       const toolCalls: ToolCall[] = [];
 
+      // Create debounced save function for streaming updates
+      const debouncedSave = debounce(async (msgs: ChatMessage[]) => {
+        await chatService.updateChatSession(user.uid, sessionId, { messages: msgs });
+      }, 300);
+      debouncedSaveRef.current = debouncedSave;
+
       // Stream the response
       const stream = llmService.stream({
         messages: updatedMessages,
@@ -197,14 +238,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         if (chunk.type === 'text' && chunk.content) {
           currentContent += chunk.content;
-          // Update the session with streamed content
+          // Update local state immediately for smooth UI
           const streamingMessages = [
             ...updatedMessages,
             { ...assistantMessage, content: currentContent },
           ];
-          await chatService.updateChatSession(user.uid, sessionId, {
-            messages: streamingMessages,
-          });
+          setStreamingContent({ sessionId, messages: streamingMessages });
+          // Debounce Firestore saves to reduce flicker
+          debouncedSave(streamingMessages);
         } else if (chunk.type === 'tool_call' && chunk.toolCall) {
           toolCalls.push(chunk.toolCall);
         } else if (chunk.type === 'error') {
@@ -213,6 +254,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           break;
         }
       }
+
+      // Cancel any pending debounced save
+      debouncedSave.cancel();
 
       // Process tool calls if any
       if (toolCalls.length > 0) {
@@ -285,6 +329,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
               systemPrompt,
             });
 
+            // Create debounced save for follow-up
+            const debouncedFollowUpSave = debounce(async (msgs: ChatMessage[]) => {
+              await chatService.updateChatSession(user.uid, sessionId, { messages: msgs });
+            }, 300);
+
             for await (const chunk of followUpStream) {
               // Check if aborted (user navigated away)
               if (abortSignal.aborted) {
@@ -301,9 +350,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   timestamp: new Date(),
                   isStreaming: true,
                 };
-                await chatService.updateChatSession(user.uid, sessionId, {
-                  messages: [...currentMessages, streamingFollowUp],
-                });
+                const newMessages = [...currentMessages, streamingFollowUp];
+                setStreamingContent({ sessionId, messages: newMessages });
+                debouncedFollowUpSave(newMessages);
               } else if (chunk.type === 'tool_call' && chunk.toolCall) {
                 console.log('Follow-up tool call:', chunk.toolCall.name);
                 followUpToolCalls.push(chunk.toolCall);
@@ -314,6 +363,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 break;
               }
             }
+
+            // Cancel pending debounced save
+            debouncedFollowUpSave.cancel();
           } catch (followUpError) {
             console.error('Follow-up stream error:', followUpError);
             break;
@@ -409,6 +461,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
       setIsStreaming(false);
+      // Clear streaming content - Firestore will have the final state
+      setStreamingContent(null);
     }
   }, [user, currentSessionId, sessions, settings.provider, currentProviderConfigured, getActiveApiKey, crmData]);
 
@@ -417,7 +471,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
+    if (debouncedSaveRef.current) {
+      debouncedSaveRef.current.cancel();
+    }
     setIsStreaming(false);
+    setStreamingContent(null);
   }, []);
 
   // Clear error

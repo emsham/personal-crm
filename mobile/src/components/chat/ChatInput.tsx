@@ -8,6 +8,7 @@ import {
   NativeSyntheticEvent,
   TextInputContentSizeChangeEventData,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ChatInputProps {
   value: string;
@@ -34,6 +35,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 }) => {
   const [inputHeight, setInputHeight] = useState(44);
   const inputRef = useRef<TextInput>(null);
+  const insets = useSafeAreaInsets();
 
   const handleContentSizeChange = (
     e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>
@@ -56,7 +58,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const showStop = isStreaming && onStop;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
       {/* Provider indicator */}
       {isConfigured && providerName && (
         <View style={styles.providerIndicator}>
@@ -113,7 +115,6 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: "#0f172a",
     padding: 12,
-    paddingBottom: 24,
   },
   providerIndicator: {
     flexDirection: "row",

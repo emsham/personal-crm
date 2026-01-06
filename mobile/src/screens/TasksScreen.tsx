@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
   PanResponder,
   Dimensions,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -116,7 +116,14 @@ const SwipeableTaskCard: React.FC<{
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dy) < 10;
+        // Only capture horizontal swipes, allow vertical scrolling
+        const isHorizontalSwipe = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 2;
+        return isHorizontalSwipe && Math.abs(gestureState.dx) > 10;
+      },
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+        // Capture on iOS if clearly horizontal
+        const isHorizontalSwipe = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 2;
+        return Platform.OS === 'ios' && isHorizontalSwipe && Math.abs(gestureState.dx) > 20;
       },
       onPanResponderMove: (_, gestureState) => {
         if (gestureState.dx < 0) {
@@ -142,6 +149,7 @@ const SwipeableTaskCard: React.FC<{
           }).start();
         }
       },
+      onPanResponderTerminationRequest: () => false,
     })
   ).current;
 
@@ -169,21 +177,23 @@ const SwipeableTaskCard: React.FC<{
 export const TasksScreen: React.FC = () => {
   const { user } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const isFocused = useIsFocused();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
   const [completingTasks, setCompletingTasks] = useState<Set<string>>(new Set());
 
+  // Only subscribe when screen is focused
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isFocused) return;
     const unsubTasks = subscribeToTasks(user.uid, setTasks);
     const unsubContacts = subscribeToContacts(user.uid, setContacts);
     return () => {
       unsubTasks();
       unsubContacts();
     };
-  }, [user]);
+  }, [user, isFocused]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -257,21 +267,24 @@ export const TasksScreen: React.FC = () => {
     return false;
   };
 
-  const filteredTasks = tasks.filter((task) => showCompleted || !task.completed);
-  const sortedTasks = filteredTasks.sort((a, b) => {
-    // Completed tasks go to bottom
-    if (a.completed !== b.completed) return a.completed ? 1 : -1;
-    // Overdue tasks go to top
-    const aOverdue = isOverdue(a.dueDate, a.dueTime);
-    const bOverdue = isOverdue(b.dueDate, b.dueTime);
-    if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
-    // Then sort by due date
-    if (a.dueDate && b.dueDate) return new Date(a.dueDate + 'T00:00:00').getTime() - new Date(b.dueDate + 'T00:00:00').getTime();
-    // Tasks with due dates before tasks without
-    if (a.dueDate && !b.dueDate) return -1;
-    if (!a.dueDate && b.dueDate) return 1;
-    return 0;
-  });
+  // Memoize sorted tasks
+  const sortedTasks = useMemo(() => {
+    const filtered = tasks.filter((task) => showCompleted || !task.completed);
+    return [...filtered].sort((a, b) => {
+      // Completed tasks go to bottom
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      // Overdue tasks go to top
+      const aOverdue = isOverdue(a.dueDate, a.dueTime);
+      const bOverdue = isOverdue(b.dueDate, b.dueTime);
+      if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+      // Then sort by due date
+      if (a.dueDate && b.dueDate) return new Date(a.dueDate + 'T00:00:00').getTime() - new Date(b.dueDate + 'T00:00:00').getTime();
+      // Tasks with due dates before tasks without
+      if (a.dueDate && !b.dueDate) return -1;
+      if (!a.dueDate && b.dueDate) return 1;
+      return 0;
+    });
+  }, [tasks, showCompleted]);
 
   const renderTask = ({ item }: { item: Task }) => {
     const taskIsOverdue = !item.completed && isOverdue(item.dueDate, item.dueTime);
@@ -324,9 +337,12 @@ export const TasksScreen: React.FC = () => {
     );
   };
 
-  const overdueCount = tasks.filter((t) => !t.completed && isOverdue(t.dueDate, t.dueTime)).length;
-  const upcomingCount = tasks.filter((t) => !t.completed && !isOverdue(t.dueDate, t.dueTime)).length;
-  const completedCount = tasks.filter((t) => t.completed).length;
+  // Memoize counts
+  const { overdueCount, upcomingCount, completedCount } = useMemo(() => ({
+    overdueCount: tasks.filter((t) => !t.completed && isOverdue(t.dueDate, t.dueTime)).length,
+    upcomingCount: tasks.filter((t) => !t.completed && !isOverdue(t.dueDate, t.dueTime)).length,
+    completedCount: tasks.filter((t) => t.completed).length,
+  }), [tasks]);
 
   return (
     <View style={styles.container}>
@@ -365,6 +381,11 @@ export const TasksScreen: React.FC = () => {
         ListEmptyComponent={
           <Text style={styles.emptyText}>No tasks yet</Text>
         }
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews={Platform.OS === 'android'}
+        windowSize={10}
+        initialNumToRender={10}
       />
 
       <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('AddTask', {})}>

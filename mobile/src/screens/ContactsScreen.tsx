@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,9 @@ import {
   TextInput,
   TouchableOpacity,
   RefreshControl,
+  Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
 import { subscribeToContacts } from '../services/firestoreService';
@@ -18,32 +19,37 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 export const ContactsScreen: React.FC = () => {
   const { user } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const isFocused = useIsFocused();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'drifting' | 'lost'>('all');
 
+  // Only subscribe when screen is focused
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isFocused) return;
     const unsubscribe = subscribeToContacts(user.uid, setContacts);
     return unsubscribe;
-  }, [user]);
+  }, [user, isFocused]);
 
-  const filteredContacts = contacts.filter((contact) => {
-    const matchesSearch =
-      `${contact.firstName} ${contact.lastName} ${contact.company}`
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || contact.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // Memoize filtered contacts
+  const filteredContacts = useMemo(() => {
+    return contacts.filter((contact) => {
+      const matchesSearch =
+        `${contact.firstName} ${contact.lastName} ${contact.company}`
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || contact.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [contacts, searchQuery, statusFilter]);
 
   const onRefresh = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  const renderContact = ({ item }: { item: Contact }) => (
+  const renderContact = useCallback(({ item }: { item: Contact }) => (
     <TouchableOpacity
       style={styles.contactCard}
       onPress={() => navigation.navigate('ContactDetail', { contactId: item.id })}
@@ -70,7 +76,7 @@ export const ContactsScreen: React.FC = () => {
       </View>
       <View style={[styles.statusDot, styles[`dot_${item.status}`]]} />
     </TouchableOpacity>
-  );
+  ), [navigation]);
 
   return (
     <View style={styles.container}>
@@ -105,6 +111,11 @@ export const ContactsScreen: React.FC = () => {
         ListEmptyComponent={
           <Text style={styles.emptyText}>No contacts found</Text>
         }
+        maxToRenderPerBatch={15}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews={Platform.OS === 'android'}
+        windowSize={10}
+        initialNumToRender={10}
       />
 
       <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('AddContact')}>

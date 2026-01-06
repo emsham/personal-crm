@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -56,8 +56,11 @@ export const HomeScreen: React.FC = () => {
     toggleHistory,
   } = useChat();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const isFocused = useIsFocused();
   const flatListRef = useRef<FlatList>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const streamingTextRef = useRef<string>('');
+  const streamingUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Data state
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -81,9 +84,9 @@ export const HomeScreen: React.FC = () => {
     }
   }, [currentMessages, currentSessionId]);
 
-  // Subscribe to data
+  // Subscribe to data only when screen is focused
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isFocused) return;
 
     const unsubContacts = subscribeToContacts(user.uid, setContacts);
     const unsubTasks = subscribeToTasks(user.uid, setTasks);
@@ -94,7 +97,16 @@ export const HomeScreen: React.FC = () => {
       unsubTasks();
       unsubInteractions();
     };
-  }, [user]);
+  }, [user, isFocused]);
+
+  // Cleanup streaming timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (streamingUpdateTimeoutRef.current) {
+        clearTimeout(streamingUpdateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Schedule notifications when contacts change
   useEffect(() => {
@@ -380,40 +392,164 @@ export const HomeScreen: React.FC = () => {
   }, [createNewSession]);
 
   const handleSuggestion = useCallback(
-    (text: string) => {
-      setInputValue(text);
-      // Auto-send after a brief delay
-      setTimeout(() => {
-        handleSend();
-      }, 100);
+    async (text: string) => {
+      if (!currentProviderConfigured) return;
+
+      const apiKey =
+        settings.provider === 'gemini' ? settings.geminiApiKey : settings.openaiApiKey;
+      if (!apiKey) return;
+
+      // Create abort controller
+      abortControllerRef.current = new AbortController();
+
+      // Add user message directly with the suggestion text
+      const userMessage: ChatMessageData = {
+        id: `msg_${Date.now()}_user`,
+        role: 'user',
+        content: text,
+      };
+
+      const updatedMessages = [...messages, userMessage];
+      setMessages(updatedMessages);
+      setIsLoading(true);
+      setIsStreaming(true);
+
+      const systemPrompt = buildCRMSystemPrompt(contacts, tasks);
+
+      // Convert to service format
+      const serviceMessages: ServiceChatMessage[] = updatedMessages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        toolCalls: m.toolCalls,
+        toolResults: m.toolResults?.map((r) => ({
+          toolCallId: r.toolCallId,
+          name: r.name,
+          result: r.result,
+        })),
+      }));
+
+      // Create assistant message placeholder
+      const assistantMessage: ChatMessageData = {
+        id: `msg_${Date.now()}_assistant`,
+        role: 'assistant',
+        content: '',
+        isStreaming: true,
+      };
+
+      setMessages([...updatedMessages, assistantMessage]);
+
+      let responseContent = '';
+      const toolCalls: ToolCall[] = [];
+
+      const streamFn = settings.provider === 'openai' ? streamOpenAI : streamGemini;
+
+      try {
+        await streamFn(
+          apiKey,
+          serviceMessages,
+          systemPrompt,
+          {
+            onText: (newText) => {
+              responseContent += newText;
+              setMessages((prev) => {
+                const updated = [...prev];
+                const lastMsg = updated[updated.length - 1];
+                if (lastMsg && lastMsg.role === 'assistant') {
+                  lastMsg.content = responseContent;
+                }
+                return [...updated];
+              });
+            },
+            onToolCall: (toolCall) => {
+              toolCalls.push(toolCall);
+            },
+            onDone: async () => {
+              const finalMessages = [...updatedMessages, {
+                ...assistantMessage,
+                content: responseContent,
+                toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+                isStreaming: false,
+              }];
+
+              setMessages(finalMessages);
+
+              // Process tool calls if any
+              if (toolCalls.length > 0) {
+                await processToolCalls(toolCalls, finalMessages, 0);
+              } else {
+                await saveCurrentSession(finalMessages);
+              }
+
+              setIsStreaming(false);
+              setIsLoading(false);
+            },
+            onError: (error) => {
+              setMessages((prev) => {
+                const updated = [...prev];
+                const lastMsg = updated[updated.length - 1];
+                if (lastMsg && lastMsg.role === 'assistant') {
+                  lastMsg.content = `Error: ${error}`;
+                  lastMsg.isStreaming = false;
+                }
+                return [...updated];
+              });
+              setIsStreaming(false);
+              setIsLoading(false);
+            },
+          },
+          abortControllerRef.current?.signal
+        );
+      } catch (error) {
+        setIsStreaming(false);
+        setIsLoading(false);
+      }
     },
-    [handleSend]
+    [
+      messages,
+      currentProviderConfigured,
+      settings,
+      contacts,
+      tasks,
+      processToolCalls,
+      saveCurrentSession,
+    ]
   );
 
-  const suggestions = getSuggestions();
+  const suggestions = useMemo(() => getSuggestions(), []);
   const providerName = settings.provider === 'gemini' ? 'Gemini' : 'OpenAI';
 
-  // Dashboard calculations
-  const activeContacts = contacts.filter((c) => c.status === 'active').length;
-  const driftingContacts = contacts.filter((c) => c.status === 'drifting').length;
-  const pendingTasks = tasks.filter((t) => !t.completed).length;
-  const overdueTasks = tasks.filter(
-    (t) => !t.completed && t.dueDate && new Date(t.dueDate) < new Date()
-  ).length;
+  // Memoized dashboard calculations
+  const { activeContacts, driftingContacts, pendingTasks, overdueTasks, upcomingTasks } = useMemo(() => {
+    const now = new Date();
+    const nowTime = now.getTime();
+    const weekFromNow = new Date(nowTime + 7 * 24 * 60 * 60 * 1000);
 
-  // Get tasks due soon (within 7 days)
-  const now = new Date();
-  const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const upcomingTasks = tasks
-    .filter(
-      (t) =>
-        !t.completed &&
-        t.dueDate &&
-        new Date(t.dueDate) >= now &&
-        new Date(t.dueDate) <= weekFromNow
-    )
-    .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
-    .slice(0, 5);
+    const active = contacts.filter((c) => c.status === 'active').length;
+    const drifting = contacts.filter((c) => c.status === 'drifting').length;
+    const pending = tasks.filter((t) => !t.completed).length;
+    const overdue = tasks.filter(
+      (t) => !t.completed && t.dueDate && new Date(t.dueDate) < now
+    ).length;
+
+    const upcoming = tasks
+      .filter(
+        (t) =>
+          !t.completed &&
+          t.dueDate &&
+          new Date(t.dueDate) >= now &&
+          new Date(t.dueDate) <= weekFromNow
+      )
+      .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
+      .slice(0, 5);
+
+    return {
+      activeContacts: active,
+      driftingContacts: drifting,
+      pendingTasks: pending,
+      overdueTasks: overdue,
+      upcomingTasks: upcoming,
+    };
+  }, [contacts, tasks]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -754,6 +890,10 @@ export const HomeScreen: React.FC = () => {
           }
           ListEmptyComponent={renderEmptyState}
           keyboardShouldPersistTaps="handled"
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          removeClippedSubviews={Platform.OS === 'android'}
+          windowSize={10}
         />
 
         {/* Input */}

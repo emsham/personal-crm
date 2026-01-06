@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,22 +8,27 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
 import { subscribeToContacts, subscribeToTasks } from '../services/firestoreService';
 import type { Contact, Task } from '../types';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
+// Helper to parse date in local timezone
+const parseLocalDate = (dateStr: string) => new Date(dateStr + 'T00:00:00');
+
 export const DashboardScreen: React.FC = () => {
   const { user } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const isFocused = useIsFocused();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Only subscribe when screen is focused
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isFocused) return;
 
     const unsubContacts = subscribeToContacts(user.uid, setContacts);
     const unsubTasks = subscribeToTasks(user.uid, setTasks);
@@ -32,40 +37,45 @@ export const DashboardScreen: React.FC = () => {
       unsubContacts();
       unsubTasks();
     };
-  }, [user]);
+  }, [user, isFocused]);
 
   const onRefresh = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  const activeContacts = contacts.filter((c) => c.status === 'active').length;
-  const driftingContacts = contacts.filter((c) => c.status === 'drifting').length;
-  const pendingTasks = tasks.filter((t) => !t.completed).length;
+  // Memoize all dashboard calculations
+  const { activeContacts, driftingContacts, pendingTasks, overdueTasks, upcomingTasks } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  // Helper to parse date in local timezone
-  const parseLocalDate = (dateStr: string) => new Date(dateStr + 'T00:00:00');
+    const active = contacts.filter((c) => c.status === 'active').length;
+    const drifting = contacts.filter((c) => c.status === 'drifting').length;
+    const pending = tasks.filter((t) => !t.completed).length;
+    const overdue = tasks.filter(
+      (t) => !t.completed && t.dueDate && parseLocalDate(t.dueDate) < today
+    ).length;
 
-  // Get start of today for comparisons
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+    const upcoming = tasks
+      .filter(
+        (t) =>
+          !t.completed &&
+          t.dueDate &&
+          parseLocalDate(t.dueDate) >= today &&
+          parseLocalDate(t.dueDate) <= weekFromNow
+      )
+      .sort((a, b) => parseLocalDate(a.dueDate!).getTime() - parseLocalDate(b.dueDate!).getTime())
+      .slice(0, 5);
 
-  const overdueTasks = tasks.filter(
-    (t) => !t.completed && t.dueDate && parseLocalDate(t.dueDate) < today
-  ).length;
-
-  // Get tasks due soon (within 7 days)
-  const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const upcomingTasks = tasks
-    .filter(
-      (t) =>
-        !t.completed &&
-        t.dueDate &&
-        parseLocalDate(t.dueDate) >= today &&
-        parseLocalDate(t.dueDate) <= weekFromNow
-    )
-    .sort((a, b) => parseLocalDate(a.dueDate!).getTime() - parseLocalDate(b.dueDate!).getTime())
-    .slice(0, 5);
+    return {
+      activeContacts: active,
+      driftingContacts: drifting,
+      pendingTasks: pending,
+      overdueTasks: overdue,
+      upcomingTasks: upcoming,
+    };
+  }, [contacts, tasks]);
 
   return (
     <SafeAreaView style={styles.safeArea}>

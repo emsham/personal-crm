@@ -185,8 +185,8 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
         transition-all duration-300
         ${hasMessages ? 'border-b border-white/5 bg-black/20 backdrop-blur-xl' : ''}
       `}>
-        <div className="flex items-center gap-3">
-          {/* New Session button - always visible */}
+        <div className="flex items-center gap-3 ml-14 lg:ml-0">
+          {/* New Session button - always visible, add left margin on mobile to avoid hamburger */}
           <button
             onClick={createNewSession}
             className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 rounded-lg transition-all border border-violet-500/20"

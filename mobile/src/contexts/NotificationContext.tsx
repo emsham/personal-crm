@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Contact, Task } from '../types';
 import * as notificationService from '../services/notificationService';
@@ -46,12 +46,16 @@ const NotificationContext = createContext<NotificationContextValue | null>(null)
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'undetermined' | 'loading'>('loading');
   const [settings, setSettings] = useState<NotificationSettings>(defaultSettings);
-  const [scheduledIds, setScheduledIds] = useState<ScheduledNotificationIds>({
+  // Use ref instead of state to avoid circular dependency in callbacks
+  const scheduledIdsRef = useRef<ScheduledNotificationIds>({
     birthdays: {},
     importantDates: {},
     tasks: {},
   });
   const isInitialized = useRef(false);
+  // Track if we need to debounce scheduling
+  const scheduleContactsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const scheduleTasksTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load settings and scheduled IDs on mount
   useEffect(() => {
@@ -69,7 +73,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       // Load scheduled IDs
       const storedIds = await AsyncStorage.getItem(STORAGE_KEYS.SCHEDULED_IDS);
       if (storedIds) {
-        setScheduledIds(JSON.parse(storedIds));
+        scheduledIdsRef.current = JSON.parse(storedIds);
       }
 
       // Check permission status
@@ -114,162 +118,178 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const scheduleContactNotifications = useCallback(async (contacts: Contact[]) => {
     if (!settings.enabled || permissionStatus !== 'granted') return;
 
-    const newBirthdayIds: Record<string, string> = {};
-    const newImportantDateIds: Record<string, string> = {};
+    // Debounce: clear any pending schedule
+    if (scheduleContactsTimeoutRef.current) {
+      clearTimeout(scheduleContactsTimeoutRef.current);
+    }
 
-    // Cancel existing birthday/important date notifications
-    const existingBirthdayIds = Object.values(scheduledIds.birthdays);
-    const existingImportantDateIds = Object.values(scheduledIds.importantDates);
-    await notificationService.cancelNotifications([...existingBirthdayIds, ...existingImportantDateIds]);
+    // Debounce scheduling by 500ms to avoid rapid re-scheduling
+    scheduleContactsTimeoutRef.current = setTimeout(async () => {
+      const newBirthdayIds: Record<string, string> = {};
+      const newImportantDateIds: Record<string, string> = {};
 
-    const now = new Date();
-    const currentYear = now.getFullYear();
+      // Cancel existing birthday/important date notifications
+      const existingBirthdayIds = Object.values(scheduledIdsRef.current.birthdays);
+      const existingImportantDateIds = Object.values(scheduledIdsRef.current.importantDates);
+      await notificationService.cancelNotifications([...existingBirthdayIds, ...existingImportantDateIds]);
 
-    for (const contact of contacts) {
-      const contactName = `${contact.firstName} ${contact.lastName}`.trim();
+      const now = new Date();
+      const currentYear = now.getFullYear();
 
-      // Schedule birthday notification
-      if (settings.birthdaysEnabled && contact.birthday) {
-        const [month, day] = contact.birthday.split('-').map(Number);
-        if (month && day) {
-          const birthdayDate = getNextOccurrence(month, day, currentYear);
-          if (birthdayDate > now) {
-            const notifId = await notificationService.scheduleBirthdayNotification(
-              contactName,
-              birthdayDate,
-              contact.id
-            );
-            if (notifId) {
-              newBirthdayIds[contact.id] = notifId;
+      for (const contact of contacts) {
+        const contactName = `${contact.firstName} ${contact.lastName}`.trim();
+
+        // Schedule birthday notification
+        if (settings.birthdaysEnabled && contact.birthday) {
+          const [month, day] = contact.birthday.split('-').map(Number);
+          if (month && day) {
+            const birthdayDate = getNextOccurrence(month, day, currentYear);
+            if (birthdayDate > now) {
+              const notifId = await notificationService.scheduleBirthdayNotification(
+                contactName,
+                birthdayDate,
+                contact.id
+              );
+              if (notifId) {
+                newBirthdayIds[contact.id] = notifId;
+              }
             }
           }
         }
-      }
 
-      // Schedule important date notifications
-      if (settings.importantDatesEnabled && contact.importantDates) {
-        for (const importantDate of contact.importantDates) {
-          const [month, day] = importantDate.date.split('-').map(Number);
-          if (month && day) {
-            const dateOccurrence = getNextOccurrence(month, day, currentYear);
-            if (dateOccurrence > now) {
-              const notifId = await notificationService.scheduleImportantDateNotification(
-                contactName,
-                importantDate.label,
-                dateOccurrence,
-                contact.id,
-                importantDate.id
-              );
-              if (notifId) {
-                newImportantDateIds[`${contact.id}_${importantDate.id}`] = notifId;
+        // Schedule important date notifications
+        if (settings.importantDatesEnabled && contact.importantDates) {
+          for (const importantDate of contact.importantDates) {
+            const [month, day] = importantDate.date.split('-').map(Number);
+            if (month && day) {
+              const dateOccurrence = getNextOccurrence(month, day, currentYear);
+              if (dateOccurrence > now) {
+                const notifId = await notificationService.scheduleImportantDateNotification(
+                  contactName,
+                  importantDate.label,
+                  dateOccurrence,
+                  contact.id,
+                  importantDate.id
+                );
+                if (notifId) {
+                  newImportantDateIds[`${contact.id}_${importantDate.id}`] = notifId;
+                }
               }
             }
           }
         }
       }
-    }
 
-    const newScheduledIds = {
-      ...scheduledIds,
-      birthdays: newBirthdayIds,
-      importantDates: newImportantDateIds,
-    };
-    setScheduledIds(newScheduledIds);
-    await saveScheduledIds(newScheduledIds);
-  }, [settings, permissionStatus, scheduledIds]);
+      const newScheduledIds = {
+        ...scheduledIdsRef.current,
+        birthdays: newBirthdayIds,
+        importantDates: newImportantDateIds,
+      };
+      scheduledIdsRef.current = newScheduledIds;
+      await saveScheduledIds(newScheduledIds);
+    }, 500);
+  }, [settings, permissionStatus]);
 
   const scheduleTaskNotifications = useCallback(async (tasks: Task[]) => {
     if (!settings.enabled || !settings.tasksEnabled || permissionStatus !== 'granted') return;
 
-    const newTaskIds: Record<string, string[]> = {};
+    // Debounce: clear any pending schedule
+    if (scheduleTasksTimeoutRef.current) {
+      clearTimeout(scheduleTasksTimeoutRef.current);
+    }
 
-    // Cancel all existing task notifications
-    const existingTaskIds = Object.values(scheduledIds.tasks).flat();
-    await notificationService.cancelNotifications(existingTaskIds);
+    // Debounce scheduling by 500ms to avoid rapid re-scheduling
+    scheduleTasksTimeoutRef.current = setTimeout(async () => {
+      const newTaskIds: Record<string, string[]> = {};
 
-    const now = new Date();
+      // Cancel all existing task notifications
+      const existingTaskIds = Object.values(scheduledIdsRef.current.tasks).flat();
+      await notificationService.cancelNotifications(existingTaskIds);
 
-    for (const task of tasks) {
-      // Skip completed tasks or tasks without due dates
-      if (task.completed || !task.dueDate) continue;
+      const now = new Date();
 
-      const notificationIds: string[] = [];
+      for (const task of tasks) {
+        // Skip completed tasks or tasks without due dates
+        if (task.completed || !task.dueDate) continue;
 
-      // Parse due date in local timezone (adding T00:00:00 prevents UTC interpretation)
-      const dueDate = new Date(task.dueDate + 'T00:00:00');
+        const notificationIds: string[] = [];
 
-      if (task.dueTime) {
-        // If time is set, use exact time
-        const [hours, minutes] = task.dueTime.split(':').map(Number);
-        dueDate.setHours(hours, minutes, 0, 0);
-      } else {
-        // Default to 9:00 AM if no time set
-        dueDate.setHours(9, 0, 0, 0);
-      }
+        // Parse due date in local timezone (adding T00:00:00 prevents UTC interpretation)
+        const dueDate = new Date(task.dueDate + 'T00:00:00');
 
-      // Only schedule if due date is in the future
-      if (dueDate <= now) continue;
+        if (task.dueTime) {
+          // If time is set, use exact time
+          const [hours, minutes] = task.dueTime.split(':').map(Number);
+          dueDate.setHours(hours, minutes, 0, 0);
+        } else {
+          // Default to 9:00 AM if no time set
+          dueDate.setHours(9, 0, 0, 0);
+        }
 
-      // Schedule main notification (at due time)
-      const mainNotifId = await notificationService.scheduleTaskNotification(
-        task.title,
-        task.id,
-        dueDate,
-        false
-      );
-      if (mainNotifId) {
-        notificationIds.push(mainNotifId);
-      }
+        // Only schedule if due date is in the future
+        if (dueDate <= now) continue;
 
-      // Schedule reminder notification (before due time)
-      const reminderMinutes = task.reminderBefore ?? settings.defaultReminderMinutes;
+        // Schedule main notification (at due time)
+        const mainNotifId = await notificationService.scheduleTaskNotification(
+          task.title,
+          task.id,
+          dueDate,
+          false
+        );
+        if (mainNotifId) {
+          notificationIds.push(mainNotifId);
+        }
 
-      // For high priority tasks, always add reminder if not already set
-      const shouldAddReminder = reminderMinutes > 0 || task.priority === 'high';
-      const actualReminderMinutes = reminderMinutes > 0 ? reminderMinutes : (task.priority === 'high' ? settings.defaultReminderMinutes : 0);
+        // Schedule reminder notification (before due time)
+        const reminderMinutes = task.reminderBefore ?? settings.defaultReminderMinutes;
 
-      if (shouldAddReminder && actualReminderMinutes > 0) {
-        const reminderDate = new Date(dueDate.getTime() - actualReminderMinutes * 60 * 1000);
+        // For high priority tasks, always add reminder if not already set
+        const shouldAddReminder = reminderMinutes > 0 || task.priority === 'high';
+        const actualReminderMinutes = reminderMinutes > 0 ? reminderMinutes : (task.priority === 'high' ? settings.defaultReminderMinutes : 0);
 
-        // Only schedule if reminder time is in the future
-        if (reminderDate > now) {
-          const reminderNotifId = await notificationService.scheduleTaskNotification(
-            task.title,
-            task.id,
-            dueDate,
-            true,
-            actualReminderMinutes
-          );
-          if (reminderNotifId) {
-            notificationIds.push(reminderNotifId);
+        if (shouldAddReminder && actualReminderMinutes > 0) {
+          const reminderDate = new Date(dueDate.getTime() - actualReminderMinutes * 60 * 1000);
+
+          // Only schedule if reminder time is in the future
+          if (reminderDate > now) {
+            const reminderNotifId = await notificationService.scheduleTaskNotification(
+              task.title,
+              task.id,
+              dueDate,
+              true,
+              actualReminderMinutes
+            );
+            if (reminderNotifId) {
+              notificationIds.push(reminderNotifId);
+            }
           }
+        }
+
+        if (notificationIds.length > 0) {
+          newTaskIds[task.id] = notificationIds;
         }
       }
 
-      if (notificationIds.length > 0) {
-        newTaskIds[task.id] = notificationIds;
-      }
-    }
-
-    const newScheduledIds = {
-      ...scheduledIds,
-      tasks: newTaskIds,
-    };
-    setScheduledIds(newScheduledIds);
-    await saveScheduledIds(newScheduledIds);
-  }, [settings, permissionStatus, scheduledIds]);
+      const newScheduledIds = {
+        ...scheduledIdsRef.current,
+        tasks: newTaskIds,
+      };
+      scheduledIdsRef.current = newScheduledIds;
+      await saveScheduledIds(newScheduledIds);
+    }, 500);
+  }, [settings, permissionStatus]);
 
   const cancelTaskNotifications = useCallback(async (taskId: string) => {
-    const taskNotifIds = scheduledIds.tasks[taskId];
+    const taskNotifIds = scheduledIdsRef.current.tasks[taskId];
     if (taskNotifIds && taskNotifIds.length > 0) {
       await notificationService.cancelNotifications(taskNotifIds);
 
-      const newScheduledIds = { ...scheduledIds };
+      const newScheduledIds = { ...scheduledIdsRef.current };
       delete newScheduledIds.tasks[taskId];
-      setScheduledIds(newScheduledIds);
+      scheduledIdsRef.current = newScheduledIds;
       await saveScheduledIds(newScheduledIds);
     }
-  }, [scheduledIds]);
+  }, []);
 
   const cancelAllNotifications = useCallback(async () => {
     await notificationService.cancelAllNotifications();
@@ -278,23 +298,45 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       importantDates: {},
       tasks: {},
     };
-    setScheduledIds(newScheduledIds);
+    scheduledIdsRef.current = newScheduledIds;
     await saveScheduledIds(newScheduledIds);
   }, []);
 
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (scheduleContactsTimeoutRef.current) {
+        clearTimeout(scheduleContactsTimeoutRef.current);
+      }
+      if (scheduleTasksTimeoutRef.current) {
+        clearTimeout(scheduleTasksTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Memoize context value to prevent unnecessary re-renders
+  const value = useMemo<NotificationContextValue>(() => ({
+    permissionStatus,
+    settings,
+    updateSettings,
+    requestPermission,
+    scheduleContactNotifications,
+    scheduleTaskNotifications,
+    cancelTaskNotifications,
+    cancelAllNotifications,
+  }), [
+    permissionStatus,
+    settings,
+    updateSettings,
+    requestPermission,
+    scheduleContactNotifications,
+    scheduleTaskNotifications,
+    cancelTaskNotifications,
+    cancelAllNotifications,
+  ]);
+
   return (
-    <NotificationContext.Provider
-      value={{
-        permissionStatus,
-        settings,
-        updateSettings,
-        requestPermission,
-        scheduleContactNotifications,
-        scheduleTaskNotifications,
-        cancelTaskNotifications,
-        cancelAllNotifications,
-      }}
-    >
+    <NotificationContext.Provider value={value}>
       {children}
     </NotificationContext.Provider>
   );
