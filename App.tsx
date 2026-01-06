@@ -7,6 +7,7 @@ import ContactList from './components/ContactList';
 import ContactDetail from './components/ContactDetail';
 import AddContactForm from './components/AddContactForm';
 import AuthPage from './components/AuthPage';
+import EmailVerification from './components/EmailVerification';
 import TaskList from './components/TaskList';
 import DashboardWidgets from './components/DashboardWidgets';
 import SettingsPage from './components/SettingsPage';
@@ -423,6 +424,11 @@ const App: React.FC = () => {
   // Show auth page if not logged in
   if (!user) {
     return <AuthPage />;
+  }
+
+  // Show email verification page if email not verified
+  if (!user.emailVerified) {
+    return <EmailVerification />;
   }
 
   const renderDashboard = () => {

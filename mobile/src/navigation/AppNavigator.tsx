@@ -23,10 +23,12 @@ import {
   EditInteractionScreen,
   DashboardScreen,
 } from '../screens';
+import { EmailVerificationScreen } from '../screens/EmailVerificationScreen';
 
 // Type definitions
 export type RootStackParamList = {
   Auth: undefined;
+  EmailVerification: undefined;
   Main: undefined;
   Dashboard: undefined;
   ContactDetail: { contactId: string };
@@ -306,6 +308,9 @@ export const AppNavigator: React.FC = () => {
     );
   }
 
+  // Check if user needs to verify email
+  const needsEmailVerification = user && !user.emailVerified;
+
   return (
     <NavigationContainer>
       <Stack.Navigator
@@ -314,7 +319,19 @@ export const AppNavigator: React.FC = () => {
           headerTintColor: '#fff',
         }}
       >
-        {user ? (
+        {!user ? (
+          <Stack.Screen
+            name="Auth"
+            component={LoginScreen}
+            options={{ headerShown: false }}
+          />
+        ) : needsEmailVerification ? (
+          <Stack.Screen
+            name="EmailVerification"
+            component={EmailVerificationScreen}
+            options={{ headerShown: false }}
+          />
+        ) : (
           <>
             <Stack.Screen
               name="Main"
@@ -357,12 +374,6 @@ export const AppNavigator: React.FC = () => {
               options={{ title: 'Edit Interaction', presentation: 'modal' }}
             />
           </>
-        ) : (
-          <Stack.Screen
-            name="Auth"
-            component={LoginScreen}
-            options={{ headerShown: false }}
-          />
         )}
       </Stack.Navigator>
     </NavigationContainer>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User } from 'firebase/auth';
 import {
   signInWithGoogle,
@@ -6,6 +6,8 @@ import {
   signInWithEmail,
   signOut,
   onAuthStateChanged,
+  resetPassword,
+  resendVerificationEmail,
 } from '../services/authService';
 
 interface AuthContextType {
@@ -15,6 +17,9 @@ interface AuthContextType {
   signUpWithEmail: (email: string, password: string) => Promise<User>;
   signInWithEmail: (email: string, password: string) => Promise<User>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  resendVerificationEmail: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,6 +37,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    if (user) {
+      await user.reload();
+      // Force re-render with updated user data
+      setUser({ ...user } as User);
+    }
+  }, [user]);
+
   const value: AuthContextType = {
     user,
     loading,
@@ -39,6 +52,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUpWithEmail,
     signInWithEmail,
     signOut,
+    resetPassword,
+    resendVerificationEmail,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
