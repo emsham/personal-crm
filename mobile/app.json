@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nexuscrm.app"
+      "bundleIdentifier": "com.nexuscrm.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -34,7 +37,7 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.1083737231478-845muapveab5lgdlh-br771b34667u1bl"
+          "iosUrlScheme": "com.googleusercontent.apps.1083737231478-845muapveab5lgdlhbr771b34667u1bl"
         }
       ],
       [
@@ -50,6 +53,11 @@
     "notification": {
       "icon": "./assets/notification-icon.png",
       "color": "#3b82f6"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ec06a3e4-79ef-4c5f-b1e0-8f757845ba4b"
+      }
     }
   }
 }

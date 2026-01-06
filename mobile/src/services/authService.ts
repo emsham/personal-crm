@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -91,7 +92,10 @@ export const resetPassword = async (email: string): Promise<void> => {
 
 export const signInWithGoogle = async (): Promise<User> => {
   try {
-    await GoogleSignin.hasPlayServices();
+    // hasPlayServices is Android-only, skip on iOS
+    if (Platform.OS === 'android') {
+      await GoogleSignin.hasPlayServices();
+    }
     const response = await GoogleSignin.signIn();
 
     if (response.type === 'success' && response.data.idToken) {
