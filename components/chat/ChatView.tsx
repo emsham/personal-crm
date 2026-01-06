@@ -245,8 +245,8 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
       <div className="flex-1 min-h-0 overflow-y-auto relative z-10">
         {!hasMessages ? (
           /* ============ CONTAINED AI BOX ============ */
-          <div className="h-full flex items-center justify-center px-6">
-            <div className="w-full max-w-2xl">
+          <div className="h-full flex items-center justify-center px-4 py-8">
+            <div className="w-full max-w-2xl max-h-full overflow-y-auto">
               {/* The AI Card */}
               <div className="glass-strong rounded-3xl p-4 sm:p-6 md:p-8 shadow-2xl shadow-violet-500/5 border border-white/10">
                 {/* AI Avatar */}
@@ -290,7 +290,7 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
                         onBlur={() => setIsFocused(false)}
                         placeholder="Ask me anything..."
                         rows={1}
-                        className="flex-1 resize-none bg-transparent text-white placeholder-slate-500 focus:outline-none text-sm py-1.5"
+                        className="flex-1 resize-none bg-transparent text-white placeholder-slate-500 focus:outline-none text-sm py-2 min-h-[40px]"
                         style={{ maxHeight: '100px' }}
                       />
                       <button

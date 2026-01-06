@@ -9,6 +9,8 @@ import {
   ScrollView,
   Linking,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useLLMSettings, LLMProvider } from '../contexts/LLMSettingsContext';
 
@@ -96,7 +98,10 @@ export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ visible, onC
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.modal}>
           {/* Header */}
           <View style={styles.header}>
@@ -218,7 +223,7 @@ export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ visible, onC
             </View>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
