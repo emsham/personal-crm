@@ -526,7 +526,7 @@ const App: React.FC = () => {
   const renderContactsList = () => {
     return (
       <div className="space-y-6">
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 pl-14 lg:pl-0">
           <div>
             <h2 className="text-xl md:text-2xl font-bold text-white">Your Network</h2>
             <p className="text-slate-400 text-sm mt-1">Manage and nurture your professional relationships</p>
@@ -698,10 +698,10 @@ const App: React.FC = () => {
             />
           } />
           <Route path="/settings" element={
-            <SettingsPage onBack={() => navigate('/')} />
+            <SettingsPage />
           } />
           <Route path="/analytics" element={
-          <div className="space-y-6 md:space-y-8">
+          <div className="space-y-6 md:space-y-8 pl-14 lg:pl-0">
             <div>
               <h2 className="text-xl md:text-2xl font-bold text-white">Analytics</h2>
               <p className="text-slate-400 mt-1 text-sm md:text-base">Insights into your network and interactions</p>

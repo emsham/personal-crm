@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,17 @@ import {
   Linking,
   TextInput,
   Alert,
+  Clipboard,
+  Animated,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -55,6 +65,48 @@ export const ContactDetailScreen: React.FC = () => {
   });
   const [newImportantDate, setNewImportantDate] = useState({ label: '', date: '' });
   const [relatedSearchQuery, setRelatedSearchQuery] = useState('');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const copiedAnim = useRef(new Animated.Value(0)).current;
+
+  const copyToClipboard = (text: string, field: string) => {
+    Clipboard.setString(text);
+    setCopiedField(field);
+
+    // Animate in
+    Animated.spring(copiedAnim, {
+      toValue: 1,
+      friction: 8,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+
+    // Animate out after delay
+    setTimeout(() => {
+      Animated.timing(copiedAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => setCopiedField(null));
+    }, 1500);
+  };
+
+  const toggleEditMode = useCallback((editing: boolean) => {
+    LayoutAnimation.configureNext({
+      duration: 300,
+      create: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.opacity,
+      },
+      update: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+      },
+      delete: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.opacity,
+      },
+    });
+    setIsEditing(editing);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -140,7 +192,7 @@ export const ContactDetailScreen: React.FC = () => {
         updates.birthday = editedContact.birthday;
       }
       await updateContact(user.uid, contact.id, updates);
-      setIsEditing(false);
+      toggleEditMode(false);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to update contact');
     } finally {
@@ -196,7 +248,7 @@ export const ContactDetailScreen: React.FC = () => {
       <View style={styles.header}>
         {/* Edit button in top right when not editing */}
         {!isEditing && (
-          <TouchableOpacity style={styles.editButtonFloat} onPress={() => setIsEditing(true)}>
+          <TouchableOpacity style={styles.editButtonFloat} onPress={() => toggleEditMode(true)}>
             <Text style={styles.editButtonFloatText}>Edit</Text>
           </TouchableOpacity>
         )}
@@ -288,10 +340,13 @@ export const ContactDetailScreen: React.FC = () => {
           {isEditing ? (
             <>
               <View style={styles.editInfoRow}>
-                <Text style={styles.infoLabel}>Email</Text>
+                <View style={styles.editInfoLabelRow}>
+                  <Ionicons name="mail-outline" size={16} color="#64748b" />
+                  <Text style={styles.infoLabel}>Email</Text>
+                </View>
                 <TextInput
                   style={styles.editInfoInput}
-                  placeholder="Email"
+                  placeholder="Email address"
                   placeholderTextColor="#64748b"
                   value={editedContact.email}
                   onChangeText={(text) => setEditedContact({ ...editedContact, email: text })}
@@ -300,18 +355,24 @@ export const ContactDetailScreen: React.FC = () => {
                 />
               </View>
               <View style={styles.editInfoRow}>
-                <Text style={styles.infoLabel}>Phone</Text>
+                <View style={styles.editInfoLabelRow}>
+                  <Ionicons name="call-outline" size={16} color="#64748b" />
+                  <Text style={styles.infoLabel}>Phone</Text>
+                </View>
                 <TextInput
                   style={styles.editInfoInput}
-                  placeholder="Phone"
+                  placeholder="Phone number"
                   placeholderTextColor="#64748b"
                   value={editedContact.phone}
                   onChangeText={(text) => setEditedContact({ ...editedContact, phone: text })}
                   keyboardType="phone-pad"
                 />
               </View>
-              <View style={styles.editInfoRow}>
-                <Text style={styles.infoLabel}>Birthday</Text>
+              <View style={[styles.editInfoRow, styles.editInfoRowLast]}>
+                <View style={styles.editInfoLabelRow}>
+                  <Ionicons name="gift-outline" size={16} color="#64748b" />
+                  <Text style={styles.infoLabel}>Birthday</Text>
+                </View>
                 <TextInput
                   style={styles.editInfoInput}
                   placeholder="MM-DD"
@@ -323,23 +384,85 @@ export const ContactDetailScreen: React.FC = () => {
             </>
           ) : (
             <>
-              {contact.email && (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Email</Text>
-                  <Text style={styles.infoValue}>{contact.email}</Text>
+              {!contact.email && !contact.phone && !contact.birthday ? (
+                <View style={styles.emptyInfoContainer}>
+                  <Ionicons name="information-circle-outline" size={24} color="#475569" />
+                  <Text style={styles.emptyInfoText}>No contact info recorded</Text>
+                  <Text style={styles.emptyInfoHint}>Tap Edit to add email, phone, or birthday</Text>
                 </View>
-              )}
-              {contact.phone && (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Phone</Text>
-                  <Text style={styles.infoValue}>{contact.phone}</Text>
-                </View>
-              )}
-              {contact.birthday && (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Birthday</Text>
-                  <Text style={styles.infoValue}>{contact.birthday}</Text>
-                </View>
+              ) : (
+                <>
+                  {contact.email && (
+                    <TouchableOpacity
+                      style={[styles.infoRow, !contact.phone && !contact.birthday && styles.infoRowLast]}
+                      onPress={() => copyToClipboard(contact.email!, 'email')}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.infoIconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+                        <Ionicons name="mail-outline" size={18} color="#3b82f6" />
+                      </View>
+                      <Text style={styles.infoValue}>{contact.email}</Text>
+                      {copiedField === 'email' && (
+                        <Animated.View
+                          style={[
+                            styles.copiedBadge,
+                            {
+                              opacity: copiedAnim,
+                              transform: [
+                                { scale: copiedAnim.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [0.8, 1],
+                                })},
+                              ],
+                            },
+                          ]}
+                        >
+                          <Ionicons name="checkmark" size={12} color="#fff" style={{ marginRight: 4 }} />
+                          <Text style={styles.copiedText}>Copied</Text>
+                        </Animated.View>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                  {contact.phone && (
+                    <TouchableOpacity
+                      style={[styles.infoRow, !contact.birthday && styles.infoRowLast]}
+                      onPress={() => copyToClipboard(contact.phone!, 'phone')}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.infoIconContainer, { backgroundColor: 'rgba(34, 197, 94, 0.1)' }]}>
+                        <Ionicons name="call-outline" size={18} color="#22c55e" />
+                      </View>
+                      <Text style={styles.infoValue}>{contact.phone}</Text>
+                      {copiedField === 'phone' && (
+                        <Animated.View
+                          style={[
+                            styles.copiedBadge,
+                            {
+                              opacity: copiedAnim,
+                              transform: [
+                                { scale: copiedAnim.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [0.8, 1],
+                                })},
+                              ],
+                            },
+                          ]}
+                        >
+                          <Ionicons name="checkmark" size={12} color="#fff" style={{ marginRight: 4 }} />
+                          <Text style={styles.copiedText}>Copied</Text>
+                        </Animated.View>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                  {contact.birthday && (
+                    <View style={[styles.infoRow, styles.infoRowLast]}>
+                      <View style={[styles.infoIconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                        <Ionicons name="gift-outline" size={18} color="#f59e0b" />
+                      </View>
+                      <Text style={styles.infoValue}>{contact.birthday}</Text>
+                    </View>
+                  )}
+                </>
               )}
             </>
           )}
@@ -606,7 +729,7 @@ export const ContactDetailScreen: React.FC = () => {
       {/* Edit mode action buttons */}
       {isEditing && (
         <View style={styles.editActionsContainer}>
-          <TouchableOpacity style={styles.cancelButton} onPress={() => setIsEditing(false)}>
+          <TouchableOpacity style={styles.cancelButton} onPress={() => toggleEditMode(false)}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -772,22 +895,78 @@ const styles = StyleSheet.create({
   infoCard: {
     backgroundColor: '#1e293b',
     borderRadius: 12,
-    padding: 16,
+    overflow: 'hidden',
   },
   infoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
+    alignItems: 'center',
+    padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
+  },
+  infoRowLast: {
+    borderBottomWidth: 0,
+  },
+  infoIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  infoContent: {
+    flex: 1,
   },
   infoLabel: {
     color: '#94a3b8',
     fontSize: 14,
+    fontWeight: '500',
   },
   infoValue: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  emptyInfoContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+  },
+  emptyInfoText: {
+    color: '#64748b',
+    fontSize: 15,
+    fontWeight: '500',
+    marginTop: 8,
+  },
+  emptyInfoHint: {
+    color: '#475569',
+    fontSize: 13,
+    marginTop: 4,
+  },
+  copiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#22c55e',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    marginLeft: 'auto',
+  },
+  copiedText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  editInfoLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  editInfoRowLast: {
+    borderBottomWidth: 0,
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -943,17 +1122,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   editInfoRow: {
-    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
   },
   editInfoInput: {
     backgroundColor: '#0f172a',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 15,
     color: '#fff',
     borderWidth: 1,
     borderColor: '#334155',
-    marginTop: 4,
   },
   editTagsInput: {
     backgroundColor: '#1e293b',

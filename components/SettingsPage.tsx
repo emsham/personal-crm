@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Key, ExternalLink, Check, AlertCircle, Eye, EyeOff, Sparkles, ArrowLeft } from 'lucide-react';
+import { Key, ExternalLink, Check, AlertCircle, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { useLLMSettings } from '../contexts/LLMSettingsContext';
 import { LLMProvider } from '../types';
 
-interface SettingsPageProps {
-  onBack: () => void;
-}
-
-const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
+const SettingsPage: React.FC = () => {
   const {
     settings,
     setProvider,
@@ -61,20 +57,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="flex items-center space-x-2 text-slate-400 hover:text-violet-400 transition-colors"
-          >
-            <ArrowLeft size={20} />
-            <span className="font-medium">Back</span>
-          </button>
-          <div>
-            <h2 className="text-2xl font-bold text-white">Settings</h2>
-            <p className="text-slate-400 text-sm mt-1">Manage your app preferences</p>
-          </div>
-        </div>
+      <div className="pl-14 lg:pl-0">
+        <h2 className="text-2xl font-bold text-white">Settings</h2>
+        <p className="text-slate-400 text-sm mt-1">Manage your app preferences</p>
       </div>
 
       {/* AI Settings Section */}

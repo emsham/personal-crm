@@ -175,7 +175,7 @@ const TaskList: React.FC<TaskListProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pl-14 lg:pl-0">
         <div>
           <h2 className="text-2xl font-bold text-white">Tasks</h2>
           <p className="text-slate-400 text-sm mt-1">
