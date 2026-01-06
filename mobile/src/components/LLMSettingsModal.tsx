@@ -159,9 +159,12 @@ export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ visible, onC
                   placeholderTextColor="#64748b"
                   value={geminiKey}
                   onChangeText={setGeminiKey}
-                  secureTextEntry={!showGeminiKey}
+                  secureTextEntry={!showGeminiKey && geminiKey.length > 0}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  autoComplete="off"
+                  textContentType="none"
+                  importantForAutofill="no"
                 />
                 <TouchableOpacity
                   style={styles.toggleButton}
@@ -187,9 +190,12 @@ export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ visible, onC
                   placeholderTextColor="#64748b"
                   value={openaiKey}
                   onChangeText={setOpenaiKey}
-                  secureTextEntry={!showOpenaiKey}
+                  secureTextEntry={!showOpenaiKey && openaiKey.length > 0}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  autoComplete="off"
+                  textContentType="none"
+                  importantForAutofill="no"
                 />
                 <TouchableOpacity
                   style={styles.toggleButton}
