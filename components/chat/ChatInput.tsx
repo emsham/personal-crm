@@ -61,6 +61,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onOpenSettings }) => {
             }
             disabled={isDisabled}
             rows={1}
+            autoComplete="off"
             className={`
               flex-1 resize-none bg-transparent text-slate-900 placeholder-slate-400
               focus:outline-none text-sm leading-relaxed py-1 px-2

@@ -278,8 +278,8 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
                 {currentProviderConfigured ? (
                   <form onSubmit={handleSubmit}>
                     <div className={`
-                      relative flex items-end gap-3 p-3 rounded-xl transition-all duration-200
-                      ${isFocused ? 'bg-white/10 ring-2 ring-violet-500/40' : 'bg-white/5 hover:bg-white/[0.07]'}
+                      relative flex items-end gap-3 p-3 rounded-xl transition-colors duration-200
+                      ${isFocused ? 'bg-white/10' : 'bg-white/5 hover:bg-white/[0.07]'}
                     `}>
                       <textarea
                         ref={textareaRef}
@@ -290,8 +290,9 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
                         onBlur={() => setIsFocused(false)}
                         placeholder="Ask me anything..."
                         rows={1}
+                        autoComplete="off"
                         className="flex-1 resize-none bg-transparent text-white placeholder-slate-500 focus:outline-none text-sm py-2 min-h-[40px]"
-                        style={{ maxHeight: '100px' }}
+                        style={{ maxHeight: '100px', outline: 'none', boxShadow: 'none', WebkitAppearance: 'none' }}
                       />
                       <button
                         type="submit"
@@ -377,8 +378,8 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
         <div className="relative z-20 flex-shrink-0 border-t border-white/5 bg-black/30 backdrop-blur-xl p-4">
           <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
             <div className={`
-              relative flex items-end gap-3 p-3 rounded-xl transition-all duration-200
-              ${isFocused ? 'bg-white/10 ring-1 ring-violet-500/30' : 'bg-white/5'}
+              relative flex items-end gap-3 p-3 rounded-xl transition-colors duration-200
+              ${isFocused ? 'bg-white/10' : 'bg-white/5'}
             `}>
               <textarea
                 ref={textareaRef}
@@ -390,8 +391,9 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
                 placeholder="Continue the conversation..."
                 disabled={!currentProviderConfigured}
                 rows={1}
+                autoComplete="off"
                 className="flex-1 resize-none bg-transparent text-white placeholder-slate-500 focus:outline-none text-sm py-1.5"
-                style={{ maxHeight: '100px' }}
+                style={{ maxHeight: '100px', outline: 'none', boxShadow: 'none', WebkitAppearance: 'none' }}
               />
               <button
                 type="submit"
