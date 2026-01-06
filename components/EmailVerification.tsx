@@ -64,7 +64,7 @@ const EmailVerification: React.FC = () => {
         </div>
 
         {/* Verification card */}
-        <div className="glass-strong rounded-3xl p-8 shadow-2xl text-center">
+        <div className="glass-strong rounded-3xl p-5 sm:p-6 md:p-8 shadow-2xl text-center">
           <div className="w-16 h-16 rounded-2xl bg-amber-500/20 flex items-center justify-center mx-auto mb-6">
             <Mail size={32} className="text-amber-400" />
           </div>

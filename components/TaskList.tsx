@@ -195,7 +195,7 @@ const TaskList: React.FC<TaskListProps> = ({
 
       {/* Add Task Form */}
       {showAddForm && (
-        <div className="glass-strong rounded-2xl p-6">
+        <div className="glass-strong rounded-2xl p-4 sm:p-6">
           <div className="flex justify-between items-center mb-5">
             <h3 className="font-bold text-lg text-white">New Task</h3>
             <button onClick={() => setShowAddForm(false)} className="text-slate-500 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg">

@@ -139,7 +139,7 @@ const AuthPage: React.FC = () => {
         </div>
 
         {/* Auth card */}
-        <div className="glass-strong rounded-3xl p-8 shadow-2xl">
+        <div className="glass-strong rounded-3xl p-5 sm:p-6 md:p-8 shadow-2xl">
           <h2 className="text-xl font-bold text-white mb-6">
             {isForgotPassword ? 'Reset your password' : isSignUp ? 'Create your account' : 'Welcome back'}
           </h2>

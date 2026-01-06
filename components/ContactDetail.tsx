@@ -346,7 +346,7 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Card */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="glass rounded-3xl p-8">
+          <div className="glass rounded-3xl p-4 sm:p-6 md:p-8">
             {isEditingContact ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">

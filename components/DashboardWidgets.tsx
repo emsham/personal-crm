@@ -138,7 +138,7 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
             {/* Two column layout for tasks and celebrations */}
             <div className="grid md:grid-cols-2 gap-6">
               {/* Upcoming Tasks */}
-              <div className="glass rounded-2xl p-6">
+              <div className="glass rounded-2xl p-4 sm:p-6">
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                   <CheckSquare size={20} className="text-violet-400" />
                   Upcoming Tasks
@@ -188,7 +188,7 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
               </div>
 
               {/* Upcoming Celebrations */}
-              <div className="glass rounded-2xl p-6">
+              <div className="glass rounded-2xl p-4 sm:p-6">
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                   <Cake size={20} className="text-pink-400" />
                   Upcoming Celebrations
@@ -261,7 +261,7 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           {/* Quick Stats */}
           <div className="grid grid-cols-2 gap-3">
             <StatCard icon={Users} label="Contacts" value={totalContacts} sublabel={`${activeContacts} active`} color="violet" />

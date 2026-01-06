@@ -78,7 +78,7 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
+          <div className="flex items-center justify-between px-4 py-4 sm:px-6 sm:py-5 border-b border-white/5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
                 <Sparkles size={20} className="text-white" />
@@ -97,7 +97,7 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
           </div>
 
           {/* Content */}
-          <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto max-h-[calc(90vh-200px)]">
             {/* Provider selection */}
             <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3 block">
@@ -225,7 +225,7 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-white/5 bg-black/20">
+          <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-t border-white/5 bg-black/20">
             <button
               onClick={handleClearAll}
               className="text-sm text-red-400 hover:text-red-300 transition-colors"

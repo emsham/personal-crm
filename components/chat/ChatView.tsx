@@ -248,7 +248,7 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
           <div className="h-full flex items-center justify-center px-6">
             <div className="w-full max-w-2xl">
               {/* The AI Card */}
-              <div className="glass-strong rounded-3xl p-8 shadow-2xl shadow-violet-500/5 border border-white/10">
+              <div className="glass-strong rounded-3xl p-4 sm:p-6 md:p-8 shadow-2xl shadow-violet-500/5 border border-white/10">
                 {/* AI Avatar */}
                 <div className="flex justify-center mb-8">
                   <div className="relative">

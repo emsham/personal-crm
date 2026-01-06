@@ -67,13 +67,13 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
       <div className="glass-strong w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden my-8 border border-white/10">
-        <div className="flex justify-between items-center p-8 border-b border-white/5">
+        <div className="flex justify-between items-center p-4 sm:p-6 md:p-8 border-b border-white/5">
           <div>
             <div className="flex items-center gap-3 mb-1">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
                 <Sparkles size={20} className="text-white" />
               </div>
-              <h2 className="text-2xl font-bold text-white">Add New Contact</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Add New Contact</h2>
             </div>
             <p className="text-slate-400 text-sm mt-2">Expand your network with a new relationship.</p>
           </div>
@@ -82,8 +82,8 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-5">
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
                 <User size={12} /> First Name
@@ -92,7 +92,7 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
                 required
                 type="text"
                 placeholder="Jane"
-                className="w-full px-4 py-3.5 input-dark rounded-xl"
+                className="w-full px-3 py-2.5 sm:px-4 sm:py-3.5 input-dark rounded-xl"
                 value={formData.firstName}
                 onChange={e => setFormData({ ...formData, firstName: e.target.value })}
               />
@@ -105,7 +105,7 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
                 required
                 type="text"
                 placeholder="Doe"
-                className="w-full px-4 py-3.5 input-dark rounded-xl"
+                className="w-full px-3 py-2.5 sm:px-4 sm:py-3.5 input-dark rounded-xl"
                 value={formData.lastName}
                 onChange={e => setFormData({ ...formData, lastName: e.target.value })}
               />
@@ -117,7 +117,7 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
               <input
                 type="text"
                 placeholder="Global Corp"
-                className="w-full px-4 py-3.5 input-dark rounded-xl"
+                className="w-full px-3 py-2.5 sm:px-4 sm:py-3.5 input-dark rounded-xl"
                 value={formData.company}
                 onChange={e => setFormData({ ...formData, company: e.target.value })}
               />
@@ -129,7 +129,7 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
               <input
                 type="text"
                 placeholder="Product Manager"
-                className="w-full px-4 py-3.5 input-dark rounded-xl"
+                className="w-full px-3 py-2.5 sm:px-4 sm:py-3.5 input-dark rounded-xl"
                 value={formData.position}
                 onChange={e => setFormData({ ...formData, position: e.target.value })}
               />
@@ -141,7 +141,7 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
               <input
                 type="email"
                 placeholder="jane.doe@example.com"
-                className="w-full px-4 py-3.5 input-dark rounded-xl"
+                className="w-full px-3 py-2.5 sm:px-4 sm:py-3.5 input-dark rounded-xl"
                 value={formData.email}
                 onChange={e => setFormData({ ...formData, email: e.target.value })}
               />
@@ -153,7 +153,7 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
               <input
                 type="tel"
                 placeholder="+1 555-0000"
-                className="w-full px-4 py-3.5 input-dark rounded-xl"
+                className="w-full px-3 py-2.5 sm:px-4 sm:py-3.5 input-dark rounded-xl"
                 value={formData.phone}
                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
               />
@@ -164,7 +164,7 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
               </label>
               <input
                 type="date"
-                className="w-full px-4 py-3.5 input-dark rounded-xl"
+                className="w-full px-3 py-2.5 sm:px-4 sm:py-3.5 input-dark rounded-xl"
                 value={formData.birthday}
                 onChange={e => setFormData({ ...formData, birthday: e.target.value })}
               />
@@ -179,7 +179,7 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
               <input
                 type="text"
                 placeholder="Search to link existing contacts..."
-                className="w-full px-4 py-3.5 input-dark rounded-xl"
+                className="w-full px-3 py-2.5 sm:px-4 sm:py-3.5 input-dark rounded-xl"
                 value={searchRelated}
                 onChange={e => setSearchRelated(e.target.value)}
               />
@@ -224,7 +224,7 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
             <input
               type="text"
               placeholder="Engineering, Mentor, Investor"
-              className="w-full px-4 py-3.5 input-dark rounded-xl"
+              className="w-full px-3 py-2.5 sm:px-4 sm:py-3.5 input-dark rounded-xl"
               value={formData.tags}
               onChange={e => setFormData({ ...formData, tags: e.target.value })}
             />
@@ -237,23 +237,23 @@ const AddContactForm: React.FC<AddContactFormProps> = ({ onClose, onAdd, existin
             <textarea
               placeholder="Met at the networking event last week..."
               rows={3}
-              className="w-full px-4 py-3.5 input-dark rounded-xl resize-none"
+              className="w-full px-3 py-2.5 sm:px-4 sm:py-3.5 input-dark rounded-xl resize-none"
               value={formData.notes}
               onChange={e => setFormData({ ...formData, notes: e.target.value })}
             />
           </div>
 
-          <div className="pt-4 flex gap-4">
+          <div className="pt-2 sm:pt-4 flex gap-3 sm:gap-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-4 text-slate-400 font-semibold hover:text-white hover:bg-white/5 rounded-xl transition-all"
+              className="flex-1 py-3 sm:py-4 text-slate-400 font-semibold hover:text-white hover:bg-white/5 rounded-xl transition-all"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 py-4 bg-gradient-to-r from-violet-500 to-cyan-500 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/30 transition-all"
+              className="flex-1 py-3 sm:py-4 bg-gradient-to-r from-violet-500 to-cyan-500 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/30 transition-all"
             >
               Save Contact
             </button>
