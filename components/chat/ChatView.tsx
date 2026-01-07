@@ -48,12 +48,23 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
     };
   }, [isStreaming, stopStreaming]);
 
-  // Auto-scroll to bottom when messages change
+  // Track message count to only auto-scroll on new messages
+  const prevMessageCountRef = useRef(0);
+
+  // Auto-scroll to bottom only when new messages are added or content is streaming
   useEffect(() => {
     if (hasMessages && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      const currentCount = messages.length;
+      const lastMessage = messages[messages.length - 1];
+      const isStreaming = lastMessage?.isStreaming;
+
+      // Only scroll if: new message added OR currently streaming
+      if (currentCount > prevMessageCountRef.current || isStreaming) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+      prevMessageCountRef.current = currentCount;
     }
-  }, [hasMessages, messages]);
+  }, [hasMessages, messages.length]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -183,7 +194,7 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
       <div className={`
         relative z-20 flex-shrink-0 flex items-center justify-between px-6 py-3
         transition-all duration-300
-        ${hasMessages ? 'border-b border-white/5 bg-black/20 backdrop-blur-xl' : ''}
+        ${hasMessages ? 'bg-black/20 backdrop-blur-xl' : ''}
       `}>
         <div className="flex items-center gap-3 ml-14 lg:ml-0">
           {/* New Session button - always visible, add left margin on mobile to avoid hamburger */}

@@ -1,4 +1,4 @@
-import React, { memo, useRef, useEffect, useState } from 'react';
+import React, { memo, useRef, useMemo } from 'react';
 import { ChatMessage as ChatMessageType, ToolResult, Contact, Interaction, Task } from '../../types';
 import { Bot, Wrench, AlertCircle, CheckCircle, Sparkles, ArrowUpRight, Loader2 } from 'lucide-react';
 
@@ -9,35 +9,42 @@ interface ChatMessageProps {
   onSelectContact?: (contact: Contact) => void;
 }
 
+// Track which messages have already animated (persists across remounts)
+const animatedMessageIds = new Set<string>();
+
 const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], isLatest = false, onSelectContact }) => {
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
-  // Use ref to track animation without causing re-renders
-  const hasAnimatedRef = useRef(false);
-  const [, forceUpdate] = useState(0);
   const contentRef = useRef<string>('');
 
-  // Mark as animated after first render - only triggers one re-render
-  useEffect(() => {
-    if (!hasAnimatedRef.current) {
-      // Small delay to ensure animation plays before removing class
-      const timer = setTimeout(() => {
-        hasAnimatedRef.current = true;
-        forceUpdate(n => n + 1);
-      }, 600);
-      return () => clearTimeout(timer);
+  // Check if this message should animate
+  // Only animate if: new message ID AND (user message OR streaming assistant message)
+  // Don't animate completed assistant messages to prevent flash at end of streaming
+  const shouldAnimate = useMemo(() => {
+    // Already animated this ID
+    if (animatedMessageIds.has(message.id)) {
+      return false;
     }
-  }, []);
+
+    // For assistant messages, only animate if currently streaming
+    // This prevents the fade-in when streaming ends
+    if (message.role === 'assistant' && !message.isStreaming && message.content) {
+      animatedMessageIds.add(message.id);
+      return false;
+    }
+
+    // Mark as animated
+    animatedMessageIds.add(message.id);
+    return true;
+  }, [message.id, message.role, message.isStreaming, message.content]);
 
   // Keep content stable - only update ref, don't cause re-render flashes
   if (message.content) {
     contentRef.current = message.content;
   }
 
-  const shouldAnimate = !hasAnimatedRef.current;
-
   if (isTool && message.toolResults) {
-    return <ToolResultsDisplay results={message.toolResults} contacts={contacts} hasAnimated={hasAnimatedRef.current} onSelectContact={onSelectContact} />;
+    return <ToolResultsDisplay results={message.toolResults} contacts={contacts} hasAnimated={!shouldAnimate} onSelectContact={onSelectContact} />;
   }
 
   // User message - minimal, right-aligned
@@ -81,14 +88,14 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
           </div>
         )}
 
-        {/* Tool calls indicator - show with animation */}
+        {/* Tool calls indicator - only animate on first render */}
         {message.toolCalls && message.toolCalls.length > 0 && (
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {message.toolCalls.map((tc, i) => (
               <div
                 key={tc.id || i}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-500/10 to-cyan-500/10 border border-violet-500/20 text-xs text-violet-300 animate-scale-in"
-                style={{ animationDelay: `${i * 100}ms`, animationFillMode: 'both' }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-500/10 to-cyan-500/10 border border-violet-500/20 text-xs text-violet-300 ${shouldAnimate ? 'animate-scale-in' : ''}`}
+                style={shouldAnimate ? { animationDelay: `${i * 100}ms`, animationFillMode: 'both' } : undefined}
               >
                 {message.isStreaming ? (
                   <Loader2 size={12} className="animate-spin text-violet-400" />

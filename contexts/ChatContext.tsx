@@ -354,6 +354,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           iteration++;
           let followUpContent = '';
           const followUpToolCalls: ToolCall[] = [];
+          const followUpMessageId = `msg_${Date.now()}_final_${iteration}`;
 
           console.log(`Starting follow-up iteration ${iteration} with`, currentMessages.length, 'messages');
 
@@ -368,7 +369,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             let followUpLastUpdate = 0;
             let followUpPending = false;
             let isFirstFollowUpChunk = true;
-            const followUpMessageId = `msg_${Date.now()}_final`;
 
             const flushFollowUpUpdate = () => {
               const streamingFollowUp: ChatMessage = {
@@ -482,7 +482,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // No more tool calls, add final content and break
             if (followUpContent) {
               const finalAssistantMessage: ChatMessage = {
-                id: `msg_${Date.now()}_final`,
+                id: followUpMessageId, // Reuse the same ID to prevent re-animation
                 role: 'assistant',
                 content: followUpContent,
                 timestamp: new Date(),
@@ -534,7 +534,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // This prevents a flash where content disappears momentarily
       setTimeout(() => {
         setStreamingContent(null);
-      }, 100);
+      }, 250);
     }
   }, [user, currentSessionId, sessions, settings.provider, currentProviderConfigured, getActiveApiKey, crmData]);
 
