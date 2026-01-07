@@ -21,7 +21,6 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
   const [openaiKey, setOpenaiKey] = useState(settings.openaiApiKey || '');
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   // Update local state when settings change
   useEffect(() => {
@@ -34,8 +33,7 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
   const handleSave = () => {
     setGeminiApiKey(geminiKey);
     setOpenAIApiKey(openaiKey);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    onClose();
   };
 
   const handleClearAll = () => {
@@ -234,16 +232,9 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
               </button>
               <button
                 onClick={handleSave}
-                className="px-5 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-violet-500/25 transition-all flex items-center gap-2"
+                className="px-5 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-violet-500/25 transition-all"
               >
-                {saved ? (
-                  <>
-                    <Check size={16} />
-                    Saved!
-                  </>
-                ) : (
-                  'Save Changes'
-                )}
+                Save Changes
               </button>
             </div>
           </div>

@@ -267,7 +267,6 @@ const MainTabs: React.FC = () => {
         tabBarInactiveTintColor: '#64748b',
         sceneContainerStyle: {
           backgroundColor: '#0f172a',
-          paddingBottom: 60 + Math.max((insets.bottom || 0) - 8, 0),
         },
         tabBarStyle: {
           backgroundColor: '#1e293b',
@@ -276,11 +275,7 @@ const MainTabs: React.FC = () => {
           shadowOpacity: 0,
           paddingTop: 8,
           paddingBottom: Math.max(insets.bottom || 0, 8),
-          height: 60 + Math.max((insets.bottom || 0) - 8, 0),
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
+          height: 60 + Math.max(insets.bottom || 0, 8),
         },
         tabBarLabelStyle: {
           fontSize: 12,

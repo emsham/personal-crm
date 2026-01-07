@@ -1,20 +1,23 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { LLMProvider, LLMSettings } from '../types';
+import { useAuth } from './AuthContext';
+import { deriveEncryptionKey } from '../shared/crypto';
+import { subscribeToApiKeys, saveApiKey, deleteApiKey, deleteAllApiKeys } from '../services/apiKeyService';
+import { migrateLocalStorageApiKeys, clearLegacyLocalStorageKeys } from '../services/apiKeyMigrationService';
 
-// LocalStorage keys
-const STORAGE_PREFIX = 'nexus_llm_';
-const PROVIDER_KEY = `${STORAGE_PREFIX}provider`;
-const GEMINI_KEY = `${STORAGE_PREFIX}gemini_key`;
-const OPENAI_KEY = `${STORAGE_PREFIX}openai_key`;
+// localStorage key for provider preference (not sensitive)
+const PROVIDER_KEY = 'nexus_llm_provider';
 
 interface LLMSettingsContextType {
   settings: LLMSettings;
   isConfigured: boolean;
   currentProviderConfigured: boolean;
+  isLoading: boolean;
+  isSyncing: boolean;
   setProvider: (provider: LLMProvider) => void;
-  setGeminiApiKey: (key: string) => void;
-  setOpenAIApiKey: (key: string) => void;
-  clearApiKeys: () => void;
+  setGeminiApiKey: (key: string) => Promise<void>;
+  setOpenAIApiKey: (key: string) => Promise<void>;
+  clearApiKeys: () => Promise<void>;
   getActiveApiKey: () => string | undefined;
 }
 
@@ -27,16 +30,50 @@ const defaultSettings: LLMSettings = {
 const LLMSettingsContext = createContext<LLMSettingsContextType | undefined>(undefined);
 
 export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<LLMSettings>(() => {
-    // Load from localStorage on mount
+    // Load provider preference from localStorage on mount
     if (typeof window === 'undefined') return defaultSettings;
-
     const provider = (localStorage.getItem(PROVIDER_KEY) as LLMProvider) || 'gemini';
-    const geminiApiKey = localStorage.getItem(GEMINI_KEY) || undefined;
-    const openaiApiKey = localStorage.getItem(OPENAI_KEY) || undefined;
-
-    return { provider, geminiApiKey, openaiApiKey };
+    return { ...defaultSettings, provider };
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Derive encryption key from user ID (deterministic)
+  const encryptionKey = useMemo(() => {
+    if (!user?.uid) return null;
+    return deriveEncryptionKey(user.uid);
+  }, [user?.uid]);
+
+  // Subscribe to encrypted API keys from Firestore when user is authenticated
+  useEffect(() => {
+    if (!user?.uid || !encryptionKey) {
+      setIsLoading(false);
+      // Clear keys when user logs out
+      setSettings(prev => ({
+        ...prev,
+        geminiApiKey: undefined,
+        openaiApiKey: undefined,
+      }));
+      return;
+    }
+
+    // Run migration first (one-time, from localStorage to Firestore)
+    migrateLocalStorageApiKeys(user.uid, encryptionKey).catch(console.error);
+
+    // Subscribe to real-time updates from Firestore
+    const unsubscribe = subscribeToApiKeys(user.uid, encryptionKey, (keys) => {
+      setSettings(prev => ({
+        ...prev,
+        geminiApiKey: keys.gemini,
+        openaiApiKey: keys.openai,
+      }));
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid, encryptionKey]);
 
   // Check if any provider is configured
   const isConfigured = Boolean(settings.geminiApiKey || settings.openaiApiKey);
@@ -51,31 +88,58 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     localStorage.setItem(PROVIDER_KEY, provider);
   }, []);
 
-  const setGeminiApiKey = useCallback((key: string) => {
-    const trimmedKey = key.trim();
-    setSettings(prev => ({ ...prev, geminiApiKey: trimmedKey || undefined }));
-    if (trimmedKey) {
-      localStorage.setItem(GEMINI_KEY, trimmedKey);
-    } else {
-      localStorage.removeItem(GEMINI_KEY);
-    }
-  }, []);
+  const setGeminiApiKey = useCallback(async (key: string) => {
+    if (!user?.uid || !encryptionKey) return;
 
-  const setOpenAIApiKey = useCallback((key: string) => {
     const trimmedKey = key.trim();
-    setSettings(prev => ({ ...prev, openaiApiKey: trimmedKey || undefined }));
-    if (trimmedKey) {
-      localStorage.setItem(OPENAI_KEY, trimmedKey);
-    } else {
-      localStorage.removeItem(OPENAI_KEY);
-    }
-  }, []);
+    setIsSyncing(true);
 
-  const clearApiKeys = useCallback(() => {
-    setSettings(prev => ({ ...prev, geminiApiKey: undefined, openaiApiKey: undefined }));
-    localStorage.removeItem(GEMINI_KEY);
-    localStorage.removeItem(OPENAI_KEY);
-  }, []);
+    try {
+      if (trimmedKey) {
+        await saveApiKey(user.uid, 'gemini', trimmedKey, encryptionKey);
+      } else {
+        await deleteApiKey(user.uid, 'gemini');
+      }
+    } catch (error) {
+      console.error('Failed to save Gemini API key:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [user?.uid, encryptionKey]);
+
+  const setOpenAIApiKey = useCallback(async (key: string) => {
+    if (!user?.uid || !encryptionKey) return;
+
+    const trimmedKey = key.trim();
+    setIsSyncing(true);
+
+    try {
+      if (trimmedKey) {
+        await saveApiKey(user.uid, 'openai', trimmedKey, encryptionKey);
+      } else {
+        await deleteApiKey(user.uid, 'openai');
+      }
+    } catch (error) {
+      console.error('Failed to save OpenAI API key:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [user?.uid, encryptionKey]);
+
+  const clearApiKeys = useCallback(async () => {
+    if (!user?.uid) return;
+
+    setIsSyncing(true);
+    try {
+      await deleteAllApiKeys(user.uid);
+      // Also clear any legacy localStorage keys to prevent re-migration
+      clearLegacyLocalStorageKeys();
+    } catch (error) {
+      console.error('Failed to clear API keys:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [user?.uid]);
 
   const getActiveApiKey = useCallback(() => {
     if (settings.provider === 'gemini') {
@@ -88,6 +152,8 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     settings,
     isConfigured,
     currentProviderConfigured,
+    isLoading,
+    isSyncing,
     setProvider,
     setGeminiApiKey,
     setOpenAIApiKey,

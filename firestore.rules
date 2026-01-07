@@ -163,6 +163,27 @@ service cloud.firestore {
       }
 
       // ============================================
+      // API Keys Collection (Encrypted)
+      // Stores encrypted LLM API keys for cross-platform sync
+      // ============================================
+      match /apiKeys/{keyId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && isValidString(request.resource.data.providerId)
+          && isValidString(request.resource.data.encryptedKey)
+          && isValidString(request.resource.data.iv)
+          && request.resource.data.encryptionVersion is number
+          && request.resource.data.encryptionVersion > 0;
+
+        allow update: if isOwner(userId)
+          && isValidString(request.resource.data.encryptedKey)
+          && isValidString(request.resource.data.iv);
+
+        allow delete: if isOwner(userId);
+      }
+
+      // ============================================
       // User Profile/Settings
       // Single document per user - no wildcard nesting allowed
       // ============================================

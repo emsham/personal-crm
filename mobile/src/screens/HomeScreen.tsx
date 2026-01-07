@@ -824,8 +824,6 @@ export const HomeScreen: React.FC = () => {
           </View>
         )}
 
-        {/* Spacer for bottom tab bar */}
-        <View style={{ height: 100 }} />
       </ScrollView>
 
       <LLMSettingsModal visible={showSettings} onClose={() => setShowSettings(false)} />

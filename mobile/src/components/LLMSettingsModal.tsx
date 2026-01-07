@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLLMSettings, LLMProvider } from '../contexts/LLMSettingsContext';
 
 interface LLMSettingsModalProps {
@@ -43,6 +44,7 @@ const providers: {
 ];
 
 export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ visible, onClose }) => {
+  const insets = useSafeAreaInsets();
   const {
     settings,
     setProvider,
@@ -55,7 +57,6 @@ export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ visible, onC
   const [openaiKey, setOpenaiKey] = useState(settings.openaiApiKey || '');
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     setGeminiKey(settings.geminiApiKey || '');
@@ -65,11 +66,7 @@ export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ visible, onC
   const handleSave = () => {
     setGeminiApiKey(geminiKey);
     setOpenAIApiKey(openaiKey);
-    setSaved(true);
-    setTimeout(() => {
-      setSaved(false);
-      onClose();
-    }, 1000);
+    onClose();
   };
 
   const handleClearAll = () => {
@@ -94,15 +91,18 @@ export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ visible, onC
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="fade"
       transparent={true}
       onRequestClose={onClose}
+      statusBarTranslucent
     >
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <View style={styles.modal}>
+      <View style={styles.overlay}>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoid}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={0}
+        >
+          <View style={styles.modal}>
           {/* Header */}
           <View style={styles.header}>
             <View>
@@ -215,7 +215,7 @@ export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ visible, onC
           </ScrollView>
 
           {/* Footer */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
             <TouchableOpacity onPress={handleClearAll}>
               <Text style={styles.clearButton}>Clear all keys</Text>
             </TouchableOpacity>
@@ -224,12 +224,13 @@ export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ visible, onC
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                <Text style={styles.saveButtonText}>{saved ? 'Saved!' : 'Save Changes'}</Text>
+                <Text style={styles.saveButtonText}>Save Changes</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 };
@@ -240,11 +241,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
   },
+  keyboardAvoid: {
+    maxHeight: '90%',
+  },
   modal: {
     backgroundColor: '#0f172a',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '90%',
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
@@ -406,9 +410,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#1e293b',
+    backgroundColor: '#0f172a',
   },
   clearButton: {
     fontSize: 14,

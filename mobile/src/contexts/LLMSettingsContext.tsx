@@ -1,6 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
+import { useAuth } from './AuthContext';
+import { deriveEncryptionKey } from '../shared/crypto';
+import { subscribeToApiKeys, saveApiKey, deleteApiKey, deleteAllApiKeys } from '../services/apiKeyService';
+import { migrateSecureStoreApiKeys, clearLegacySecureStoreKeys } from '../services/apiKeyMigrationService';
 
 export type LLMProvider = 'gemini' | 'openai';
 
@@ -10,23 +13,19 @@ export interface LLMSettings {
   openaiApiKey?: string;
 }
 
-// Storage keys
-// Provider setting is not sensitive - can use AsyncStorage
-const STORAGE_PREFIX = 'nexus_llm_';
-const PROVIDER_KEY = `${STORAGE_PREFIX}provider`;
-// API keys are sensitive - use SecureStore (encrypted storage)
-const GEMINI_KEY = 'nexus_gemini_api_key';
-const OPENAI_KEY = 'nexus_openai_api_key';
+// AsyncStorage key for provider preference (not sensitive)
+const PROVIDER_KEY = 'nexus_llm_provider';
 
 interface LLMSettingsContextType {
   settings: LLMSettings;
   isConfigured: boolean;
   currentProviderConfigured: boolean;
   isLoading: boolean;
+  isSyncing: boolean;
   setProvider: (provider: LLMProvider) => void;
-  setGeminiApiKey: (key: string) => void;
-  setOpenAIApiKey: (key: string) => void;
-  clearApiKeys: () => void;
+  setGeminiApiKey: (key: string) => Promise<void>;
+  setOpenAIApiKey: (key: string) => Promise<void>;
+  clearApiKeys: () => Promise<void>;
   getActiveApiKey: () => string | undefined;
 }
 
@@ -39,36 +38,60 @@ const defaultSettings: LLMSettings = {
 const LLMSettingsContext = createContext<LLMSettingsContextType | undefined>(undefined);
 
 export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<LLMSettings>(defaultSettings);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  // Load settings on mount - provider from AsyncStorage, API keys from SecureStore
+  // Derive encryption key from user ID (deterministic)
+  const encryptionKey = useMemo(() => {
+    if (!user?.uid) return null;
+    return deriveEncryptionKey(user.uid);
+  }, [user?.uid]);
+
+  // Load provider preference from AsyncStorage
   useEffect(() => {
-    const loadSettings = async () => {
+    const loadProvider = async () => {
       try {
-        // Load provider from AsyncStorage (not sensitive)
         const provider = await AsyncStorage.getItem(PROVIDER_KEY);
-
-        // Load API keys from SecureStore (encrypted)
-        const [geminiApiKey, openaiApiKey] = await Promise.all([
-          SecureStore.getItemAsync(GEMINI_KEY),
-          SecureStore.getItemAsync(OPENAI_KEY),
-        ]);
-
-        setSettings({
-          provider: (provider as LLMProvider) || 'gemini',
-          geminiApiKey: geminiApiKey || undefined,
-          openaiApiKey: openaiApiKey || undefined,
-        });
+        if (provider) {
+          setSettings(prev => ({ ...prev, provider: provider as LLMProvider }));
+        }
       } catch (error) {
-        console.error('Failed to load LLM settings:', error);
-      } finally {
-        setIsLoading(false);
+        console.error('Failed to load provider preference:', error);
       }
     };
-
-    loadSettings();
+    loadProvider();
   }, []);
+
+  // Subscribe to encrypted API keys from Firestore when user is authenticated
+  useEffect(() => {
+    if (!user?.uid || !encryptionKey) {
+      setIsLoading(false);
+      // Clear keys when user logs out
+      setSettings(prev => ({
+        ...prev,
+        geminiApiKey: undefined,
+        openaiApiKey: undefined,
+      }));
+      return;
+    }
+
+    // Run migration first (one-time, from SecureStore to Firestore)
+    migrateSecureStoreApiKeys(user.uid, encryptionKey).catch(console.error);
+
+    // Subscribe to real-time updates from Firestore
+    const unsubscribe = subscribeToApiKeys(user.uid, encryptionKey, (keys) => {
+      setSettings(prev => ({
+        ...prev,
+        geminiApiKey: keys.gemini,
+        openaiApiKey: keys.openai,
+      }));
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid, encryptionKey]);
 
   // Check if any provider is configured
   const isConfigured = Boolean(settings.geminiApiKey || settings.openaiApiKey);
@@ -83,49 +106,62 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     try {
       await AsyncStorage.setItem(PROVIDER_KEY, provider);
     } catch (error) {
-      console.error('Failed to save provider:', error);
+      console.error('Failed to save provider preference:', error);
     }
   }, []);
 
   const setGeminiApiKey = useCallback(async (key: string) => {
+    if (!user?.uid || !encryptionKey) return;
+
     const trimmedKey = key.trim();
-    setSettings(prev => ({ ...prev, geminiApiKey: trimmedKey || undefined }));
+    setIsSyncing(true);
+
     try {
       if (trimmedKey) {
-        await SecureStore.setItemAsync(GEMINI_KEY, trimmedKey);
+        await saveApiKey(user.uid, 'gemini', trimmedKey, encryptionKey);
       } else {
-        await SecureStore.deleteItemAsync(GEMINI_KEY);
+        await deleteApiKey(user.uid, 'gemini');
       }
     } catch (error) {
       console.error('Failed to save Gemini API key:', error);
+    } finally {
+      setIsSyncing(false);
     }
-  }, []);
+  }, [user?.uid, encryptionKey]);
 
   const setOpenAIApiKey = useCallback(async (key: string) => {
+    if (!user?.uid || !encryptionKey) return;
+
     const trimmedKey = key.trim();
-    setSettings(prev => ({ ...prev, openaiApiKey: trimmedKey || undefined }));
+    setIsSyncing(true);
+
     try {
       if (trimmedKey) {
-        await SecureStore.setItemAsync(OPENAI_KEY, trimmedKey);
+        await saveApiKey(user.uid, 'openai', trimmedKey, encryptionKey);
       } else {
-        await SecureStore.deleteItemAsync(OPENAI_KEY);
+        await deleteApiKey(user.uid, 'openai');
       }
     } catch (error) {
       console.error('Failed to save OpenAI API key:', error);
+    } finally {
+      setIsSyncing(false);
     }
-  }, []);
+  }, [user?.uid, encryptionKey]);
 
   const clearApiKeys = useCallback(async () => {
-    setSettings(prev => ({ ...prev, geminiApiKey: undefined, openaiApiKey: undefined }));
+    if (!user?.uid) return;
+
+    setIsSyncing(true);
     try {
-      await Promise.all([
-        SecureStore.deleteItemAsync(GEMINI_KEY),
-        SecureStore.deleteItemAsync(OPENAI_KEY),
-      ]);
+      await deleteAllApiKeys(user.uid);
+      // Also clear any legacy SecureStore keys to prevent re-migration
+      await clearLegacySecureStoreKeys();
     } catch (error) {
       console.error('Failed to clear API keys:', error);
+    } finally {
+      setIsSyncing(false);
     }
-  }, []);
+  }, [user?.uid]);
 
   const getActiveApiKey = useCallback(() => {
     if (settings.provider === 'gemini') {
@@ -139,6 +175,7 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     isConfigured,
     currentProviderConfigured,
     isLoading,
+    isSyncing,
     setProvider,
     setGeminiApiKey,
     setOpenAIApiKey,
