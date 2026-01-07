@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "038e387a-bfed-4c40-bd41-6cbb79524c58"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.majdshammout.tethru",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+name = "personal-crm"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"
+
+# Environment variables should be set in Cloudflare dashboard
+# or using wrangler secret put VITE_FIREBASE_API_KEY, etc.

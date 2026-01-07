@@ -1,6 +1,7 @@
 import React, { memo, useRef, useMemo } from 'react';
 import { ChatMessage as ChatMessageType, ToolResult, Contact, Interaction, Task } from '../../types';
 import { Bot, Wrench, AlertCircle, CheckCircle, Sparkles, ArrowUpRight, Loader2 } from 'lucide-react';
+import { LoadingDots } from '../ui';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -81,7 +82,7 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
       {/* AI response content */}
       <div className="pl-11">
         {message.isStreaming && !message.content ? (
-          <ThinkingIndicator />
+          <LoadingDots label="Processing your request..." />
         ) : (
           <div className="text-slate-200 text-[15px] leading-relaxed whitespace-pre-wrap">
             {message.content || contentRef.current}
@@ -121,18 +122,6 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
   if (prevProps.message.toolResults !== nextProps.message.toolResults) return false;
   return true;
 });
-
-// Premium thinking indicator
-const ThinkingIndicator: React.FC = () => (
-  <div className="flex items-center gap-3">
-    <div className="flex items-center gap-1.5">
-      <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-      <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-      <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '300ms' }} />
-    </div>
-    <span className="text-sm text-slate-500">Processing your request...</span>
-  </div>
-);
 
 // Format tool name for display
 function formatToolName(name: string): string {

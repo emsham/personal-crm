@@ -5,6 +5,7 @@ import { useLLMSettings } from '../../contexts/LLMSettingsContext';
 import { Contact, Task } from '../../types';
 import ChatMessage from './ChatMessage';
 import LLMSettingsModal from './LLMSettingsModal';
+import { LoadingDots } from '../ui';
 
 interface ChatViewProps {
   contacts: Contact[];
@@ -368,14 +369,7 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
               {/* Processing indicator - shows between tool results and follow-up */}
               {(isLoading || isStreaming) && messages.length > 0 && messages[messages.length - 1].role === 'tool' && (
                 <div className="pl-11 animate-in">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                    <span className="text-sm text-slate-500">Thinking...</span>
-                  </div>
+                  <LoadingDots label="Thinking..." />
                 </div>
               )}
             </div>

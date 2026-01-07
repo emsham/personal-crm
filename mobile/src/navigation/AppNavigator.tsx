@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLLMSettings } from '../contexts/LLMSettingsContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import { LLMSettingsModal } from '../components/LLMSettingsModal';
+import { LoadingDots } from '../components/ui';
 import {
   LoginScreen,
   HomeScreen,
@@ -337,10 +338,7 @@ export const AppNavigator: React.FC = () => {
       {/* Loading overlay with fade animation */}
       {showOverlay && (
         <Animated.View style={[styles.loadingOverlay, { opacity: fadeAnim }]}>
-          <View style={styles.aiLogoContainer}>
-            <Text style={styles.aiLogoText}>AI</Text>
-          </View>
-          <Text style={styles.loadingText}>Loading...</Text>
+          <LoadingDots size="lg" />
         </Animated.View>
       )}
     </View>
@@ -430,24 +428,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
-  },
-  aiLogoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    backgroundColor: '#8b5cf6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  aiLogoText: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  loadingText: {
-    color: '#64748b',
-    fontSize: 16,
   },
   settingsContainer: {
     flex: 1,

@@ -34,6 +34,7 @@ import { executeToolCall, CRMData, ToolResult } from '../services/toolExecutors'
 import { ToolCall } from '../shared/ai/types';
 import { ChatMessage, ChatMessageData, ChatInput, ChatHistoryModal } from '../components/chat';
 import { LLMSettingsModal } from '../components/LLMSettingsModal';
+import { LoadingDots } from '../components/ui';
 import type { Contact, Task, Interaction } from '../types';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -607,9 +608,7 @@ export const HomeScreen: React.FC = () => {
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <View style={styles.aiLogo}>
-        <Text style={styles.aiLogoText}>AI</Text>
-      </View>
+      <LoadingDots size="lg" style={{ marginBottom: 24 }} />
       <Text style={styles.emptyTitle}>tethru AI</Text>
       <Text style={styles.emptySubtitle}>
         {currentProviderConfigured
@@ -848,10 +847,7 @@ export const HomeScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <View style={styles.aiLogo}>
-            <Text style={styles.aiLogoText}>AI</Text>
-          </View>
-          <Text style={styles.loadingText}>Loading...</Text>
+          <LoadingDots size="lg" />
         </View>
       </SafeAreaView>
     );
@@ -959,11 +955,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    color: '#64748b',
-    fontSize: 16,
-    marginTop: 16,
-  },
   keyboardView: {
     flex: 1,
   },
@@ -1025,20 +1016,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 32,
     paddingVertical: 48,
-  },
-  aiLogo: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: '#8b5cf6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  aiLogoText: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: 'bold',
   },
   emptyTitle: {
     fontSize: 28,

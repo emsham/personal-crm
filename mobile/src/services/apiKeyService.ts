@@ -46,14 +46,33 @@ export function subscribeToApiKeys(
         version: data.encryptionVersion,
       };
 
+      // Validate decrypted key is ASCII-only (API keys are always ASCII)
+      const isValidApiKey = (key: string): boolean => {
+        if (!key || key.length === 0) return false;
+        for (let i = 0; i < key.length; i++) {
+          if (key.charCodeAt(i) > 127) return false;
+        }
+        return true;
+      };
+
       // Try new encryption key first
       try {
-        decryptedKeys[doc.id] = decryptApiKey(encryptedData, encryptionKey);
+        const decrypted = decryptApiKey(encryptedData, encryptionKey);
+        if (isValidApiKey(decrypted)) {
+          decryptedKeys[doc.id] = decrypted;
+        } else {
+          throw new Error('Decrypted key contains invalid characters');
+        }
       } catch {
         // Fall back to legacy key for backward compatibility
         try {
-          decryptedKeys[doc.id] = decryptApiKey(encryptedData, legacyKey);
-          if (__DEV__) console.log(`Decrypted ${doc.id} with legacy key`);
+          const decrypted = decryptApiKey(encryptedData, legacyKey);
+          if (isValidApiKey(decrypted)) {
+            decryptedKeys[doc.id] = decrypted;
+            if (__DEV__) console.log(`Decrypted ${doc.id} with legacy key`);
+          } else {
+            console.error(`Failed to decrypt key for ${doc.id}: Invalid characters in decrypted key`);
+          }
         } catch (error) {
           console.error(`Failed to decrypt key for ${doc.id}:`, error);
         }
