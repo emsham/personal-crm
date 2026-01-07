@@ -7,13 +7,14 @@ interface ChatMessageProps {
   message: ChatMessageType;
   contacts?: Contact[];
   isLatest?: boolean;
+  isStreaming?: boolean; // Context-level streaming state for this message
   onSelectContact?: (contact: Contact) => void;
 }
 
 // Track which messages have already animated (persists across remounts)
 const animatedMessageIds = new Set<string>();
 
-const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], isLatest = false, onSelectContact }) => {
+const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], isLatest = false, isStreaming = false, onSelectContact }) => {
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
   const contentRef = useRef<string>('');
@@ -29,7 +30,7 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
 
     // For assistant messages, only animate if currently streaming
     // This prevents the fade-in when streaming ends
-    if (message.role === 'assistant' && !message.isStreaming && message.content) {
+    if (message.role === 'assistant' && !isStreaming && message.content) {
       animatedMessageIds.add(message.id);
       return false;
     }
@@ -37,7 +38,7 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
     // Mark as animated
     animatedMessageIds.add(message.id);
     return true;
-  }, [message.id, message.role, message.isStreaming, message.content]);
+  }, [message.id, message.role, isStreaming, message.content]);
 
   // Keep content stable - only update ref, don't cause re-render flashes
   if (message.content) {
@@ -59,6 +60,11 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
     );
   }
 
+  // Don't render empty assistant messages (no content, no tool calls, not streaming)
+  if (!message.content && !message.toolCalls?.length && !isStreaming) {
+    return null;
+  }
+
   // AI message - full-width, content-like
   return (
     <div
@@ -71,7 +77,7 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
           <Bot size={16} className="text-white" />
         </div>
         <span className="text-sm font-medium text-slate-400">tethru AI</span>
-        {message.isStreaming && (
+        {isStreaming && (
           <div className="flex items-center gap-1.5 text-xs text-violet-400">
             <Sparkles size={12} className="animate-pulse" />
             <span>Generating...</span>
@@ -81,12 +87,12 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
 
       {/* AI response content */}
       <div className="pl-11">
-        {message.isStreaming && !message.content ? (
+        {isStreaming && !message.content ? (
           <LoadingDots label="Processing your request..." />
         ) : (
           <div className="text-slate-200 text-[15px] leading-relaxed whitespace-pre-wrap">
             {message.content || contentRef.current}
-            {message.isStreaming && (
+            {isStreaming && (
               <span className="inline-block w-0.5 h-4 ml-0.5 bg-violet-400 animate-pulse align-middle" />
             )}
           </div>
@@ -101,7 +107,7 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-500/10 to-cyan-500/10 border border-violet-500/20 text-xs text-violet-300 ${shouldAnimate ? 'animate-scale-in' : ''}`}
                 style={shouldAnimate ? { animationDelay: `${i * 100}ms`, animationFillMode: 'both' } : undefined}
               >
-                {message.isStreaming ? (
+                {isStreaming ? (
                   <Loader2 size={12} className="animate-spin text-violet-400" />
                 ) : (
                   <CheckCircle size={12} className="text-emerald-400" />
@@ -117,7 +123,7 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
 }, (prevProps, nextProps) => {
   // Custom comparison - only re-render when necessary
   if (prevProps.message.id !== nextProps.message.id) return false;
-  if (prevProps.message.isStreaming !== nextProps.message.isStreaming) return false;
+  if (prevProps.isStreaming !== nextProps.isStreaming) return false;
   if (prevProps.message.content !== nextProps.message.content) return false;
   if (prevProps.message.toolResults !== nextProps.message.toolResults) return false;
   return true;

@@ -84,6 +84,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     );
   }
 
+  // Don't render empty bubbles (assistant messages with no content and not streaming)
+  if (!isUser && !message.content && !message.isStreaming) {
+    return null;
+  }
+
   return (
     <View style={[styles.container, isUser ? styles.userContainer : styles.assistantContainer]}>
       <View style={[styles.bubble, isUser ? styles.userBubble : styles.assistantBubble]}>

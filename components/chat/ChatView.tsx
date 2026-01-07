@@ -362,6 +362,7 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
                   message={message}
                   contacts={contacts}
                   isLatest={index === messages.length - 1}
+                  isStreaming={isStreaming && index === messages.length - 1}
                   onSelectContact={(contact) => onSelectContact?.(contact, true)}
                 />
               ))}

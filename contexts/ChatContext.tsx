@@ -230,6 +230,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       let currentContent = '';
       const toolCalls: ToolCall[] = [];
+      const seenToolCallIds = new Set<string>();
 
       // Throttle UI updates to reduce re-renders (update at most every 30ms)
       // But show first chunk immediately for responsiveness
@@ -283,7 +284,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         } else if (chunk.type === 'tool_call' && chunk.toolCall) {
-          toolCalls.push(chunk.toolCall);
+          // Deduplicate tool calls by ID or name+args combination
+          const tc = chunk.toolCall;
+          const dedupeKey = tc.id || `${tc.name}_${JSON.stringify(tc.arguments)}`;
+          if (!seenToolCallIds.has(dedupeKey)) {
+            seenToolCallIds.add(dedupeKey);
+            toolCalls.push(tc);
+          }
         } else if (chunk.type === 'error') {
           throw new Error(chunk.error);
         } else if (chunk.type === 'done') {
@@ -372,6 +379,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           iteration++;
           let followUpContent = '';
           const followUpToolCalls: ToolCall[] = [];
+          const seenFollowUpToolCallIds = new Set<string>();
           const followUpMessageId = `msg_${Date.now()}_final_${iteration}`;
 
           console.log(`Starting follow-up iteration ${iteration} with`, currentMessages.length, 'messages');
@@ -436,8 +444,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   }
                 }
               } else if (chunk.type === 'tool_call' && chunk.toolCall) {
-                console.log('Follow-up tool call:', chunk.toolCall.name);
-                followUpToolCalls.push(chunk.toolCall);
+                // Deduplicate follow-up tool calls
+                const tc = chunk.toolCall;
+                const dedupeKey = tc.id || `${tc.name}_${JSON.stringify(tc.arguments)}`;
+                if (!seenFollowUpToolCallIds.has(dedupeKey)) {
+                  seenFollowUpToolCallIds.add(dedupeKey);
+                  console.log('Follow-up tool call:', tc.name);
+                  followUpToolCalls.push(tc);
+                }
               } else if (chunk.type === 'error') {
                 console.error('Follow-up error:', chunk.error);
                 break;
@@ -560,25 +574,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
       setIsStreaming(false);
 
-      // Update messages to mark streaming as complete, but keep streamingContent
-      // as the data source to prevent flash/pop when switching to Firestore data
-      setStreamingContent(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          messages: prev.messages.map(msg =>
-            msg.isStreaming ? { ...msg, isStreaming: false } : msg
-          ),
-        };
-      });
-
       // Clear streaming refs so Firestore subscription can update other sessions
       isStreamingRef.current = false;
       streamingSessionIdRef.current = null;
 
-      // Don't clear streamingContent - keep it as the source of truth
-      // until the next message is sent or session changes. This prevents
-      // flash/pop when switching between local and Firestore data.
+      // DON'T update streamingContent messages here - keep the same object references
+      // to prevent React from re-rendering and causing a flash. The context-level
+      // isStreaming=false is sufficient to update UI indicators in ChatMessage.
+      // streamingContent is kept as the source of truth until the next message
+      // is sent or session changes.
     }
   }, [user, currentSessionId, sessions, settings.provider, currentProviderConfigured, getActiveApiKey, crmData]);
 

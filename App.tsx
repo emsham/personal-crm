@@ -8,6 +8,7 @@ import AuthPage from './components/AuthPage';
 import EmailVerification from './components/EmailVerification';
 import { ChatView } from './components/chat';
 import { ProtectedRoute, PublicRoute } from './components/auth';
+import { LoadingDots, LoadingOverlay } from './components/ui';
 import { AppLayout } from './components/layout';
 
 // Lazy-loaded components for code splitting
@@ -37,11 +38,8 @@ import {
 
 // Loading spinner component for Suspense fallback
 const LoadingSpinner: React.FC = () => (
-  <div className="flex items-center justify-center h-full min-h-[200px]">
-    <div className="relative">
-      <Loader2 className="animate-spin text-violet-500" size={32} />
-      <div className="absolute inset-0 blur-xl bg-violet-500/30" />
-    </div>
+  <div className="fixed inset-0 flex items-center justify-center bg-[#0a0a0f] z-50">
+    <LoadingDots size="lg" />
   </div>
 );
 
@@ -213,46 +211,26 @@ const App: React.FC = () => {
   };
 
   const renderDashboard = () => {
-    // Show loading while LLM settings are being loaded
-    // This prevents the abrupt transition from dashboard to AI view
-    if (llmLoading) {
-      return (
-        <div className="flex items-center justify-center h-screen -m-4 md:-m-6 lg:-m-8">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-20 h-20 rounded-2xl bg-violet-500 flex items-center justify-center">
-              <span className="text-white text-2xl font-bold">AI</span>
-            </div>
-            <div className="relative">
-              <Loader2 className="animate-spin text-violet-500" size={32} />
-              <div className="absolute inset-0 blur-xl bg-violet-500/30" />
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // If no API key configured, show full dashboard with widgets
-    if (!currentProviderConfigured) {
-      return (
-        <DashboardWidgets
-          isOpen={true}
-          onClose={() => {}} // No-op since it's the main view
-          contacts={contacts}
-          tasks={tasks}
-          interactions={interactions}
-          onSelectContact={(contact) => {
-            navigate(`/contacts/${contact.id}`);
-          }}
-          onViewTasks={() => {
-            navigate('/tasks');
-          }}
-          fullPage={true}
-        />
-      );
-    }
-
-    // If API key is configured, show tethru AI (ChatView)
-    return (
+    // Render content with loading overlay on top
+    // The overlay fades out smoothly when loading completes
+    const content = !currentProviderConfigured ? (
+      // If no API key configured, show full dashboard with widgets
+      <DashboardWidgets
+        isOpen={true}
+        onClose={() => {}} // No-op since it's the main view
+        contacts={contacts}
+        tasks={tasks}
+        interactions={interactions}
+        onSelectContact={(contact) => {
+          navigate(`/contacts/${contact.id}`);
+        }}
+        onViewTasks={() => {
+          navigate('/tasks');
+        }}
+        fullPage={true}
+      />
+    ) : (
+      // If API key is configured, show tethru AI (ChatView)
       <div className="h-screen -m-4 md:-m-6 lg:-m-8 overflow-hidden">
         <ChatView
           contacts={contacts}
@@ -278,6 +256,13 @@ const App: React.FC = () => {
           }}
         />
       </div>
+    );
+
+    return (
+      <>
+        {content}
+        <LoadingOverlay isLoading={llmLoading} />
+      </>
     );
   };
 
@@ -423,11 +408,8 @@ const App: React.FC = () => {
         )}
 
         {dataLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="relative">
-              <Loader2 className="animate-spin text-violet-500" size={32} />
-              <div className="absolute inset-0 blur-xl bg-violet-500/30" />
-            </div>
+          <div className="fixed inset-0 flex items-center justify-center bg-[#0a0a0f] z-50">
+            <LoadingDots size="lg" />
           </div>
         ) : filteredContacts.length === 0 ? (
           <div className="glass rounded-2xl p-12 text-center">
