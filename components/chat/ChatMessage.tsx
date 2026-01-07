@@ -59,7 +59,7 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
           <Bot size={16} className="text-white" />
         </div>
-        <span className="text-sm font-medium text-slate-400">Nexus AI</span>
+        <span className="text-sm font-medium text-slate-400">tethru AI</span>
         {message.isStreaming && (
           <div className="flex items-center gap-1.5 text-xs text-violet-400">
             <Sparkles size={12} className="animate-pulse" />

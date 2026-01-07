@@ -88,7 +88,7 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
         <div className="flex-shrink-0 px-4 md:px-6 lg:px-8 py-6 border-b border-white/5">
           <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="pl-14 lg:pl-0">
-              <h1 className="text-xl md:text-2xl font-bold text-white">Welcome to Nexus</h1>
+              <h1 className="text-xl md:text-2xl font-bold text-white">Welcome to tethru</h1>
               <p className="text-slate-400 text-sm mt-1">Your personal CRM dashboard</p>
             </div>
             <button
@@ -111,7 +111,7 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
                   <Bot size={24} className="text-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-white mb-1">Unlock Nexus Brain</h3>
+                  <h3 className="text-lg font-semibold text-white mb-1">Unlock tethru AI</h3>
                   <p className="text-slate-400 text-sm mb-4">
                     Configure your AI provider to enable natural language interactions with your CRM.
                     Ask questions, add contacts, log interactions, and manage tasks - all through conversation.

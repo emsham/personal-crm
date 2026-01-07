@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Brain, Users, BarChart3, Settings, LogOut, CheckSquare, Sparkles, X, Menu } from 'lucide-react';
+import { Brain, Users, BarChart3, Settings, LogOut, CheckSquare, X, Menu } from 'lucide-react';
 import { View } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -23,7 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpen, onTo
   };
 
   const navItems = [
-    { id: View.DASHBOARD, label: 'Nexus Brain', icon: Brain, path: '/' },
+    { id: View.DASHBOARD, label: 'tethru AI', icon: Brain, path: '/' },
     { id: View.CONTACTS, label: 'Contacts', icon: Users, path: '/contacts' },
     { id: View.TASKS, label: 'Tasks', icon: CheckSquare, path: '/tasks' },
     { id: View.ANALYTICS, label: 'Analytics', icon: BarChart3, path: '/analytics' },
@@ -61,13 +61,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpen, onTo
         {/* Logo Section */}
         <div className="p-6 flex items-center space-x-3">
         <div className="relative">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
-            <Sparkles size={20} className="text-white" />
-          </div>
+          <img
+            src="/public/tethru-icon-color.svg"
+            alt="tethru"
+            className="w-10 h-10"
+          />
           <div className="absolute -inset-1 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 opacity-30 blur-lg -z-10" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Nexus</h1>
+          <h1 className="text-xl font-bold text-white tracking-tight">tethru</h1>
           <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-medium">AI-Powered CRM</p>
         </div>
       </div>

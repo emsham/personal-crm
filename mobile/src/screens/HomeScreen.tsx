@@ -598,7 +598,7 @@ export const HomeScreen: React.FC = () => {
       <View style={styles.aiLogo}>
         <Text style={styles.aiLogoText}>AI</Text>
       </View>
-      <Text style={styles.emptyTitle}>Nexus AI</Text>
+      <Text style={styles.emptyTitle}>tethru AI</Text>
       <Text style={styles.emptySubtitle}>
         {currentProviderConfigured
           ? 'Ask me anything about your contacts and tasks'
@@ -862,7 +862,7 @@ export const HomeScreen: React.FC = () => {
           </View>
 
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Nexus AI</Text>
+            <Text style={styles.headerTitle}>tethru AI</Text>
           </View>
 
           <View style={styles.headerActions}>

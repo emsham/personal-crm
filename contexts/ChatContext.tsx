@@ -8,22 +8,6 @@ import { executeToolCall, CRMData } from '../utils/toolExecutors';
 import { buildSystemPrompt } from '../utils/systemPrompt';
 import * as chatService from '../services/chatService';
 
-// Debounce utility for streaming updates
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): { (...args: Parameters<T>): void; cancel: () => void } {
-  let timeout: NodeJS.Timeout | null = null;
-  const debounced = (...args: Parameters<T>) => {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-  debounced.cancel = () => {
-    if (timeout) clearTimeout(timeout);
-  };
-  return debounced;
-}
-
 // Import services to register them
 import '../services/geminiService';
 import '../services/openaiService';
@@ -73,8 +57,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     messages: ChatMessage[];
   } | null>(null);
 
+  // Ref to track streaming state for subscription callback (avoids dependency issues)
+  const isStreamingRef = useRef(false);
+  const streamingSessionIdRef = useRef<string | null>(null);
+
   const abortControllerRef = useRef<AbortController | null>(null);
-  const debouncedSaveRef = useRef<ReturnType<typeof debounce> | null>(null);
 
   // Get current session - merge streaming content if active
   const currentSession = useMemo(() => {
@@ -102,7 +89,24 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = chatService.subscribeToChatSessions(user.uid, (newSessions) => {
       // Filter out empty sessions (no messages)
       const nonEmptySessions = newSessions.filter(s => s.messages && s.messages.length > 0);
-      setSessions(nonEmptySessions);
+
+      // If we're actively streaming to a session, skip updating that session
+      // to prevent flicker from Firestore updates conflicting with local state
+      if (isStreamingRef.current && streamingSessionIdRef.current) {
+        const streamingId = streamingSessionIdRef.current;
+        setSessions(prevSessions => {
+          return nonEmptySessions.map(s => {
+            if (s.id === streamingId) {
+              // Keep existing session data during streaming
+              const existingSession = prevSessions.find(ps => ps.id === streamingId);
+              return existingSession || s;
+            }
+            return s;
+          });
+        });
+      } else {
+        setSessions(nonEmptySessions);
+      }
       // Don't auto-select a session - let user start fresh with orb
     });
 
@@ -181,15 +185,22 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ? chatService.generateSessionTitle(content)
       : session?.title || 'New Chat';
 
-    // Save immediately
-    await chatService.updateChatSession(user.uid, sessionId, {
-      messages: updatedMessages,
-      title,
-    });
-
     setIsLoading(true);
     setIsStreaming(true);
     setError(null);
+
+    // Set refs to prevent Firestore subscription from updating this session while streaming
+    isStreamingRef.current = true;
+    streamingSessionIdRef.current = sessionId;
+
+    // Show user message immediately via streaming content (prevents flash)
+    setStreamingContent({ sessionId, messages: updatedMessages });
+
+    // Save to Firestore in background (won't cause flash since we blocked subscription)
+    chatService.updateChatSession(user.uid, sessionId, {
+      messages: updatedMessages,
+      title,
+    });
 
     // Create abort controller for this request
     abortControllerRef.current = new AbortController();
@@ -217,11 +228,28 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let currentContent = '';
       const toolCalls: ToolCall[] = [];
 
-      // Create debounced save function for streaming updates
-      const debouncedSave = debounce(async (msgs: ChatMessage[]) => {
-        await chatService.updateChatSession(user.uid, sessionId, { messages: msgs });
-      }, 300);
-      debouncedSaveRef.current = debouncedSave;
+      // Throttle UI updates to reduce re-renders (update at most every 30ms)
+      // But show first chunk immediately for responsiveness
+      let lastUpdateTime = 0;
+      let pendingUpdate = false;
+      let isFirstChunk = true;
+      const UPDATE_INTERVAL = 30;
+
+      const flushStreamingUpdate = () => {
+        const streamingMessages = [
+          ...updatedMessages,
+          { ...assistantMessage, content: currentContent },
+        ];
+        setStreamingContent({ sessionId, messages: streamingMessages });
+        lastUpdateTime = Date.now();
+        pendingUpdate = false;
+      };
+
+      // Show user message + empty assistant message immediately (shows "thinking" state)
+      setStreamingContent({
+        sessionId,
+        messages: [...updatedMessages, assistantMessage]
+      });
 
       // Stream the response
       const stream = llmService.stream({
@@ -238,14 +266,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         if (chunk.type === 'text' && chunk.content) {
           currentContent += chunk.content;
-          // Update local state immediately for smooth UI
-          const streamingMessages = [
-            ...updatedMessages,
-            { ...assistantMessage, content: currentContent },
-          ];
-          setStreamingContent({ sessionId, messages: streamingMessages });
-          // Debounce Firestore saves to reduce flicker
-          debouncedSave(streamingMessages);
+
+          // Show first chunk immediately, then throttle subsequent updates
+          if (isFirstChunk) {
+            flushStreamingUpdate();
+            isFirstChunk = false;
+          } else {
+            const now = Date.now();
+            if (now - lastUpdateTime >= UPDATE_INTERVAL) {
+              flushStreamingUpdate();
+            } else {
+              pendingUpdate = true;
+            }
+          }
         } else if (chunk.type === 'tool_call' && chunk.toolCall) {
           toolCalls.push(chunk.toolCall);
         } else if (chunk.type === 'error') {
@@ -255,8 +288,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Cancel any pending debounced save
-      debouncedSave.cancel();
+      // Flush any pending content
+      if (pendingUpdate) {
+        flushStreamingUpdate();
+      }
 
       // Process tool calls if any
       if (toolCalls.length > 0) {
@@ -329,10 +364,37 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
               systemPrompt,
             });
 
-            // Create debounced save for follow-up
-            const debouncedFollowUpSave = debounce(async (msgs: ChatMessage[]) => {
-              await chatService.updateChatSession(user.uid, sessionId, { messages: msgs });
-            }, 300);
+            // Throttle follow-up updates too
+            let followUpLastUpdate = 0;
+            let followUpPending = false;
+            let isFirstFollowUpChunk = true;
+            const followUpMessageId = `msg_${Date.now()}_final`;
+
+            const flushFollowUpUpdate = () => {
+              const streamingFollowUp: ChatMessage = {
+                id: followUpMessageId,
+                role: 'assistant',
+                content: followUpContent,
+                timestamp: new Date(),
+                isStreaming: true,
+              };
+              const newMessages = [...currentMessages, streamingFollowUp];
+              setStreamingContent({ sessionId, messages: newMessages });
+              followUpLastUpdate = Date.now();
+              followUpPending = false;
+            };
+
+            // Show thinking state immediately
+            setStreamingContent({
+              sessionId,
+              messages: [...currentMessages, {
+                id: followUpMessageId,
+                role: 'assistant',
+                content: '',
+                timestamp: new Date(),
+                isStreaming: true,
+              }]
+            });
 
             for await (const chunk of followUpStream) {
               // Check if aborted (user navigated away)
@@ -342,17 +404,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
               if (chunk.type === 'text' && chunk.content) {
                 followUpContent += chunk.content;
-                // Update with streaming follow-up
-                const streamingFollowUp: ChatMessage = {
-                  id: `msg_${Date.now()}_final`,
-                  role: 'assistant',
-                  content: followUpContent,
-                  timestamp: new Date(),
-                  isStreaming: true,
-                };
-                const newMessages = [...currentMessages, streamingFollowUp];
-                setStreamingContent({ sessionId, messages: newMessages });
-                debouncedFollowUpSave(newMessages);
+
+                // Show first chunk immediately, then throttle
+                if (isFirstFollowUpChunk) {
+                  flushFollowUpUpdate();
+                  isFirstFollowUpChunk = false;
+                } else {
+                  const now = Date.now();
+                  if (now - followUpLastUpdate >= UPDATE_INTERVAL) {
+                    flushFollowUpUpdate();
+                  } else {
+                    followUpPending = true;
+                  }
+                }
               } else if (chunk.type === 'tool_call' && chunk.toolCall) {
                 console.log('Follow-up tool call:', chunk.toolCall.name);
                 followUpToolCalls.push(chunk.toolCall);
@@ -364,8 +428,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
 
-            // Cancel pending debounced save
-            debouncedFollowUpSave.cancel();
+            // Flush pending follow-up content
+            if (followUpPending) {
+              flushFollowUpUpdate();
+            }
           } catch (followUpError) {
             console.error('Follow-up stream error:', followUpError);
             break;
@@ -461,8 +527,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
       setIsStreaming(false);
-      // Clear streaming content - Firestore will have the final state
-      setStreamingContent(null);
+      // Clear streaming refs first so Firestore subscription can update
+      isStreamingRef.current = false;
+      streamingSessionIdRef.current = null;
+      // Delay clearing streaming content to let Firestore subscription sync
+      // This prevents a flash where content disappears momentarily
+      setTimeout(() => {
+        setStreamingContent(null);
+      }, 100);
     }
   }, [user, currentSessionId, sessions, settings.provider, currentProviderConfigured, getActiveApiKey, crmData]);
 
@@ -471,10 +543,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    if (debouncedSaveRef.current) {
-      debouncedSaveRef.current.cancel();
-    }
     setIsStreaming(false);
+    isStreamingRef.current = false;
+    streamingSessionIdRef.current = null;
     setStreamingContent(null);
   }, []);
 

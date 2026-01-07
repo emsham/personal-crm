@@ -130,7 +130,7 @@ export const LoginScreen: React.FC = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
-        <Text style={styles.title}>Nexus CRM</Text>
+        <Text style={styles.title}>tethru</Text>
         <Text style={styles.subtitle}>
           {isForgotPassword ? 'Reset your password' : 'Personal Relationship Manager'}
         </Text>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Loader2, RefreshCw, LogOut, Sparkles, CheckCircle } from 'lucide-react';
+import { Mail, Loader2, RefreshCw, LogOut, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const EmailVerification: React.FC = () => {
@@ -54,12 +54,14 @@ const EmailVerification: React.FC = () => {
         {/* Logo and branding */}
         <div className="text-center mb-10">
           <div className="relative inline-block mb-6">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-cyan-500 flex items-center justify-center shadow-2xl shadow-violet-500/30">
-              <Sparkles size={36} className="text-white" />
-            </div>
+            <img
+              src="/public/tethru-app-icon.svg"
+              alt="tethru"
+              className="w-20 h-20 rounded-2xl shadow-2xl shadow-violet-500/30"
+            />
             <div className="absolute -inset-3 rounded-3xl bg-gradient-to-br from-violet-500 via-purple-500 to-cyan-500 opacity-20 blur-xl animate-pulse-slow" />
           </div>
-          <h1 className="text-4xl font-bold text-white mb-2">Nexus</h1>
+          <h1 className="text-4xl font-bold text-white mb-2">tethru</h1>
           <p className="text-slate-400">AI-Powered Personal CRM</p>
         </div>
 

@@ -1,6 +1,6 @@
-# Nexus CRM Mobile App
+# tethru Mobile App
 
-React Native mobile companion app for the Nexus CRM web application.
+React Native mobile companion app for the tethru web application.
 
 ## Tech Stack
 
@@ -167,7 +167,7 @@ Copy `.env.example` to `.env` and fill in Firebase credentials:
 
 - Firebase auth uses `getReactNativePersistence(AsyncStorage)` for session persistence
 - Google Sign-In requires native module, won't work in Expo Go
-- iOS bundle identifier: `com.nexuscrm.app`
+- iOS bundle identifier: `com.tethru.app`
 - Firestore queries filter by `userId` to scope data per user
 - Shared AI module copied to `src/shared/ai/` due to Metro bundler limitations
 - Bottom tab bar uses `useSafeAreaInsets()` for proper spacing on notched iPhones

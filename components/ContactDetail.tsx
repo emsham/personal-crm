@@ -589,7 +589,7 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-lg text-white flex items-center gap-2">
-                  <Sparkles size={20} /> Nexus AI Insight
+                  <Sparkles size={20} /> tethru AI Insight
                 </h3>
                 {aiAnalysis && (
                   <div className="bg-white/20 px-3 py-1 rounded-full text-sm font-bold text-white">

@@ -32,7 +32,7 @@ export function buildSystemPrompt(data: CRMData): string {
     .map(([tag]) => tag)
     .join(', ');
 
-  return `You are an AI assistant for Nexus, a personal CRM (Customer Relationship Management) application. Your role is to help the user manage their professional and personal relationships effectively.
+  return `You are an AI assistant for tethru, a personal CRM (Customer Relationship Management) application. Your role is to help the user manage their professional and personal relationships effectively.
 
 ## Current Date & Time
 - Today is ${dayOfWeek}, ${formattedDate}

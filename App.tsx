@@ -415,7 +415,7 @@ const App: React.FC = () => {
             </div>
             <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-violet-500 to-cyan-500 opacity-20 blur-2xl" />
           </div>
-          <p className="text-slate-400 font-medium">Loading Nexus...</p>
+          <p className="text-slate-400 font-medium">Loading tethru...</p>
         </div>
       </div>
     );
@@ -453,7 +453,7 @@ const App: React.FC = () => {
       );
     }
 
-    // If API key is configured, show Nexus Brain (ChatView)
+    // If API key is configured, show tethru AI (ChatView)
     return (
       <div className="h-screen -m-4 md:-m-6 lg:-m-8 overflow-hidden">
         <ChatView
