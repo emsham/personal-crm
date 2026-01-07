@@ -62,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpen, onTo
         <div className="p-6 flex items-center space-x-3">
         <div className="relative">
           <img
-            src="/public/tethru-icon-color.svg"
+            src="/tethru-icon-color.svg"
             alt="tethru"
             className="w-10 h-10"
           />

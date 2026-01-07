@@ -55,7 +55,7 @@ const EmailVerification: React.FC = () => {
         <div className="text-center mb-10">
           <div className="relative inline-block mb-6">
             <img
-              src="/public/tethru-app-icon.svg"
+              src="/tethru-app-icon.svg"
               alt="tethru"
               className="w-20 h-20 rounded-2xl shadow-2xl shadow-violet-500/30"
             />

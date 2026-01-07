@@ -60,7 +60,10 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
 
   // AI message - full-width, content-like
   return (
-    <div className={shouldAnimate ? 'animate-slide-in-from-bottom-4' : ''}>
+    <div
+      className={shouldAnimate ? 'animate-slide-in-from-bottom-4' : ''}
+      style={{ opacity: 1 }} // Prevent any flash when animation ends or state changes
+    >
       {/* AI response header */}
       <div className="flex items-center gap-3 mb-3">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
@@ -148,12 +151,12 @@ const ToolResultsDisplay: React.FC<{ results: ToolResult[]; contacts: Contact[];
   onSelectContact,
 }) => {
   return (
-    <div className="pl-11 space-y-3">
+    <div className="pl-11 space-y-3" style={{ opacity: 1 }}>
       {results.map((result, index) => (
         <div
           key={index}
           className={`${!hasAnimated ? 'animate-fade-in-up' : ''}`}
-          style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'both' }}
+          style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'both', opacity: 1 }}
         >
           <ToolResultCard result={result} contacts={contacts} onSelectContact={onSelectContact} />
         </div>

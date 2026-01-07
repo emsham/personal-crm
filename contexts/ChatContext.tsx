@@ -118,12 +118,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Just clear the current session to show the orb/hero state
     // The actual session will be created when the first message is sent
     setCurrentSessionId(null);
+    setStreamingContent(null);
     setError(null);
   }, []);
 
   // Select a session
   const selectSession = useCallback((sessionId: string) => {
     setCurrentSessionId(sessionId);
+    setStreamingContent(null);
     setError(null);
   }, []);
 
@@ -135,6 +137,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await chatService.deleteChatSession(user.uid, sessionId);
       if (currentSessionId === sessionId) {
         setCurrentSessionId(sessions.find(s => s.id !== sessionId)?.id || null);
+        setStreamingContent(null);
       }
     } catch (err) {
       setError('Failed to delete chat session');
@@ -295,6 +298,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Process tool calls if any
       if (toolCalls.length > 0) {
+        // Update streaming content to show tool calls are being processed
+        const assistantWithToolCalls: ChatMessage = {
+          ...assistantMessage,
+          content: currentContent,
+          toolCalls,
+          isStreaming: false,
+        };
+        setStreamingContent({
+          sessionId,
+          messages: [...updatedMessages, assistantWithToolCalls],
+        });
         console.log('Processing tool calls:', toolCalls.map(tc => tc.name));
         console.log('CRM data available:', { contacts: crmData.contacts.length, interactions: crmData.interactions.length, tasks: crmData.tasks.length });
         const toolResults: ToolResult[] = [];
@@ -327,9 +341,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           toolResults,
         };
 
-        // Save intermediate state with tool results visible
+        // Update streaming content immediately with tool results
+        const messagesWithToolResults = [...updatedMessages, assistantWithTools, toolResultsMessage];
+        setStreamingContent({ sessionId, messages: messagesWithToolResults });
+
+        // Save to Firestore in background
         await chatService.updateChatSession(user.uid, sessionId, {
-          messages: [...updatedMessages, assistantWithTools, toolResultsMessage],
+          messages: messagesWithToolResults,
         });
 
         // Get follow-up response from LLM with tool results
@@ -474,6 +492,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             currentMessages = [...currentMessages, followUpAssistant, followUpToolResultsMessage];
 
+            // Update streaming content immediately with follow-up tool results
+            setStreamingContent({ sessionId, messages: currentMessages });
+
             // Save intermediate state
             await chatService.updateChatSession(user.uid, sessionId, {
               messages: currentMessages,
@@ -489,10 +510,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 isStreaming: false,
               };
               currentMessages.push(finalAssistantMessage);
+
+              // Immediately update streaming content to final state
+              setStreamingContent({ sessionId, messages: currentMessages });
             }
             break;
           }
         }
+
+        // Update streaming content with final tool results state
+        setStreamingContent({ sessionId, messages: currentMessages });
 
         // Final save
         await chatService.updateChatSession(user.uid, sessionId, {
@@ -500,10 +527,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       } else {
         // No tool calls, just save the final message
-        const finalMessages = [
-          ...updatedMessages,
-          { ...assistantMessage, content: currentContent, isStreaming: false },
-        ];
+        const finalAssistantMessage: ChatMessage = {
+          ...assistantMessage,
+          content: currentContent,
+          isStreaming: false,
+        };
+        const finalMessages = [...updatedMessages, finalAssistantMessage];
+
+        // Update streaming content immediately to prevent flash
+        setStreamingContent({ sessionId, messages: finalMessages });
 
         await chatService.updateChatSession(user.uid, sessionId, {
           messages: finalMessages,
@@ -527,14 +559,26 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
       setIsStreaming(false);
-      // Clear streaming refs first so Firestore subscription can update
+
+      // Update messages to mark streaming as complete, but keep streamingContent
+      // as the data source to prevent flash/pop when switching to Firestore data
+      setStreamingContent(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          messages: prev.messages.map(msg =>
+            msg.isStreaming ? { ...msg, isStreaming: false } : msg
+          ),
+        };
+      });
+
+      // Clear streaming refs so Firestore subscription can update other sessions
       isStreamingRef.current = false;
       streamingSessionIdRef.current = null;
-      // Delay clearing streaming content to let Firestore subscription sync
-      // This prevents a flash where content disappears momentarily
-      setTimeout(() => {
-        setStreamingContent(null);
-      }, 250);
+
+      // Don't clear streamingContent - keep it as the source of truth
+      // until the next message is sent or session changes. This prevents
+      // flash/pop when switching between local and Firestore data.
     }
   }, [user, currentSessionId, sessions, settings.provider, currentProviderConfigured, getActiveApiKey, crmData]);
 
