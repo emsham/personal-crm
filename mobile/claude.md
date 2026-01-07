@@ -136,7 +136,7 @@ The Home tab adapts based on AI configuration status:
 
 ### AI Integration (BYOK)
 - Supports **Gemini** and **OpenAI** providers
-- API keys stored locally in AsyncStorage (never sent to our servers)
+- API keys encrypted (AES-256) and synced to Firestore across all devices
 - Direct API calls from app to provider
 - **Streaming responses** with real-time updates
 - **Tool calling** with rich result display

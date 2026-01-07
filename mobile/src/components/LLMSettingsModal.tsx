@@ -227,7 +227,7 @@ const LLMSettingsModalComponent: React.FC<LLMSettingsModalProps> = ({ visible, o
           {/* Security Notice */}
           <View style={styles.securityNotice}>
             <Text style={styles.securityText}>
-              Your keys are stored locally on your device and never sent to our servers. API calls go directly to the provider.
+              Your keys are encrypted and synced across all your devices. API calls go directly to the provider.
             </Text>
           </View>
         </ScrollView>

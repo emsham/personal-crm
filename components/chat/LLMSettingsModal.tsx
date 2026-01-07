@@ -209,7 +209,7 @@ const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ isOpen, onClose }) 
               <div className="flex items-start gap-3">
                 <Key size={16} className="text-violet-400 mt-0.5 flex-shrink-0" />
                 <div className="text-xs text-slate-400">
-                  <strong className="text-slate-300">Your keys are stored locally.</strong> They are saved in your browser's localStorage and never sent to our servers. API calls go directly to the provider.
+                  <strong className="text-slate-300">Your keys are encrypted and synced.</strong> Keys are encrypted on your device and synced across all your devices. API calls go directly to the provider.
                 </div>
               </div>
             </div>
