@@ -1,16 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import {
   View,
   Text,
   TextInput,
   StyleSheet,
   Modal,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   Linking,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLLMSettings, LLMProvider } from '../contexts/LLMSettingsContext';
@@ -43,7 +41,78 @@ const providers: {
   },
 ];
 
-export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ visible, onClose }) => {
+const ProviderCard = memo(({
+  provider,
+  isActive,
+  hasKey,
+  onPress
+}: {
+  provider: typeof providers[0];
+  isActive: boolean;
+  hasKey: boolean;
+  onPress: () => void;
+}) => (
+  <Pressable
+    style={[styles.providerCard, isActive && styles.providerCardActive]}
+    onPress={onPress}
+  >
+    {isActive && <View style={styles.activeIndicator} />}
+    <Text style={styles.providerName}>{provider.name}</Text>
+    <Text style={styles.providerDesc}>{provider.description}</Text>
+    <View style={[styles.keyStatus, hasKey ? styles.keyConfigured : styles.keyMissing]}>
+      <Text style={[styles.keyStatusText, hasKey ? styles.keyConfiguredText : styles.keyMissingText]}>
+        {hasKey ? 'Key configured' : 'No key set'}
+      </Text>
+    </View>
+  </Pressable>
+));
+
+const KeyInput = memo(({
+  label,
+  docUrl,
+  value,
+  onChangeText,
+  placeholder,
+  showKey,
+  onToggleShow,
+}: {
+  label: string;
+  docUrl: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+  showKey: boolean;
+  onToggleShow: () => void;
+}) => (
+  <View style={styles.keySection}>
+    <View style={styles.keyHeader}>
+      <Text style={styles.keyLabel}>{label}</Text>
+      <Pressable onPress={() => Linking.openURL(docUrl)}>
+        <Text style={styles.getKeyLink}>Get API Key</Text>
+      </Pressable>
+    </View>
+    <View style={styles.keyInputContainer}>
+      <TextInput
+        style={styles.keyInput}
+        placeholder={placeholder}
+        placeholderTextColor="#64748b"
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={!showKey}
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="off"
+        textContentType="none"
+        spellCheck={false}
+      />
+      <Pressable style={styles.toggleButton} onPress={onToggleShow}>
+        <Text style={styles.toggleButtonText}>{showKey ? 'Hide' : 'Show'}</Text>
+      </Pressable>
+    </View>
+  </View>
+));
+
+const LLMSettingsModalComponent: React.FC<LLMSettingsModalProps> = ({ visible, onClose }) => {
   const insets = useSafeAreaInsets();
   const {
     settings,
@@ -59,17 +128,19 @@ export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ visible, onC
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
 
   useEffect(() => {
-    setGeminiKey(settings.geminiApiKey || '');
-    setOpenaiKey(settings.openaiApiKey || '');
-  }, [settings]);
+    if (visible) {
+      setGeminiKey(settings.geminiApiKey || '');
+      setOpenaiKey(settings.openaiApiKey || '');
+    }
+  }, [visible, settings.geminiApiKey, settings.openaiApiKey]);
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     setGeminiApiKey(geminiKey);
     setOpenAIApiKey(openaiKey);
     onClose();
-  };
+  }, [geminiKey, openaiKey, setGeminiApiKey, setOpenAIApiKey, onClose]);
 
-  const handleClearAll = () => {
+  const handleClearAll = useCallback(() => {
     Alert.alert(
       'Clear API Keys',
       'This will disable AI features until you add new keys.',
@@ -86,175 +157,113 @@ export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({ visible, onC
         },
       ]
     );
-  };
+  }, [clearApiKeys]);
+
+  const toggleGeminiKey = useCallback(() => setShowGeminiKey(v => !v), []);
+  const toggleOpenaiKey = useCallback(() => setShowOpenaiKey(v => !v), []);
 
   return (
     <Modal
       visible={visible}
-      animationType="fade"
-      transparent={true}
+      animationType="slide"
+      presentationStyle="pageSheet"
       onRequestClose={onClose}
-      statusBarTranslucent
     >
-      <View style={styles.overlay}>
-        <KeyboardAvoidingView
-          style={styles.keyboardAvoid}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={0}
+      <View style={styles.modal}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>AI Settings</Text>
+            <Text style={styles.subtitle}>Bring your own API keys</Text>
+          </View>
+          <Pressable style={styles.closeButton} onPress={onClose}>
+            <Text style={styles.closeButtonText}>✕</Text>
+          </Pressable>
+        </View>
+
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.modal}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>AI Settings</Text>
-              <Text style={styles.subtitle}>Bring your own API keys</Text>
-            </View>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Text style={styles.closeButtonText}>X</Text>
-            </TouchableOpacity>
+          {/* Provider Selection */}
+          <Text style={styles.sectionTitle}>Active Provider</Text>
+          <View style={styles.providerGrid}>
+            {providers.map((provider) => (
+              <ProviderCard
+                key={provider.id}
+                provider={provider}
+                isActive={settings.provider === provider.id}
+                hasKey={provider.id === 'gemini' ? !!geminiKey : !!openaiKey}
+                onPress={() => setProvider(provider.id)}
+              />
+            ))}
           </View>
 
-          <ScrollView style={styles.content}>
-            {/* Provider Selection */}
-            <Text style={styles.sectionTitle}>Active Provider</Text>
-            <View style={styles.providerGrid}>
-              {providers.map((provider) => {
-                const isActive = settings.provider === provider.id;
-                const hasKey = provider.id === 'gemini' ? !!geminiKey : !!openaiKey;
+          {/* API Keys */}
+          <Text style={styles.sectionTitle}>API Keys</Text>
 
-                return (
-                  <TouchableOpacity
-                    key={provider.id}
-                    style={[styles.providerCard, isActive && styles.providerCardActive]}
-                    onPress={() => setProvider(provider.id)}
-                  >
-                    {isActive && <View style={styles.activeIndicator} />}
-                    <Text style={styles.providerName}>{provider.name}</Text>
-                    <Text style={styles.providerDesc}>{provider.description}</Text>
-                    <View style={[styles.keyStatus, hasKey ? styles.keyConfigured : styles.keyMissing]}>
-                      <Text style={[styles.keyStatusText, hasKey ? styles.keyConfiguredText : styles.keyMissingText]}>
-                        {hasKey ? 'Key configured' : 'No key set'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+          <KeyInput
+            label="Google Gemini"
+            docUrl="https://aistudio.google.com/app/apikey"
+            value={geminiKey}
+            onChangeText={setGeminiKey}
+            placeholder="AIzaSy..."
+            showKey={showGeminiKey}
+            onToggleShow={toggleGeminiKey}
+          />
 
-            {/* API Keys */}
-            <Text style={styles.sectionTitle}>API Keys</Text>
+          <KeyInput
+            label="OpenAI"
+            docUrl="https://platform.openai.com/api-keys"
+            value={openaiKey}
+            onChangeText={setOpenaiKey}
+            placeholder="sk-proj-..."
+            showKey={showOpenaiKey}
+            onToggleShow={toggleOpenaiKey}
+          />
 
-            {/* Gemini Key */}
-            <View style={styles.keySection}>
-              <View style={styles.keyHeader}>
-                <Text style={styles.keyLabel}>Google Gemini</Text>
-                <TouchableOpacity onPress={() => Linking.openURL('https://aistudio.google.com/app/apikey')}>
-                  <Text style={styles.getKeyLink}>Get API Key</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.keyInputContainer}>
-                <TextInput
-                  style={styles.keyInput}
-                  placeholder="AIzaSy..."
-                  placeholderTextColor="#64748b"
-                  value={geminiKey}
-                  onChangeText={setGeminiKey}
-                  secureTextEntry={!showGeminiKey && geminiKey.length > 0}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="off"
-                  textContentType="none"
-                  importantForAutofill="no"
-                />
-                <TouchableOpacity
-                  style={styles.toggleButton}
-                  onPress={() => setShowGeminiKey(!showGeminiKey)}
-                >
-                  <Text style={styles.toggleButtonText}>{showGeminiKey ? 'Hide' : 'Show'}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* OpenAI Key */}
-            <View style={styles.keySection}>
-              <View style={styles.keyHeader}>
-                <Text style={styles.keyLabel}>OpenAI</Text>
-                <TouchableOpacity onPress={() => Linking.openURL('https://platform.openai.com/api-keys')}>
-                  <Text style={styles.getKeyLink}>Get API Key</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.keyInputContainer}>
-                <TextInput
-                  style={styles.keyInput}
-                  placeholder="sk-proj-..."
-                  placeholderTextColor="#64748b"
-                  value={openaiKey}
-                  onChangeText={setOpenaiKey}
-                  secureTextEntry={!showOpenaiKey && openaiKey.length > 0}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="off"
-                  textContentType="none"
-                  importantForAutofill="no"
-                />
-                <TouchableOpacity
-                  style={styles.toggleButton}
-                  onPress={() => setShowOpenaiKey(!showOpenaiKey)}
-                >
-                  <Text style={styles.toggleButtonText}>{showOpenaiKey ? 'Hide' : 'Show'}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Security Notice */}
-            <View style={styles.securityNotice}>
-              <Text style={styles.securityText}>
-                Your keys are stored locally on your device and never sent to our servers. API calls go directly to the provider.
-              </Text>
-            </View>
-          </ScrollView>
-
-          {/* Footer */}
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            <TouchableOpacity onPress={handleClearAll}>
-              <Text style={styles.clearButton}>Clear all keys</Text>
-            </TouchableOpacity>
-            <View style={styles.footerButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                <Text style={styles.saveButtonText}>Save Changes</Text>
-              </TouchableOpacity>
-            </View>
+          {/* Security Notice */}
+          <View style={styles.securityNotice}>
+            <Text style={styles.securityText}>
+              Your keys are stored locally on your device and never sent to our servers. API calls go directly to the provider.
+            </Text>
           </View>
+        </ScrollView>
+
+        {/* Footer */}
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <Pressable onPress={handleClearAll} hitSlop={8}>
+            <Text style={styles.clearButtonText}>Clear all keys</Text>
+          </Pressable>
+          <View style={styles.footerButtons}>
+            <Pressable style={styles.cancelButton} onPress={onClose}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </Pressable>
+            <Pressable style={styles.saveButton} onPress={handleSave}>
+              <Text style={styles.saveButtonText}>Save Changes</Text>
+            </Pressable>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </View>
     </Modal>
   );
 };
 
+export const LLMSettingsModal = memo(LLMSettingsModalComponent);
+
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'flex-end',
-  },
-  keyboardAvoid: {
-    maxHeight: '90%',
-  },
   modal: {
+    flex: 1,
     backgroundColor: '#0f172a',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
+    paddingTop: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#1e293b',
   },
@@ -282,6 +291,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   content: {
+    flex: 1,
     padding: 20,
   },
   sectionTitle: {
@@ -416,7 +426,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#1e293b',
     backgroundColor: '#0f172a',
   },
-  clearButton: {
+  clearButtonText: {
     fontSize: 14,
     color: '#ef4444',
   },

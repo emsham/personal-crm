@@ -1,0 +1,16 @@
+<svg width="32" height="32" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#63b3ed"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <!-- T Structure - bolder for small size -->
+  <line x1="16" y1="26" x2="64" y2="26" stroke="url(#gradient)" stroke-width="7" stroke-linecap="round"/>
+  <line x1="40" y1="26" x2="40" y2="68" stroke="url(#gradient)" stroke-width="7" stroke-linecap="round"/>
+  <!-- Nodes - larger for visibility -->
+  <circle cx="16" cy="26" r="8" fill="#63b3ed"/>
+  <circle cx="64" cy="26" r="8" fill="#a78bfa"/>
+  <circle cx="40" cy="26" r="11" fill="url(#gradient)"/>
+  <circle cx="40" cy="68" r="8" fill="url(#gradient)"/>
+</svg>
