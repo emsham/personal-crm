@@ -188,7 +188,7 @@ function convertToGeminiTools(tools: ToolDefinition[]): any[] {
   }];
 }
 
-// Non-streaming OpenAI call with tool support (React Native compatible)
+// True SSE streaming OpenAI call with tool support (using XHR for React Native compatibility)
 export async function streamOpenAI(
   apiKey: string,
   messages: ChatMessage[],
@@ -196,68 +196,112 @@ export async function streamOpenAI(
   callbacks: StreamCallbacks,
   signal?: AbortSignal
 ): Promise<void> {
-  try {
-    const response = await fetch(OPENAI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: formatMessagesForOpenAI(messages, systemPrompt),
-        tools: convertToOpenAITools(CRM_TOOLS),
-        max_tokens: 2000,
-      }),
-      signal,
-    });
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    let buffer = '';
+    let lastProcessedIndex = 0;
+    const toolCallBuffers: Map<number, { id: string; name: string; arguments: string }> = new Map();
 
-    if (!response.ok) {
-      const error = await response.json();
-      callbacks.onError(error.error?.message || 'OpenAI API error');
-      return;
+    xhr.open('POST', OPENAI_API_URL);
+    xhr.setRequestHeader('Authorization', `Bearer ${apiKey}`);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+
+    // Handle abort signal
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        xhr.abort();
+      });
     }
 
-    const data = await response.json();
-    const choice = data.choices?.[0];
-    const message = choice?.message;
+    xhr.onprogress = () => {
+      const newData = xhr.responseText.substring(lastProcessedIndex);
+      lastProcessedIndex = xhr.responseText.length;
 
-    if (!message) {
-      callbacks.onError('No response from OpenAI');
-      return;
-    }
+      buffer += newData;
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
 
-    // Emit text content
-    if (message.content) {
-      callbacks.onText(message.content);
-    }
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') {
+            continue; // Will be handled in onload
+          }
 
-    // Emit tool calls
-    if (message.tool_calls && message.tool_calls.length > 0) {
-      for (const tc of message.tool_calls) {
-        try {
-          callbacks.onToolCall({
-            id: tc.id,
-            name: tc.function.name,
-            arguments: JSON.parse(tc.function.arguments || '{}')
-          });
-        } catch {
-          // Invalid JSON in arguments
+          try {
+            const parsed = JSON.parse(data);
+            const delta = parsed.choices?.[0]?.delta;
+
+            if (delta?.content) {
+              callbacks.onText(delta.content);
+            }
+
+            if (delta?.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                const index = tc.index;
+                if (!toolCallBuffers.has(index)) {
+                  toolCallBuffers.set(index, { id: tc.id || '', name: '', arguments: '' });
+                }
+                const tcBuffer = toolCallBuffers.get(index)!;
+                if (tc.id) tcBuffer.id = tc.id;
+                if (tc.function?.name) tcBuffer.name = tc.function.name;
+                if (tc.function?.arguments) tcBuffer.arguments += tc.function.arguments;
+              }
+            }
+          } catch {
+            // Skip invalid JSON
+          }
         }
       }
-    }
+    };
 
-    callbacks.onDone();
-  } catch (error) {
-    if ((error as Error).name === 'AbortError') {
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        // Emit completed tool calls
+        for (const tc of toolCallBuffers.values()) {
+          try {
+            callbacks.onToolCall({
+              id: tc.id,
+              name: tc.name,
+              arguments: JSON.parse(tc.arguments || '{}')
+            });
+          } catch {
+            // Invalid JSON in arguments
+          }
+        }
+        callbacks.onDone();
+      } else {
+        try {
+          const error = JSON.parse(xhr.responseText);
+          callbacks.onError(error.error?.message || 'OpenAI API error');
+        } catch {
+          callbacks.onError(`HTTP ${xhr.status}: ${xhr.statusText}`);
+        }
+      }
+      resolve();
+    };
+
+    xhr.onerror = () => {
+      callbacks.onError('Network error');
+      resolve();
+    };
+
+    xhr.onabort = () => {
       callbacks.onDone();
-    } else {
-      callbacks.onError(error instanceof Error ? error.message : 'Unknown error');
-    }
-  }
+      resolve();
+    };
+
+    xhr.send(JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: formatMessagesForOpenAI(messages, systemPrompt),
+      tools: convertToOpenAITools(CRM_TOOLS),
+      max_tokens: 2000,
+      stream: true,
+    }));
+  });
 }
 
-// Non-streaming Gemini call with tool support (React Native compatible)
+// True SSE streaming Gemini call with tool support (using XHR for React Native compatibility)
 export async function streamGemini(
   apiKey: string,
   messages: ChatMessage[],
@@ -265,62 +309,98 @@ export async function streamGemini(
   callbacks: StreamCallbacks,
   signal?: AbortSignal
 ): Promise<void> {
-  try {
-    // Use non-streaming endpoint for React Native compatibility
-    // API key passed in header (not URL) for security - prevents logging in network traces
-    const response = await fetch(`${GEMINI_API_URL}:generateContent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        contents: formatMessagesForGemini(messages, systemPrompt),
-        tools: convertToGeminiTools(CRM_TOOLS),
-        generationConfig: {
-          maxOutputTokens: 2000,
-        },
-      }),
-      signal,
-    });
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    let buffer = '';
+    let lastProcessedIndex = 0;
+    const emittedFunctionCalls = new Set<string>();
 
-    if (!response.ok) {
-      const error = await response.json();
-      callbacks.onError(error.error?.message || 'Gemini API error');
-      return;
+    xhr.open('POST', `${GEMINI_API_URL}:streamGenerateContent?alt=sse`);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('x-goog-api-key', apiKey);
+
+    // Handle abort signal
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        xhr.abort();
+      });
     }
 
-    const data = await response.json();
-    const candidate = data.candidates?.[0];
-    const parts = candidate?.content?.parts || [];
+    xhr.onprogress = () => {
+      const newData = xhr.responseText.substring(lastProcessedIndex);
+      lastProcessedIndex = xhr.responseText.length;
 
-    if (parts.length === 0) {
-      callbacks.onError('No response from Gemini');
-      return;
-    }
+      buffer += newData;
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
 
-    // Process all parts (text and function calls)
-    for (const part of parts) {
-      if (part.text) {
-        callbacks.onText(part.text);
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (!data) continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const parts = parsed.candidates?.[0]?.content?.parts || [];
+
+            for (const part of parts) {
+              if (part.text) {
+                callbacks.onText(part.text);
+              }
+              if (part.functionCall) {
+                // Generate unique ID for function call
+                const callId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                // Avoid duplicate function calls
+                const callKey = `${part.functionCall.name}_${JSON.stringify(part.functionCall.args)}`;
+                if (!emittedFunctionCalls.has(callKey)) {
+                  emittedFunctionCalls.add(callKey);
+                  callbacks.onToolCall({
+                    id: callId,
+                    name: part.functionCall.name,
+                    arguments: part.functionCall.args || {}
+                  });
+                }
+              }
+            }
+          } catch {
+            // Skip invalid JSON
+          }
+        }
       }
-      if (part.functionCall) {
-        callbacks.onToolCall({
-          id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          name: part.functionCall.name,
-          arguments: part.functionCall.args || {}
-        });
-      }
-    }
+    };
 
-    callbacks.onDone();
-  } catch (error) {
-    if ((error as Error).name === 'AbortError') {
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        callbacks.onDone();
+      } else {
+        try {
+          const error = JSON.parse(xhr.responseText);
+          callbacks.onError(error.error?.message || 'Gemini API error');
+        } catch {
+          callbacks.onError(`HTTP ${xhr.status}: ${xhr.statusText}`);
+        }
+      }
+      resolve();
+    };
+
+    xhr.onerror = () => {
+      callbacks.onError('Network error');
+      resolve();
+    };
+
+    xhr.onabort = () => {
       callbacks.onDone();
-    } else {
-      callbacks.onError(error instanceof Error ? error.message : 'Unknown error');
-    }
-  }
+      resolve();
+    };
+
+    xhr.send(JSON.stringify({
+      contents: formatMessagesForGemini(messages, systemPrompt),
+      tools: convertToGeminiTools(CRM_TOOLS),
+      generationConfig: {
+        maxOutputTokens: 2000,
+      },
+    }));
+  });
 }
 
 // Non-streaming fallback for compatibility

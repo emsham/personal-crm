@@ -81,7 +81,7 @@ The Home tab adapts based on AI configuration status:
 
 ### AI Chat Features
 - **Full-screen chat interface** - AI is the primary interaction method
-- **Non-streaming responses** - Uses standard fetch (React Native doesn't support ReadableStream)
+- **Real-time streaming** - True SSE streaming for ChatGPT-like progressive text display
 - **Tool calling** - AI can search contacts, add tasks, log interactions, get stats
 - **Rich tool results** - Contacts, tasks, interactions displayed as interactive cards
 - **Dashboard access** - Button to access stats/quick actions when needed
@@ -113,7 +113,9 @@ The Home tab adapts based on AI configuration status:
 - `updateTask` - Mark complete, change priority, reschedule
 
 ### API Implementation
-- **Non-streaming fetch** - React Native's fetch doesn't support ReadableStream, so we use standard JSON responses
+- **True SSE streaming** - Uses `XMLHttpRequest.onprogress` for React Native compatible streaming
+- OpenAI: `stream: true` with delta parsing for progressive text
+- Gemini: `:streamGenerateContent?alt=sse` endpoint
 - Uses callback interface (`onText`, `onToolCall`, `onDone`, `onError`) for consistent API
 - AbortController support for cancellation
 - Multi-turn tool execution loop (up to 5 iterations)
