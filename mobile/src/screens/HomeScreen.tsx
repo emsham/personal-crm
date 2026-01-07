@@ -876,6 +876,7 @@ export const HomeScreen: React.FC = () => {
 
         {/* Messages */}
         <FlatList
+          key={currentSessionId || 'new-chat'}
           ref={flatListRef}
           data={messages}
           renderItem={renderMessage}
@@ -980,7 +981,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   emptyContainer: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
   },
   emptyState: {

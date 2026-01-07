@@ -1,8 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useParams, useLocation, Navigate } from 'react-router-dom';
 import { Search, Plus, Filter, ChevronRight, Loader2, CheckSquare, Cake, Star } from 'lucide-react';
-import Sidebar from './components/Sidebar';
 import ContactList from './components/ContactList';
 import ContactDetail from './components/ContactDetail';
 import AddContactForm from './components/AddContactForm';
@@ -12,6 +11,9 @@ import TaskList from './components/TaskList';
 import DashboardWidgets from './components/DashboardWidgets';
 import SettingsPage from './components/SettingsPage';
 import { ChatView } from './components/chat';
+import { LandingPage } from './components/landing';
+import { ProtectedRoute, PublicRoute } from './components/auth';
+import { AppLayout } from './components/layout';
 import { Contact, Interaction, InteractionType, View, Task } from './types';
 import { useAuth } from './contexts/AuthContext';
 import { useChat } from './contexts/ChatContext';
@@ -49,17 +51,6 @@ const App: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<Contact['status'] | 'all'>('all');
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [showDashboardWidgets, setShowDashboardWidgets] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // Derive current view from URL
-  const currentView = useMemo(() => {
-    const path = location.pathname;
-    if (path.startsWith('/contacts')) return View.CONTACTS;
-    if (path.startsWith('/tasks')) return View.TASKS;
-    if (path.startsWith('/analytics')) return View.ANALYTICS;
-    if (path.startsWith('/settings')) return View.SETTINGS;
-    return View.DASHBOARD;
-  }, [location.pathname]);
 
   // Subscribe to Firestore data when user is authenticated
   useEffect(() => {
@@ -402,36 +393,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Show loading spinner while checking auth
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="orb orb-1" />
-        <div className="orb orb-2" />
-        <div className="text-center relative">
-          <div className="relative">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-violet-500/25">
-              <Loader2 className="animate-spin text-white" size={32} />
-            </div>
-            <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-violet-500 to-cyan-500 opacity-20 blur-2xl" />
-          </div>
-          <p className="text-slate-400 font-medium">Loading tethru...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show auth page if not logged in
-  if (!user) {
-    return <AuthPage />;
-  }
-
-  // Show email verification page for email/password users who haven't verified
-  // Google OAuth users bypass this since they're already verified by Google
-  if (requiresEmailVerification) {
-    return <EmailVerification />;
-  }
-
   const renderDashboard = () => {
     // If no API key configured, show full dashboard with widgets
     if (!currentProviderConfigured) {
@@ -675,39 +636,8 @@ const App: React.FC = () => {
     );
   };
 
-  return (
-    <div className="min-h-screen flex noise">
-      {/* Background orbs */}
-      <div className="orb orb-1" />
-      <div className="orb orb-2" />
-      <div className="orb orb-3" />
-
-      <Sidebar
-        currentView={currentView}
-        onNavigate={navigate}
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
-
-      <main className="flex-1 lg:ml-72 p-4 md:p-6 lg:p-8 pt-16 lg:pt-8">
-        <Routes>
-          <Route path="/" element={renderDashboard()} />
-          <Route path="/contacts" element={renderContactsList()} />
-          <Route path="/contacts/:contactId" element={<ContactDetailPage />} />
-          <Route path="/tasks" element={
-            <TaskList
-              tasks={tasks}
-              contacts={contacts}
-              onAddTask={handleAddTask}
-              onUpdateTask={handleUpdateTask}
-              onToggleTask={handleToggleTask}
-              onDeleteTask={handleDeleteTask}
-            />
-          } />
-          <Route path="/settings" element={
-            <SettingsPage />
-          } />
-          <Route path="/analytics" element={
+  // Analytics view content
+  const renderAnalytics = () => (
           <div className="space-y-6 md:space-y-8 pl-14 lg:pl-0">
             <div>
               <h2 className="text-xl md:text-2xl font-bold text-white">Analytics</h2>
@@ -841,10 +771,101 @@ const App: React.FC = () => {
                 </div>
               )}
             </div>
-          </div>
-          } />
-        </Routes>
-      </main>
+    </div>
+  );
+
+  return (
+    <>
+      <Routes>
+        {/* Public Routes */}
+        <Route
+          path="/"
+          element={
+            <PublicRoute>
+              <LandingPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <AuthPage mode="login" />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <PublicRoute>
+              <AuthPage mode="signup" />
+            </PublicRoute>
+          }
+        />
+        <Route path="/verify-email" element={<EmailVerification />} />
+
+        {/* Protected Routes */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <AppLayout>{renderDashboard()}</AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/contacts"
+          element={
+            <ProtectedRoute>
+              <AppLayout>{renderContactsList()}</AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/contacts/:contactId"
+          element={
+            <ProtectedRoute>
+              <AppLayout><ContactDetailPage /></AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tasks"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <TaskList
+                  tasks={tasks}
+                  contacts={contacts}
+                  onAddTask={handleAddTask}
+                  onUpdateTask={handleUpdateTask}
+                  onToggleTask={handleToggleTask}
+                  onDeleteTask={handleDeleteTask}
+                />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <AppLayout><SettingsPage /></AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute>
+              <AppLayout>{renderAnalytics()}</AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Catch-all redirect */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
 
       {showAddModal && (
         <AddContactForm
@@ -853,7 +874,7 @@ const App: React.FC = () => {
           existingContacts={contacts}
         />
       )}
-    </div>
+    </>
   );
 };
 

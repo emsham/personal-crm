@@ -1,6 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Mail, Lock, User, Loader2, ArrowRight, Check, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { NeuralCanvas } from './landing';
+
+interface AuthPageProps {
+  mode?: 'login' | 'signup';
+}
 
 // Password requirements checker
 const PasswordRequirements: React.FC<{ password: string }> = ({ password }) => {
@@ -37,8 +43,10 @@ const PasswordRequirements: React.FC<{ password: string }> = ({ password }) => {
   );
 };
 
-const AuthPage: React.FC = () => {
-  const [isSignUp, setIsSignUp] = useState(false);
+const AuthPage: React.FC<AuthPageProps> = ({ mode = 'login' }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [isSignUp, setIsSignUp] = useState(mode === 'signup');
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,6 +55,16 @@ const AuthPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } = useAuth();
+
+  // Sync isSignUp state with mode prop when route changes
+  useEffect(() => {
+    setIsSignUp(mode === 'signup');
+    setError('');
+    setSuccess('');
+  }, [mode]);
+
+  // Get redirect destination after auth
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
 
   const isPasswordValid = useMemo(() => {
     return (
@@ -73,8 +91,10 @@ const AuthPage: React.FC = () => {
     try {
       if (isSignUp) {
         await signUpWithEmail(email, password);
+        // Sign up redirects to email verification via ProtectedRoute
       } else {
         await signInWithEmail(email, password);
+        navigate(from, { replace: true });
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed');
@@ -111,6 +131,7 @@ const AuthPage: React.FC = () => {
 
     try {
       await signInWithGoogle();
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Google sign-in failed');
     } finally {
@@ -119,7 +140,9 @@ const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 overflow-hidden relative bg-[#0a0a0f]">
+      {/* Neural canvas background - matches landing page */}
+      <NeuralCanvas className="absolute inset-0 z-0 opacity-60" />
       {/* Background elements */}
       <div className="orb orb-1" />
       <div className="orb orb-2" />
@@ -306,16 +329,12 @@ const AuthPage: React.FC = () => {
 
               <p className="mt-8 text-center text-sm text-slate-500">
                 {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-                <button
-                  onClick={() => {
-                    setIsSignUp(!isSignUp);
-                    setError('');
-                    setSuccess('');
-                  }}
+                <Link
+                  to={isSignUp ? '/login' : '/signup'}
                   className="text-violet-400 font-semibold hover:text-violet-300 transition-colors"
                 >
                   {isSignUp ? 'Sign in' : 'Sign up'}
-                </button>
+                </Link>
               </p>
             </>
           )}

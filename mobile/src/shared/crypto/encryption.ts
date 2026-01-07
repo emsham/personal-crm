@@ -5,18 +5,35 @@ const ENCRYPTION_VERSION = 1;
 const PBKDF2_ITERATIONS = 100000;
 const KEY_SIZE = 256 / 32; // 256 bits
 
+// Cache derived keys to avoid expensive PBKDF2 on every render
+const keyCache = new Map<string, string>();
+
 /**
  * Derives an encryption key from the user's Firebase UID using PBKDF2.
  * The key is deterministic - same UID always produces the same key.
+ * Results are cached to avoid expensive PBKDF2 computation on every call.
  */
 export function deriveEncryptionKey(userId: string, passphrase?: string): string {
   const password = passphrase || 'nexus-default-key-material';
+  const cacheKey = `${userId}:${password}`;
+
+  // Return cached key if available
+  const cachedKey = keyCache.get(cacheKey);
+  if (cachedKey) {
+    return cachedKey;
+  }
+
   const salt = `${userId}-nexus-api-key-encryption-v1`;
 
-  return CryptoJS.PBKDF2(password, salt, {
+  const derivedKey = CryptoJS.PBKDF2(password, salt, {
     keySize: KEY_SIZE,
     iterations: PBKDF2_ITERATIONS,
   }).toString();
+
+  // Cache the derived key
+  keyCache.set(cacheKey, derivedKey);
+
+  return derivedKey;
 }
 
 /**

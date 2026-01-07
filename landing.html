@@ -750,6 +750,124 @@
             background: var(--gradient);
             border-radius: 4px;
         }
+
+        /* Logo Intro Section */
+        .logo-intro {
+            position: relative;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            overflow: hidden;
+        }
+
+        .logo-intro-canvas {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+        }
+
+        .logo-intro-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+        }
+
+        .intro-logo-icon {
+            width: 120px;
+            height: 120px;
+            opacity: 0;
+            animation: introIconFade 0.8s ease-out 0.6s forwards;
+        }
+
+        @keyframes introIconFade {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .logo-intro-text {
+            margin-top: 1.5rem;
+            opacity: 0;
+            animation: introTextFade 1s ease-out 1.2s forwards;
+        }
+
+        .logo-intro-text h1 {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo-intro-text p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        @keyframes introTextFade {
+            to { opacity: 1; }
+        }
+
+        .scroll-indicator {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0;
+            animation: scrollIndicatorFade 1s ease-out 3s forwards;
+            z-index: 10;
+        }
+
+        .scroll-indicator span {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+        }
+
+        .scroll-indicator-arrow {
+            width: 24px;
+            height: 24px;
+            border-right: 2px solid var(--text-secondary);
+            border-bottom: 2px solid var(--text-secondary);
+            transform: rotate(45deg);
+            animation: scrollBounce 2s ease-in-out infinite;
+        }
+
+        @keyframes scrollIndicatorFade {
+            to { opacity: 1; }
+        }
+
+        @keyframes scrollBounce {
+            0%, 100% { transform: rotate(45deg) translate(0, 0); opacity: 1; }
+            50% { transform: rotate(45deg) translate(5px, 5px); opacity: 0.5; }
+        }
+
+        /* Nav hidden initially, shown after scroll */
+        nav {
+            opacity: 0;
+            transform: translateY(-100%);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        nav.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -757,6 +875,22 @@
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
     <div class="orb orb-3"></div>
+
+    <!-- Logo Intro Section -->
+    <section class="logo-intro" id="logoIntro">
+        <canvas class="logo-intro-canvas" id="logoIntroCanvas"></canvas>
+        <div class="logo-intro-content">
+            <img src="/tethru-icon-color.svg" alt="tethru" class="intro-logo-icon">
+            <div class="logo-intro-text">
+                <h1>tethru</h1>
+                <p>AI-Powered Personal CRM</p>
+            </div>
+        </div>
+        <div class="scroll-indicator">
+            <span>Scroll</span>
+            <div class="scroll-indicator-arrow"></div>
+        </div>
+    </section>
 
     <!-- Navigation -->
     <nav>
@@ -1021,30 +1155,167 @@
     </footer>
 
     <script>
-        // Scroll reveal animation
-        const reveals = document.querySelectorAll('.reveal');
+        // ========== LOGO INTRO ANIMATION ==========
+        const introCanvas = document.getElementById('logoIntroCanvas');
+        const introCtx = introCanvas.getContext('2d');
+        const logoIntro = document.getElementById('logoIntro');
+        const nav = document.querySelector('nav');
 
-        const revealOnScroll = () => {
-            reveals.forEach(el => {
-                const windowHeight = window.innerHeight;
-                const elementTop = el.getBoundingClientRect().top;
-                const elementVisible = 150;
+        // Logo colors
+        const logoColors = [
+            { r: 56, g: 189, b: 248 },   // cyan
+            { r: 129, g: 140, b: 248 },  // blue
+            { r: 167, g: 139, b: 250 },  // purple
+            { r: 99, g: 179, b: 237 }    // gradient blue
+        ];
 
-                if (elementTop < windowHeight - elementVisible) {
-                    el.classList.add('visible');
+        let networkNodes = [];
+        let introAnimationId;
+        let startTime = Date.now();
+
+        function resizeIntroCanvas() {
+            introCanvas.width = window.innerWidth;
+            introCanvas.height = window.innerHeight;
+            initIntroNodes();
+        }
+
+        function initIntroNodes() {
+            networkNodes = [];
+
+            const centerX = introCanvas.width / 2;
+            const centerY = introCanvas.height / 2 - 20;
+
+            // Network nodes spread across screen
+            const gridCols = Math.ceil(introCanvas.width / 100);
+            const gridRows = Math.ceil(introCanvas.height / 100);
+
+            for (let row = 0; row < gridRows; row++) {
+                for (let col = 0; col < gridCols; col++) {
+                    const cellX = (col + 0.5) * (introCanvas.width / gridCols);
+                    const cellY = (row + 0.5) * (introCanvas.height / gridRows);
+
+                    // Skip center area where SVG logo is
+                    const distFromCenter = Math.sqrt(
+                        Math.pow(cellX - centerX, 2) + Math.pow(cellY - centerY, 2)
+                    );
+
+                    if (distFromCenter < 140) continue;
+
+                    // Random offset within cell
+                    const offsetX = (Math.random() - 0.5) * 50;
+                    const offsetY = (Math.random() - 0.5) * 50;
+
+                    // Random chance to skip (make it sparse)
+                    if (Math.random() > 0.55) continue;
+
+                    const colorIndex = Math.floor(Math.random() * logoColors.length);
+                    const size = 2 + Math.random() * 4;
+
+                    networkNodes.push({
+                        x: cellX + offsetX,
+                        y: cellY + offsetY,
+                        radius: size,
+                        color: logoColors[colorIndex],
+                        scale: 0,
+                        targetScale: 1,
+                        delay: Math.random() * 0.5
+                    });
+                }
+            }
+        }
+
+        function drawIntroAnimation() {
+            introCtx.clearRect(0, 0, introCanvas.width, introCanvas.height);
+            const time = (Date.now() - startTime) * 0.001;
+
+            // Animate nodes in
+            networkNodes.forEach(node => {
+                const elapsed = time - node.delay;
+                if (elapsed > 0) {
+                    node.scale += (node.targetScale - node.scale) * 0.06;
                 }
             });
-        };
 
-        window.addEventListener('scroll', revealOnScroll);
-        revealOnScroll(); // Initial check
+            // Draw connections between nearby nodes
+            introCtx.lineWidth = 1;
+            introCtx.lineCap = 'round';
 
-        // Neural network canvas animation
+            for (let i = 0; i < networkNodes.length; i++) {
+                const node = networkNodes[i];
+                if (node.scale < 0.1) continue;
+
+                for (let j = i + 1; j < networkNodes.length; j++) {
+                    const other = networkNodes[j];
+                    if (other.scale < 0.1) continue;
+
+                    const dx = other.x - node.x;
+                    const dy = other.y - node.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < 90) {
+                        const opacity = (1 - dist / 90) * 0.18 * Math.min(node.scale, other.scale);
+
+                        const gradient = introCtx.createLinearGradient(node.x, node.y, other.x, other.y);
+                        gradient.addColorStop(0, `rgba(${node.color.r}, ${node.color.g}, ${node.color.b}, ${opacity})`);
+                        gradient.addColorStop(1, `rgba(${other.color.r}, ${other.color.g}, ${other.color.b}, ${opacity})`);
+
+                        introCtx.beginPath();
+                        introCtx.strokeStyle = gradient;
+                        introCtx.moveTo(node.x, node.y);
+                        introCtx.lineTo(other.x, other.y);
+                        introCtx.stroke();
+                    }
+                }
+            }
+
+            // Draw network nodes (small, solid)
+            networkNodes.forEach(node => {
+                const r = node.radius * node.scale;
+                if (r < 0.5) return;
+
+                introCtx.beginPath();
+                introCtx.fillStyle = `rgba(${node.color.r}, ${node.color.g}, ${node.color.b}, ${0.75 * node.scale})`;
+                introCtx.arc(node.x, node.y, r, 0, Math.PI * 2);
+                introCtx.fill();
+            });
+
+            introAnimationId = requestAnimationFrame(drawIntroAnimation);
+        }
+
+        // Initialize intro
+        resizeIntroCanvas();
+        drawIntroAnimation();
+
+        // ========== SCROLL HANDLING ==========
+        let lastScrollY = 0;
+
+        function handleScroll() {
+            const scrollY = window.scrollY;
+            const introHeight = window.innerHeight;
+            const scrollProgress = Math.min(scrollY / (introHeight * 0.5), 1);
+
+            // Fade and scale intro
+            logoIntro.style.opacity = 1 - scrollProgress;
+            logoIntro.style.transform = `scale(${1 - scrollProgress * 0.1})`;
+
+            // Show nav after scrolling past intro
+            if (scrollY > introHeight * 0.3) {
+                nav.classList.add('visible');
+            } else {
+                nav.classList.remove('visible');
+            }
+
+            lastScrollY = scrollY;
+        }
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        window.addEventListener('resize', resizeIntroCanvas);
+
+        // ========== HERO NEURAL NETWORK ==========
         const canvas = document.getElementById('neuralCanvas');
         const ctx = canvas.getContext('2d');
 
         let nodes = [];
-        let connections = [];
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
@@ -1070,17 +1341,13 @@
         function drawNetwork() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Update and draw nodes
             nodes.forEach((node, i) => {
-                // Update position
                 node.x += node.vx;
                 node.y += node.vy;
 
-                // Bounce off edges
                 if (node.x < 0 || node.x > canvas.width) node.vx *= -1;
                 if (node.y < 0 || node.y > canvas.height) node.vy *= -1;
 
-                // Draw connections
                 nodes.forEach((other, j) => {
                     if (i === j) return;
                     const dx = other.x - node.x;
@@ -1102,7 +1369,6 @@
                     }
                 });
 
-                // Draw node
                 const nodeGradient = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, node.radius * 2);
                 nodeGradient.addColorStop(0, 'rgba(99, 179, 237, 0.8)');
                 nodeGradient.addColorStop(1, 'rgba(167, 139, 250, 0.4)');
@@ -1120,7 +1386,25 @@
         resizeCanvas();
         drawNetwork();
 
-        // Smooth scroll for navigation links
+        // ========== SCROLL REVEAL ==========
+        const reveals = document.querySelectorAll('.reveal');
+
+        const revealOnScroll = () => {
+            reveals.forEach(el => {
+                const windowHeight = window.innerHeight;
+                const elementTop = el.getBoundingClientRect().top;
+                const elementVisible = 150;
+
+                if (elementTop < windowHeight - elementVisible) {
+                    el.classList.add('visible');
+                }
+            });
+        };
+
+        window.addEventListener('scroll', revealOnScroll);
+        revealOnScroll();
+
+        // ========== SMOOTH SCROLL ==========
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();

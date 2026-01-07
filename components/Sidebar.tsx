@@ -23,7 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpen, onTo
   };
 
   const navItems = [
-    { id: View.DASHBOARD, label: 'tethru AI', icon: Brain, path: '/' },
+    { id: View.DASHBOARD, label: 'tethru AI', icon: Brain, path: '/dashboard' },
     { id: View.CONTACTS, label: 'Contacts', icon: Users, path: '/contacts' },
     { id: View.TASKS, label: 'Tasks', icon: CheckSquare, path: '/tasks' },
     { id: View.ANALYTICS, label: 'Analytics', icon: BarChart3, path: '/analytics' },

@@ -70,6 +70,29 @@ export const createChatSession = async (
   return docRef.id;
 };
 
+// Recursively remove undefined values from objects/arrays (Firestore doesn't accept undefined)
+function removeUndefined(obj: unknown): unknown {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefined);
+  }
+
+  if (typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        result[key] = removeUndefined(value);
+      }
+    }
+    return result;
+  }
+
+  return obj;
+}
+
 // Update chat session
 export const updateChatSession = async (
   userId: string,
@@ -87,11 +110,18 @@ export const updateChatSession = async (
   }
 
   if (updates.messages !== undefined) {
-    // Convert Date objects to ISO strings for Firestore
-    updateData.messages = updates.messages.map((msg) => ({
-      ...msg,
+    // Convert Date objects to ISO strings and remove undefined values for Firestore
+    const cleanedMessages = updates.messages.map((msg) => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
       timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp,
+      toolCalls: msg.toolCalls,
+      toolResults: msg.toolResults,
+      isStreaming: msg.isStreaming,
     }));
+    // Recursively remove all undefined values from nested objects
+    updateData.messages = removeUndefined(cleanedMessages);
   }
 
   await updateDoc(sessionRef, updateData);

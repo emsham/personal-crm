@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { InteractionManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { deriveEncryptionKey } from '../shared/crypto';
@@ -42,11 +43,24 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [settings, setSettings] = useState<LLMSettings>(defaultSettings);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
 
-  // Derive encryption key from user ID (deterministic)
-  const encryptionKey = useMemo(() => {
-    if (!user?.uid) return null;
-    return deriveEncryptionKey(user.uid);
+  // Derive encryption key asynchronously to avoid blocking UI
+  // PBKDF2 with 100k iterations is slow on mobile devices
+  useEffect(() => {
+    if (!user?.uid) {
+      setEncryptionKey(null);
+      return;
+    }
+
+    // Run key derivation after navigation animations complete
+    // This allows the home screen to render before the expensive computation
+    const task = InteractionManager.runAfterInteractions(() => {
+      const key = deriveEncryptionKey(user.uid);
+      setEncryptionKey(key);
+    });
+
+    return () => task.cancel();
   }, [user?.uid]);
 
   // Load provider preference from AsyncStorage

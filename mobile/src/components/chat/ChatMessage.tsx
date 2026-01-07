@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { ToolCall } from '../../shared/ai/types';
 import { ToolResult } from '../../services/toolExecutors';
-import { Contact, Task, Interaction } from '../../types';
+import { Contact } from '../../types';
 import { ToolResultCard } from './ToolResultCard';
 
 export interface ChatMessageData {
@@ -48,20 +48,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           </Text>
         ) : null}
 
-        {/* Tool call indicators */}
-        {message.toolCalls && message.toolCalls.length > 0 && (
-          <View style={styles.toolCallsContainer}>
-            {message.toolCalls.map((toolCall, index) => (
-              <View key={index} style={styles.toolCallBadge}>
-                <View style={styles.toolCallIcon}>
-                  <Text style={styles.toolCallIconText}>fn</Text>
-                </View>
-                <Text style={styles.toolCallName}>{formatToolName(toolCall.name)}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
         {/* Streaming indicator */}
         {message.isStreaming && isLastMessage && (
           <View style={styles.streamingIndicator}>
@@ -74,14 +60,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     </View>
   );
 };
-
-function formatToolName(name: string): string {
-  // Convert camelCase to Title Case with spaces
-  return name
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/^./, str => str.toUpperCase())
-    .trim();
-}
 
 const styles = StyleSheet.create({
   container: {
@@ -104,10 +82,8 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   assistantBubble: {
-    backgroundColor: '#1e293b',
+    backgroundColor: 'rgba(30, 41, 59, 0.7)',
     borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: '#334155',
   },
   text: {
     fontSize: 15,
@@ -118,37 +94,6 @@ const styles = StyleSheet.create({
   },
   assistantText: {
     color: '#e2e8f0',
-  },
-  toolCallsContainer: {
-    marginTop: 8,
-    gap: 6,
-  },
-  toolCallBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(139, 92, 246, 0.15)',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    gap: 6,
-  },
-  toolCallIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    backgroundColor: '#8b5cf6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  toolCallIconText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  toolCallName: {
-    color: '#a78bfa',
-    fontSize: 12,
-    fontWeight: '500',
   },
   toolResultsContainer: {
     paddingHorizontal: 16,
