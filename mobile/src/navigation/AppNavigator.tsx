@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import { Text, View, StyleSheet, ScrollView, TouchableOpacity, Switch, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -303,16 +303,55 @@ const MainTabs: React.FC = () => {
 
 // Root navigator
 export const AppNavigator: React.FC = () => {
-  const { user, loading, requiresEmailVerification } = useAuth();
+  const { user, loading: authLoading, requiresEmailVerification } = useAuth();
+  const { isLoading: llmLoading } = useLLMSettings();
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    );
-  }
+  // Track if we should show loading overlay
+  const isLoading = authLoading || (user && !requiresEmailVerification && llmLoading);
 
+  // Fade animation for smooth transition
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [showOverlay, setShowOverlay] = useState(true);
+
+  useEffect(() => {
+    if (!isLoading && showOverlay) {
+      // Fade out the loading overlay
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowOverlay(false);
+      });
+    } else if (isLoading && !showOverlay) {
+      // Reset for next time
+      setShowOverlay(true);
+      fadeAnim.setValue(1);
+    }
+  }, [isLoading, showOverlay, fadeAnim]);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
+      <NavigatorContent user={user} requiresEmailVerification={requiresEmailVerification} />
+
+      {/* Loading overlay with fade animation */}
+      {showOverlay && (
+        <Animated.View style={[styles.loadingOverlay, { opacity: fadeAnim }]}>
+          <View style={styles.aiLogoContainer}>
+            <Text style={styles.aiLogoText}>AI</Text>
+          </View>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </Animated.View>
+      )}
+    </View>
+  );
+};
+
+// Separated navigator content to avoid re-renders
+const NavigatorContent: React.FC<{ user: any; requiresEmailVerification: boolean }> = ({
+  user,
+  requiresEmailVerification
+}) => {
   return (
     <NavigationContainer>
       <Stack.Navigator
@@ -385,14 +424,29 @@ export const AppNavigator: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: '#0f172a',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 999,
+  },
+  aiLogoContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: '#8b5cf6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  aiLogoText: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: 'bold',
   },
   loadingText: {
-    color: '#fff',
+    color: '#64748b',
     fontSize: 16,
   },
   settingsContainer: {

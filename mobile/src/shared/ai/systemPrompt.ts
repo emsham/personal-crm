@@ -11,10 +11,11 @@ export function buildSystemPrompt(data: CRMData): string {
     !t.completed && t.dueDate && new Date(t.dueDate) < today
   ).length;
 
-  // Format current date info for the AI
+  // Format current date and time info for the AI
   const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
   const dayOfWeek = today.toLocaleDateString('en-US', { weekday: 'long' });
   const formattedDate = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const currentTime = today.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }); // HH:MM
 
   // Get recent interaction types for context
   const recentInteractionTypes = [...new Set(
@@ -37,7 +38,9 @@ export function buildSystemPrompt(data: CRMData): string {
 ## Current Date & Time
 - Today is ${dayOfWeek}, ${formattedDate}
 - Today's date in YYYY-MM-DD format: ${todayStr}
+- Current time: ${currentTime} (24-hour format)
 - Use this for relative dates: "tomorrow" = day after ${todayStr}, "next week" = 7 days from now, etc.
+- Use current time for relative time: "in 5 minutes" = ${currentTime} + 5 minutes, etc.
 
 ## Current CRM State
 - Total Contacts: ${contacts.length} (${activeContacts} active, ${driftingContacts} drifting)
@@ -76,6 +79,19 @@ ${recentInteractionTypes ? `- Recent Interaction Types: ${recentInteractionTypes
 4. Proactively suggest relevant follow-up actions
 5. If a query returns no results, suggest alternative searches
 6. Use the user's natural language - don't be overly formal
+
+## Reminders & Tasks - IMPORTANT
+- "Reminders" and "tasks" are THE SAME THING in this system. Use the addTask tool for both!
+- When a user says "remind me to...", "set a reminder for...", or "don't let me forget to...", create a TASK
+- For relative time expressions, calculate the exact date and time:
+  - "in 5 minutes" → dueDate = today (${todayStr}), dueTime = current time + 5 minutes (HH:MM format)
+  - "in 1 hour" → dueDate = today, dueTime = current time + 1 hour
+  - "tomorrow at 3pm" → dueDate = tomorrow's date, dueTime = "15:00"
+  - "in 2 days" → dueDate = 2 days from now, dueTime = "09:00" (default morning)
+  - "next week" → dueDate = 7 days from now
+- ALWAYS set dueTime when the user specifies a time, or when using relative expressions like "in X minutes"
+- For time-sensitive reminders (within the next few hours), set priority to "high"
+- The notification system will alert the user at the scheduled time
 
 ## Creating & Updating Records - IMPORTANT
 - BEFORE adding a contact, ALWAYS search first to check if they already exist using search_contacts

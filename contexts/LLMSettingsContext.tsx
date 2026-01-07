@@ -48,9 +48,9 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Subscribe to encrypted API keys from Firestore when user is authenticated
   useEffect(() => {
-    if (!user?.uid || !encryptionKey) {
+    // If user is not logged in, we're done loading (no keys to fetch)
+    if (!user?.uid) {
       setIsLoading(false);
-      // Clear keys when user logs out
       setSettings(prev => ({
         ...prev,
         geminiApiKey: undefined,
@@ -58,6 +58,16 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }));
       return;
     }
+
+    // If encryption key isn't ready yet, keep loading state as true
+    if (!encryptionKey) {
+      setIsLoading(true);
+      return;
+    }
+
+    // User is logged in and encryption key is ready - fetch their API keys
+    // Set loading to true while we wait for Firestore
+    setIsLoading(true);
 
     // Run migration first (one-time, from localStorage to Firestore)
     migrateLocalStorageApiKeys(user.uid, encryptionKey).catch(console.error);

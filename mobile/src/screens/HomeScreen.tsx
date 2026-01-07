@@ -41,7 +41,7 @@ const MAX_TOOL_ITERATIONS = 5;
 
 export const HomeScreen: React.FC = () => {
   const { user } = useAuth();
-  const { settings, currentProviderConfigured } = useLLMSettings();
+  const { settings, currentProviderConfigured, isLoading: llmLoading } = useLLMSettings();
   const { scheduleContactNotifications, scheduleTaskNotifications, permissionStatus } = useNotifications();
   const {
     sessions,
@@ -74,6 +74,16 @@ export const HomeScreen: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Track last known AI configuration state to avoid abrupt transitions
+  const [lastKnownConfigured, setLastKnownConfigured] = useState<boolean | null>(null);
+
+  // Update last known configured state once LLM settings are loaded
+  useEffect(() => {
+    if (!llmLoading) {
+      setLastKnownConfigured(currentProviderConfigured);
+    }
+  }, [llmLoading, currentProviderConfigured]);
 
   // Sync local messages with context
   useEffect(() => {
@@ -830,6 +840,21 @@ export const HomeScreen: React.FC = () => {
     </SafeAreaView>
   );
 
+  // Show loading screen while LLM settings are being loaded
+  // This prevents the abrupt transition from dashboard to AI view
+  if (llmLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <View style={styles.aiLogo}>
+            <Text style={styles.aiLogoText}>AI</Text>
+          </View>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   // If AI is not configured, show dashboard with configure banner
   if (!currentProviderConfigured) {
     return renderDashboardView();
@@ -926,6 +951,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f172a',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#64748b',
+    fontSize: 16,
+    marginTop: 16,
   },
   keyboardView: {
     flex: 1,

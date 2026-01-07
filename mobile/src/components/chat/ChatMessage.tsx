@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { ToolCall } from '../../shared/ai/types';
 import { ToolResult } from '../../services/toolExecutors';
 import { Contact } from '../../types';
@@ -20,6 +20,46 @@ interface ChatMessageProps {
   isLastMessage?: boolean;
 }
 
+// Animated wrapper for tool result cards
+const AnimatedToolCard: React.FC<{
+  result: ToolResult;
+  contacts: Contact[];
+  index: number;
+}> = ({ result, contacts, index }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(10)).current;
+
+  useEffect(() => {
+    // Stagger the animations based on index
+    const delay = index * 100;
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        delay,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 200,
+        delay,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim, index]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity: fadeAnim,
+        transform: [{ translateY: slideAnim }],
+      }}
+    >
+      <ToolResultCard result={result} contacts={contacts} />
+    </Animated.View>
+  );
+};
+
 export const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
   contacts,
@@ -28,12 +68,17 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
 
-  // Tool results are rendered as cards
+  // Tool results are rendered as animated cards
   if (isTool && message.toolResults) {
     return (
       <View style={styles.toolResultsContainer}>
         {message.toolResults.map((result, index) => (
-          <ToolResultCard key={index} result={result} contacts={contacts} />
+          <AnimatedToolCard
+            key={index}
+            result={result}
+            contacts={contacts}
+            index={index}
+          />
         ))}
       </View>
     );

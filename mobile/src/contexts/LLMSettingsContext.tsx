@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { InteractionManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { deriveEncryptionKey } from '../shared/crypto';
-import { subscribeToApiKeys, saveApiKey, deleteApiKey, deleteAllApiKeys } from '../services/apiKeyService';
+import { subscribeToApiKeys, saveApiKey, deleteApiKey, deleteAllApiKeys, loadCachedApiKeys, cacheApiKeysLocally, clearCachedApiKeys } from '../services/apiKeyService';
 import { migrateSecureStoreApiKeys, clearLegacySecureStoreKeys } from '../services/apiKeyMigrationService';
 
 export type LLMProvider = 'gemini' | 'openai';
@@ -39,28 +38,22 @@ const defaultSettings: LLMSettings = {
 const LLMSettingsContext = createContext<LLMSettingsContextType | undefined>(undefined);
 
 export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [settings, setSettings] = useState<LLMSettings>(defaultSettings);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
 
-  // Derive encryption key asynchronously to avoid blocking UI
-  // PBKDF2 with 100k iterations is slow on mobile devices
+  // Derive encryption key when user logs in
   useEffect(() => {
     if (!user?.uid) {
       setEncryptionKey(null);
       return;
     }
 
-    // Run key derivation after navigation animations complete
-    // This allows the home screen to render before the expensive computation
-    const task = InteractionManager.runAfterInteractions(() => {
-      const key = deriveEncryptionKey(user.uid);
-      setEncryptionKey(key);
-    });
-
-    return () => task.cancel();
+    // Derive key immediately - we're showing a loading screen anyway
+    const key = deriveEncryptionKey(user.uid);
+    setEncryptionKey(key);
   }, [user?.uid]);
 
   // Load provider preference from AsyncStorage
@@ -78,16 +71,49 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     loadProvider();
   }, []);
 
+  // Load cached API keys first for instant startup (before Firestore)
+  useEffect(() => {
+    if (authLoading || !user?.uid) return;
+
+    // Try to load from local cache immediately
+    loadCachedApiKeys().then(cached => {
+      if (cached && (cached.gemini || cached.openai)) {
+        setSettings(prev => ({
+          ...prev,
+          geminiApiKey: cached.gemini,
+          openaiApiKey: cached.openai,
+        }));
+        setIsLoading(false); // Show UI immediately with cached keys
+      }
+    });
+  }, [authLoading, user?.uid]);
+
   // Subscribe to encrypted API keys from Firestore when user is authenticated
   useEffect(() => {
-    if (!user?.uid || !encryptionKey) {
+    // Don't do anything while auth is still loading
+    if (authLoading) {
+      return;
+    }
+
+    // If user is not logged in, we're done loading (no keys to fetch)
+    if (!user?.uid) {
       setIsLoading(false);
-      // Clear keys when user logs out
       setSettings(prev => ({
         ...prev,
         geminiApiKey: undefined,
         openaiApiKey: undefined,
       }));
+      // Clear local cache on logout
+      clearCachedApiKeys();
+      return;
+    }
+
+    // User is logged in - ensure loading is true while we wait for keys
+    setIsLoading(true);
+
+    // If encryption key is not ready yet, wait for it
+    // The encryption key derivation is deferred via InteractionManager
+    if (!encryptionKey) {
       return;
     }
 
@@ -102,10 +128,13 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
         openaiApiKey: keys.openai,
       }));
       setIsLoading(false);
+
+      // Cache keys locally for instant startup next time
+      cacheApiKeysLocally(keys);
     });
 
     return () => unsubscribe();
-  }, [user?.uid, encryptionKey]);
+  }, [authLoading, user?.uid, encryptionKey]);
 
   // Check if any provider is configured
   const isConfigured = Boolean(settings.geminiApiKey || settings.openaiApiKey);
@@ -170,6 +199,8 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       await deleteAllApiKeys(user.uid);
       // Also clear any legacy SecureStore keys to prevent re-migration
       await clearLegacySecureStoreKeys();
+      // Clear the local cache as well
+      await clearCachedApiKeys();
     } catch (error) {
       console.error('Failed to clear API keys:', error);
     } finally {

@@ -233,13 +233,13 @@ export const CRM_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'addTask',
-    description: 'Create a new task, optionally linked to a contact',
+    description: 'Create a new task or reminder, optionally linked to a contact. Use this for both tasks AND reminders - they are the same thing in this system.',
     parameters: {
       type: 'object',
       properties: {
         title: {
           type: 'string',
-          description: 'Title of the task'
+          description: 'Title of the task/reminder'
         },
         description: {
           type: 'string',
@@ -256,12 +256,16 @@ export const CRM_TOOLS: ToolDefinition[] = [
         dueDate: {
           type: 'string',
           format: 'date',
-          description: 'Due date (YYYY-MM-DD)'
+          description: 'Due date (YYYY-MM-DD). Required for reminders with specific times.'
+        },
+        dueTime: {
+          type: 'string',
+          description: 'Due time in 24-hour format (HH:MM). Use this for time-specific reminders like "in 5 minutes" or "at 3pm". The notification will trigger at this time.'
         },
         priority: {
           type: 'string',
           enum: ['low', 'medium', 'high'],
-          description: 'Priority level (default: medium)'
+          description: 'Priority level. Use "high" for time-sensitive reminders within the next few hours.'
         },
         frequency: {
           type: 'string',

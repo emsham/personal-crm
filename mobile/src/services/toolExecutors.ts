@@ -404,6 +404,9 @@ async function executeAddTask(
   if (args.dueDate) {
     task.dueDate = args.dueDate as string;
   }
+  if (args.dueTime) {
+    task.dueTime = args.dueTime as string;
+  }
 
   const taskId = await firestoreService.addTask(userId, task);
   return { success: true, taskId };

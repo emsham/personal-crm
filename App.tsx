@@ -37,7 +37,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 const App: React.FC = () => {
   const { user, loading: authLoading, requiresEmailVerification } = useAuth();
   const { setCRMData } = useChat();
-  const { currentProviderConfigured } = useLLMSettings();
+  const { currentProviderConfigured, isLoading: llmLoading } = useLLMSettings();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -394,6 +394,24 @@ const App: React.FC = () => {
   };
 
   const renderDashboard = () => {
+    // Show loading while LLM settings are being loaded
+    // This prevents the abrupt transition from dashboard to AI view
+    if (llmLoading) {
+      return (
+        <div className="flex items-center justify-center h-screen -m-4 md:-m-6 lg:-m-8">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-20 h-20 rounded-2xl bg-violet-500 flex items-center justify-center">
+              <span className="text-white text-2xl font-bold">AI</span>
+            </div>
+            <div className="relative">
+              <Loader2 className="animate-spin text-violet-500" size={32} />
+              <div className="absolute inset-0 blur-xl bg-violet-500/30" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     // If no API key configured, show full dashboard with widgets
     if (!currentProviderConfigured) {
       return (
