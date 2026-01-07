@@ -32,7 +32,7 @@ export interface ScheduledNotification {
  */
 export async function requestPermissions(): Promise<boolean> {
   if (!Device.isDevice) {
-    console.log('Notifications require a physical device');
+    if (__DEV__) console.log('Notifications require a physical device');
     return false;
   }
 
@@ -45,7 +45,7 @@ export async function requestPermissions(): Promise<boolean> {
   }
 
   if (finalStatus !== 'granted') {
-    console.log('Notification permissions not granted');
+    if (__DEV__) console.log('Notification permissions not granted');
     return false;
   }
 
@@ -141,7 +141,7 @@ export async function scheduleNotificationAtDate(
 ): Promise<string> {
   // Don't schedule if date is in the past
   if (date.getTime() <= Date.now()) {
-    console.log('Cannot schedule notification for past date');
+    if (__DEV__) console.log('Cannot schedule notification for past date');
     return '';
   }
 

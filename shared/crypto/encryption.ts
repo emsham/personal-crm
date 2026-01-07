@@ -5,18 +5,35 @@ const ENCRYPTION_VERSION = 1;
 const PBKDF2_ITERATIONS = 100000;
 const KEY_SIZE = 256 / 32; // 256 bits
 
+// Legacy default for backward compatibility with existing encrypted keys
+const LEGACY_DEFAULT_PASSPHRASE = 'nexus-default-key-material';
+
 /**
  * Derives an encryption key from the user's Firebase UID using PBKDF2.
  * The key is deterministic - same UID always produces the same key.
+ *
+ * @param userId - The user's Firebase UID (used as salt component)
+ * @param passphrase - Required passphrase for key derivation (typically the userId itself)
+ * @throws Error if passphrase is not provided
  */
 export function deriveEncryptionKey(userId: string, passphrase?: string): string {
-  const password = passphrase || 'nexus-default-key-material';
+  if (!passphrase) {
+    throw new Error('Passphrase is required for key derivation');
+  }
   const salt = `${userId}-nexus-api-key-encryption-v1`;
 
-  return CryptoJS.PBKDF2(password, salt, {
+  return CryptoJS.PBKDF2(passphrase, salt, {
     keySize: KEY_SIZE,
     iterations: PBKDF2_ITERATIONS,
   }).toString();
+}
+
+/**
+ * Derives a legacy encryption key for backward compatibility.
+ * Used only for decrypting keys that were encrypted before the security update.
+ */
+export function deriveLegacyEncryptionKey(userId: string): string {
+  return deriveEncryptionKey(userId, LEGACY_DEFAULT_PASSPHRASE);
 }
 
 /**

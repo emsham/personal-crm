@@ -5,6 +5,9 @@ const ENCRYPTION_VERSION = 1;
 const PBKDF2_ITERATIONS = 100000;
 const KEY_SIZE = 256 / 32; // 256 bits
 
+// Legacy default for backward compatibility with existing encrypted keys
+const LEGACY_DEFAULT_PASSPHRASE = 'nexus-default-key-material';
+
 // Cache derived keys to avoid expensive PBKDF2 on every render
 const keyCache = new Map<string, string>();
 
@@ -12,10 +15,16 @@ const keyCache = new Map<string, string>();
  * Derives an encryption key from the user's Firebase UID using PBKDF2.
  * The key is deterministic - same UID always produces the same key.
  * Results are cached to avoid expensive PBKDF2 computation on every call.
+ *
+ * @param userId - The user's Firebase UID (used as salt component)
+ * @param passphrase - Required passphrase for key derivation (typically the userId itself)
+ * @throws Error if passphrase is not provided
  */
 export function deriveEncryptionKey(userId: string, passphrase?: string): string {
-  const password = passphrase || 'nexus-default-key-material';
-  const cacheKey = `${userId}:${password}`;
+  if (!passphrase) {
+    throw new Error('Passphrase is required for key derivation');
+  }
+  const cacheKey = `${userId}:${passphrase}`;
 
   // Return cached key if available
   const cachedKey = keyCache.get(cacheKey);
@@ -25,7 +34,7 @@ export function deriveEncryptionKey(userId: string, passphrase?: string): string
 
   const salt = `${userId}-nexus-api-key-encryption-v1`;
 
-  const derivedKey = CryptoJS.PBKDF2(password, salt, {
+  const derivedKey = CryptoJS.PBKDF2(passphrase, salt, {
     keySize: KEY_SIZE,
     iterations: PBKDF2_ITERATIONS,
   }).toString();
@@ -34,6 +43,14 @@ export function deriveEncryptionKey(userId: string, passphrase?: string): string
   keyCache.set(cacheKey, derivedKey);
 
   return derivedKey;
+}
+
+/**
+ * Derives a legacy encryption key for backward compatibility.
+ * Used only for decrypting keys that were encrypted before the security update.
+ */
+export function deriveLegacyEncryptionKey(userId: string): string {
+  return deriveEncryptionKey(userId, LEGACY_DEFAULT_PASSPHRASE);
 }
 
 /**

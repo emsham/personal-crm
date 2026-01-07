@@ -11,6 +11,7 @@ import {
   encryptApiKey,
   decryptApiKey,
   getKeyHint,
+  deriveLegacyEncryptionKey,
   EncryptedData,
   DecryptedApiKeys,
 } from '../shared/crypto';
@@ -18,6 +19,7 @@ import {
 /**
  * Subscribes to real-time updates of encrypted API keys from Firestore.
  * Automatically decrypts keys using the provided encryption key.
+ * Falls back to legacy encryption key for backward compatibility.
  */
 export function subscribeToApiKeys(
   userId: string,
@@ -25,21 +27,31 @@ export function subscribeToApiKeys(
   callback: (keys: DecryptedApiKeys) => void
 ): () => void {
   const keysRef = collection(db, 'users', userId, 'apiKeys');
+  // Derive legacy key for backward compatibility with old encrypted keys
+  const legacyKey = deriveLegacyEncryptionKey(userId);
 
   return onSnapshot(keysRef, (snapshot) => {
     const decryptedKeys: DecryptedApiKeys = {};
 
     snapshot.docs.forEach((doc) => {
       const data = doc.data();
+      const encryptedData: EncryptedData = {
+        ciphertext: data.encryptedKey,
+        iv: data.iv,
+        version: data.encryptionVersion,
+      };
+
+      // Try new encryption key first
       try {
-        const encryptedData: EncryptedData = {
-          ciphertext: data.encryptedKey,
-          iv: data.iv,
-          version: data.encryptionVersion,
-        };
         decryptedKeys[doc.id] = decryptApiKey(encryptedData, encryptionKey);
-      } catch (error) {
-        console.error(`Failed to decrypt key for ${doc.id}:`, error);
+      } catch {
+        // Fall back to legacy key for backward compatibility
+        try {
+          decryptedKeys[doc.id] = decryptApiKey(encryptedData, legacyKey);
+          if (import.meta.env.DEV) console.log(`Decrypted ${doc.id} with legacy key`);
+        } catch (error) {
+          console.error(`Failed to decrypt key for ${doc.id}:`, error);
+        }
       }
     });
 

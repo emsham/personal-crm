@@ -43,7 +43,7 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // Derive encryption key from user ID (deterministic)
   const encryptionKey = useMemo(() => {
     if (!user?.uid) return null;
-    return deriveEncryptionKey(user.uid);
+    return deriveEncryptionKey(user.uid, user.uid);
   }, [user?.uid]);
 
   // Subscribe to encrypted API keys from Firestore when user is authenticated

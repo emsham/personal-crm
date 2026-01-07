@@ -55,7 +55,7 @@ if (appCheckDebugToken && __DEV__) {
 } else if (!__DEV__) {
   // Production: App Check requires native modules (@react-native-firebase/app-check)
   // This will be handled by the native Firebase SDK when properly configured
-  console.log('App Check: Production mode - requires native configuration');
+  // Intentionally no logging in production
 }
 
 export { auth };

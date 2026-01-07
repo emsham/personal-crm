@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,124 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 
 // Helper to parse date in local timezone
 const parseLocalDate = (dateStr: string) => new Date(dateStr + 'T00:00:00');
+
+// Helper functions for styling
+function getStatusStyle(status: string) {
+  switch (status) {
+    case 'active':
+      return { backgroundColor: 'rgba(34, 197, 94, 0.2)' };
+    case 'drifting':
+      return { backgroundColor: 'rgba(234, 179, 8, 0.2)' };
+    case 'lost':
+      return { backgroundColor: 'rgba(239, 68, 68, 0.2)' };
+    default:
+      return {};
+  }
+}
+
+function getPriorityStyle(priority: string) {
+  switch (priority) {
+    case 'high':
+      return { backgroundColor: '#ef4444' };
+    case 'medium':
+      return { backgroundColor: '#eab308' };
+    case 'low':
+      return { backgroundColor: '#22c55e' };
+    default:
+      return { backgroundColor: '#64748b' };
+  }
+}
+
+// Memoized task item component
+interface TaskItemProps {
+  task: Task;
+  contact?: Contact;
+}
+
+const TaskItem = memo(({ task, contact }: TaskItemProps) => {
+  const dueDate = task.dueDate ? parseLocalDate(task.dueDate) : null;
+  const todayStr = new Date().toDateString();
+  const tomorrowStr = new Date(Date.now() + 86400000).toDateString();
+  const isToday = dueDate && dueDate.toDateString() === todayStr;
+  const isTomorrow = dueDate && dueDate.toDateString() === tomorrowStr;
+
+  let dueDateText = task.dueDate;
+  if (isToday) dueDateText = 'Today';
+  else if (isTomorrow) dueDateText = 'Tomorrow';
+
+  return (
+    <View style={styles.taskItem}>
+      <View style={[styles.priorityIndicator, getPriorityStyle(task.priority)]} />
+      <View style={styles.taskInfo}>
+        <Text style={styles.taskTitle}>{task.title}</Text>
+        <View style={styles.taskMeta}>
+          {contact && (
+            <Text style={styles.taskContact}>
+              {contact.firstName} {contact.lastName}
+            </Text>
+          )}
+          <Text style={[styles.taskDue, isToday && styles.taskDueToday]}>
+            {dueDateText}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+});
+
+// Memoized contact item component
+interface ContactItemProps {
+  contact: Contact;
+  onPress: () => void;
+}
+
+const ContactItem = memo(({ contact, onPress }: ContactItemProps) => (
+  <TouchableOpacity style={styles.contactItem} onPress={onPress}>
+    <View style={styles.avatar}>
+      <Text style={styles.avatarText}>
+        {contact.firstName[0]}
+        {contact.lastName[0]}
+      </Text>
+    </View>
+    <View style={styles.contactInfo}>
+      <Text style={styles.contactName}>
+        {contact.firstName} {contact.lastName}
+      </Text>
+      <Text style={styles.contactCompany}>{contact.company}</Text>
+    </View>
+    <View style={[styles.statusBadge, getStatusStyle(contact.status)]}>
+      <Text style={styles.statusText}>{contact.status}</Text>
+    </View>
+  </TouchableOpacity>
+));
+
+// Memoized drifting contact item component
+interface DriftingContactItemProps {
+  contact: Contact;
+  onPress: () => void;
+}
+
+const DriftingContactItem = memo(({ contact, onPress }: DriftingContactItemProps) => (
+  <TouchableOpacity style={styles.contactItem} onPress={onPress}>
+    <View style={[styles.avatar, styles.driftingAvatar]}>
+      <Text style={styles.avatarText}>
+        {contact.firstName[0]}
+        {contact.lastName[0]}
+      </Text>
+    </View>
+    <View style={styles.contactInfo}>
+      <Text style={styles.contactName}>
+        {contact.firstName} {contact.lastName}
+      </Text>
+      <Text style={styles.contactCompany}>
+        {contact.lastContacted
+          ? `Last contacted: ${contact.lastContacted}`
+          : 'Never contacted'}
+      </Text>
+    </View>
+    <Text style={styles.warningIcon}>⚠️</Text>
+  </TouchableOpacity>
+));
 
 export const DashboardScreen: React.FC = () => {
   const { user } = useAuth();
@@ -147,44 +265,13 @@ export const DashboardScreen: React.FC = () => {
       {upcomingTasks.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Upcoming Tasks</Text>
-          {upcomingTasks.map((task) => {
-            const contact = contacts.find((c) => c.id === task.contactId);
-            const dueDate = task.dueDate ? parseLocalDate(task.dueDate) : null;
-            const todayStr = new Date().toDateString();
-            const tomorrowStr = new Date(Date.now() + 86400000).toDateString();
-            const isToday = dueDate && dueDate.toDateString() === todayStr;
-            const isTomorrow = dueDate && dueDate.toDateString() === tomorrowStr;
-
-            let dueDateText = task.dueDate;
-            if (isToday) dueDateText = 'Today';
-            else if (isTomorrow) dueDateText = 'Tomorrow';
-
-            return (
-              <View key={task.id} style={styles.taskItem}>
-                <View
-                  style={[styles.priorityIndicator, getPriorityStyle(task.priority)]}
-                />
-                <View style={styles.taskInfo}>
-                  <Text style={styles.taskTitle}>{task.title}</Text>
-                  <View style={styles.taskMeta}>
-                    {contact && (
-                      <Text style={styles.taskContact}>
-                        {contact.firstName} {contact.lastName}
-                      </Text>
-                    )}
-                    <Text
-                      style={[
-                        styles.taskDue,
-                        isToday && styles.taskDueToday,
-                      ]}
-                    >
-                      {dueDateText}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            );
-          })}
+          {upcomingTasks.map((task) => (
+            <TaskItem
+              key={task.id}
+              task={task}
+              contact={contacts.find((c) => c.id === task.contactId)}
+            />
+          ))}
         </View>
       )}
 
@@ -192,27 +279,11 @@ export const DashboardScreen: React.FC = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Recent Contacts</Text>
         {contacts.slice(0, 5).map((contact) => (
-          <TouchableOpacity
+          <ContactItem
             key={contact.id}
-            style={styles.contactItem}
+            contact={contact}
             onPress={() => navigation.navigate('ContactDetail', { contactId: contact.id })}
-          >
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {contact.firstName[0]}
-                {contact.lastName[0]}
-              </Text>
-            </View>
-            <View style={styles.contactInfo}>
-              <Text style={styles.contactName}>
-                {contact.firstName} {contact.lastName}
-              </Text>
-              <Text style={styles.contactCompany}>{contact.company}</Text>
-            </View>
-            <View style={[styles.statusBadge, getStatusStyle(contact.status)]}>
-              <Text style={styles.statusText}>{contact.status}</Text>
-            </View>
-          </TouchableOpacity>
+          />
         ))}
       </View>
 
@@ -224,31 +295,11 @@ export const DashboardScreen: React.FC = () => {
             .filter((c) => c.status === 'drifting')
             .slice(0, 3)
             .map((contact) => (
-              <TouchableOpacity
+              <DriftingContactItem
                 key={contact.id}
-                style={styles.contactItem}
-                onPress={() =>
-                  navigation.navigate('ContactDetail', { contactId: contact.id })
-                }
-              >
-                <View style={[styles.avatar, styles.driftingAvatar]}>
-                  <Text style={styles.avatarText}>
-                    {contact.firstName[0]}
-                    {contact.lastName[0]}
-                  </Text>
-                </View>
-                <View style={styles.contactInfo}>
-                  <Text style={styles.contactName}>
-                    {contact.firstName} {contact.lastName}
-                  </Text>
-                  <Text style={styles.contactCompany}>
-                    {contact.lastContacted
-                      ? `Last contacted: ${contact.lastContacted}`
-                      : 'Never contacted'}
-                  </Text>
-                </View>
-                <Text style={styles.warningIcon}>⚠️</Text>
-              </TouchableOpacity>
+                contact={contact}
+                onPress={() => navigation.navigate('ContactDetail', { contactId: contact.id })}
+              />
             ))}
         </View>
       )}
@@ -259,32 +310,6 @@ export const DashboardScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
-
-function getStatusStyle(status: string) {
-  switch (status) {
-    case 'active':
-      return { backgroundColor: 'rgba(34, 197, 94, 0.2)' };
-    case 'drifting':
-      return { backgroundColor: 'rgba(234, 179, 8, 0.2)' };
-    case 'lost':
-      return { backgroundColor: 'rgba(239, 68, 68, 0.2)' };
-    default:
-      return {};
-  }
-}
-
-function getPriorityStyle(priority: string) {
-  switch (priority) {
-    case 'high':
-      return { backgroundColor: '#ef4444' };
-    case 'medium':
-      return { backgroundColor: '#eab308' };
-    case 'low':
-      return { backgroundColor: '#22c55e' };
-    default:
-      return { backgroundColor: '#64748b' };
-  }
-}
 
 const styles = StyleSheet.create({
   safeArea: {

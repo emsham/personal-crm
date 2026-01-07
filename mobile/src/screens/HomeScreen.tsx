@@ -118,19 +118,21 @@ export const HomeScreen: React.FC = () => {
     };
   }, []);
 
-  // Schedule notifications when contacts change
+  // Schedule notifications when contacts or tasks change (debounced)
   useEffect(() => {
-    if (contacts.length > 0 && permissionStatus === 'granted') {
-      scheduleContactNotifications(contacts);
-    }
-  }, [contacts, permissionStatus, scheduleContactNotifications]);
+    if (permissionStatus !== 'granted') return;
 
-  // Schedule notifications when tasks change
-  useEffect(() => {
-    if (tasks.length > 0 && permissionStatus === 'granted') {
-      scheduleTaskNotifications(tasks);
-    }
-  }, [tasks, permissionStatus, scheduleTaskNotifications]);
+    const timeoutId = setTimeout(() => {
+      if (contacts.length > 0) {
+        scheduleContactNotifications(contacts);
+      }
+      if (tasks.length > 0) {
+        scheduleTaskNotifications(tasks);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [contacts, tasks, permissionStatus, scheduleContactNotifications, scheduleTaskNotifications]);
 
   // Scroll to bottom when messages change
   useEffect(() => {

@@ -7,6 +7,7 @@ import {
   onSnapshot,
   query,
   orderBy,
+  limit,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -16,10 +17,11 @@ import type { Contact, Interaction, Task } from '../types';
 
 export const subscribeToContacts = (
   userId: string,
-  callback: (contacts: Contact[]) => void
+  callback: (contacts: Contact[]) => void,
+  maxResults: number = 100
 ): (() => void) => {
   const contactsRef = collection(db, 'users', userId, 'contacts');
-  const q = query(contactsRef, orderBy('createdAt', 'desc'));
+  const q = query(contactsRef, orderBy('createdAt', 'desc'), limit(maxResults));
 
   return onSnapshot(q, (snapshot) => {
     const contacts: Contact[] = snapshot.docs.map((doc) => ({
@@ -67,10 +69,11 @@ export const deleteContact = async (userId: string, contactId: string): Promise<
 
 export const subscribeToInteractions = (
   userId: string,
-  callback: (interactions: Interaction[]) => void
+  callback: (interactions: Interaction[]) => void,
+  maxResults: number = 200
 ): (() => void) => {
   const interactionsRef = collection(db, 'users', userId, 'interactions');
-  const q = query(interactionsRef, orderBy('createdAt', 'desc'));
+  const q = query(interactionsRef, orderBy('createdAt', 'desc'), limit(maxResults));
 
   return onSnapshot(q, (snapshot) => {
     const interactions: Interaction[] = snapshot.docs.map((doc) => ({
@@ -117,10 +120,11 @@ export const deleteInteraction = async (userId: string, interactionId: string): 
 
 export const subscribeToTasks = (
   userId: string,
-  callback: (tasks: Task[]) => void
+  callback: (tasks: Task[]) => void,
+  maxResults: number = 100
 ): (() => void) => {
   const tasksRef = collection(db, 'users', userId, 'tasks');
-  const q = query(tasksRef, orderBy('createdAt', 'desc'));
+  const q = query(tasksRef, orderBy('createdAt', 'desc'), limit(maxResults));
 
   return onSnapshot(q, (snapshot) => {
     const tasks: Task[] = snapshot.docs.map((doc) => ({

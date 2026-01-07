@@ -81,5 +81,5 @@ export async function migrateSecureStoreApiKeys(
   // Mark migration as complete
   await AsyncStorage.setItem(MIGRATION_FLAG, 'true');
 
-  console.log(`Successfully migrated ${keysToMigrate.length} API key(s) to Firestore`);
+  if (__DEV__) console.log(`Successfully migrated ${keysToMigrate.length} API key(s) to Firestore`);
 }

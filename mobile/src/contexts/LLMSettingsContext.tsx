@@ -52,7 +52,7 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
 
     // Derive key immediately - we're showing a loading screen anyway
-    const key = deriveEncryptionKey(user.uid);
+    const key = deriveEncryptionKey(user.uid, user.uid);
     setEncryptionKey(key);
   }, [user?.uid]);
 
