@@ -11,19 +11,27 @@ const LandingPage: React.FC = () => {
   const [introStyle, setIntroStyle] = useState({ opacity: 1, transform: 'scale(1)' });
 
   useEffect(() => {
+    let ticking = false;
+
     const handleScroll = () => {
-      const scrollY = window.scrollY;
-      const introHeight = window.innerHeight;
-      const scrollProgress = Math.min(scrollY / (introHeight * 0.5), 1);
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const scrollY = window.scrollY;
+          const introHeight = window.innerHeight;
+          const scrollProgress = Math.min(scrollY / (introHeight * 0.5), 1);
 
-      // Fade and scale intro
-      setIntroStyle({
-        opacity: 1 - scrollProgress,
-        transform: `scale(${1 - scrollProgress * 0.1})`
-      });
+          // Fade and scale intro
+          setIntroStyle({
+            opacity: 1 - scrollProgress,
+            transform: `scale(${1 - scrollProgress * 0.1})`
+          });
 
-      // Show nav after scrolling past intro
-      setNavVisible(scrollY > introHeight * 0.3);
+          // Show nav after scrolling past intro
+          setNavVisible(scrollY > introHeight * 0.3);
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });

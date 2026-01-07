@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import { Contact, Interaction, InteractionType, Task, TaskFrequency, ImportantDate } from '../types';
 import { Mail, Phone, Calendar, Tag, Plus, MessageSquare, Sparkles, Send, ArrowLeft, Loader2, Users, CheckSquare, Check, Trash2, X, Edit3, Save, Cake, Star, Clock, Bell, Smartphone } from 'lucide-react';
 import { generateFollowUpEmail, analyzeRelationship } from '../services/geminiService';
@@ -111,10 +111,23 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
     { value: 120, label: '2 hours before' },
   ];
 
-  const relatedContacts = allContacts.filter(c => contact.relatedContactIds.includes(c.id));
-  const contactTasks = tasks.filter(t => t.contactId === contact.id);
-  const pendingTasks = contactTasks.filter(t => !t.completed);
-  const completedTasks = contactTasks.filter(t => t.completed);
+  // Memoized derived data
+  const relatedContacts = useMemo(
+    () => allContacts.filter(c => contact.relatedContactIds.includes(c.id)),
+    [allContacts, contact.relatedContactIds]
+  );
+  const contactTasks = useMemo(
+    () => tasks.filter(t => t.contactId === contact.id),
+    [tasks, contact.id]
+  );
+  const pendingTasks = useMemo(
+    () => contactTasks.filter(t => !t.completed),
+    [contactTasks]
+  );
+  const completedTasks = useMemo(
+    () => contactTasks.filter(t => t.completed),
+    [contactTasks]
+  );
 
   const handleGenerateDraft = async () => {
     setIsLoading(prev => ({ ...prev, draft: true }));
@@ -956,4 +969,4 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
   );
 };
 
-export default ContactDetail;
+export default memo(ContactDetail);

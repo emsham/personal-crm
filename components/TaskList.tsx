@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { Plus, Check, Trash2, Calendar, User, Flag, X, RefreshCw, Clock, Bell, Smartphone, Pencil } from 'lucide-react';
 import { Task, Contact, TaskFrequency } from '../types';
 
@@ -599,4 +599,4 @@ const TaskList: React.FC<TaskListProps> = ({
   );
 };
 
-export default TaskList;
+export default memo(TaskList);

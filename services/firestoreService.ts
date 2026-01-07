@@ -7,6 +7,7 @@ import {
   onSnapshot,
   query,
   orderBy,
+  limit,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
@@ -20,7 +21,7 @@ export const subscribeToContacts = (
   callback: (contacts: Contact[]) => void
 ): (() => void) => {
   const contactsRef = collection(db, 'users', userId, 'contacts');
-  const q = query(contactsRef, orderBy('createdAt', 'desc'));
+  const q = query(contactsRef, orderBy('createdAt', 'desc'), limit(500));
 
   return onSnapshot(q, (snapshot) => {
     const contacts: Contact[] = snapshot.docs.map((doc) => ({
@@ -72,7 +73,7 @@ export const subscribeToInteractions = (
   callback: (interactions: Interaction[]) => void
 ): (() => void) => {
   const interactionsRef = collection(db, 'users', userId, 'interactions');
-  const q = query(interactionsRef, orderBy('createdAt', 'desc'));
+  const q = query(interactionsRef, orderBy('createdAt', 'desc'), limit(1000));
 
   return onSnapshot(q, (snapshot) => {
     const interactions: Interaction[] = snapshot.docs.map((doc) => ({
@@ -116,7 +117,7 @@ export const subscribeToTasks = (
   callback: (tasks: Task[]) => void
 ): (() => void) => {
   const tasksRef = collection(db, 'users', userId, 'tasks');
-  const q = query(tasksRef, orderBy('createdAt', 'desc'));
+  const q = query(tasksRef, orderBy('createdAt', 'desc'), limit(200));
 
   return onSnapshot(q, (snapshot) => {
     const tasks: Task[] = snapshot.docs.map((doc) => ({

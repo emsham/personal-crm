@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { memo } from 'react';
 import { Contact } from '../types';
 import { ChevronRight } from 'lucide-react';
 
@@ -90,4 +90,4 @@ const ContactList: React.FC<ContactListProps> = ({ contacts, onSelectContact }) 
   );
 };
 
-export default ContactList;
+export default memo(ContactList);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo, useMemo } from 'react';
 import { X, ChevronRight, CheckSquare, Cake, Star, Clock, Users, ListTodo, TrendingUp, Settings, Sparkles, Bot } from 'lucide-react';
 import { Contact, Task, Interaction } from '../types';
 import LLMSettingsModal from './chat/LLMSettingsModal';
@@ -33,50 +33,59 @@ const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Stats
-  const totalContacts = contacts.length;
-  const activeContacts = contacts.filter(c => c.status === 'active').length;
-  const pendingTasks = tasks.filter(t => !t.completed).length;
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const recentInteractions = interactions.filter(i => new Date(i.date) >= thirtyDaysAgo).length;
+  // Memoized stats calculations
+  const { totalContacts, activeContacts, pendingTasks, recentInteractions } = useMemo(() => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    return {
+      totalContacts: contacts.length,
+      activeContacts: contacts.filter(c => c.status === 'active').length,
+      pendingTasks: tasks.filter(t => !t.completed).length,
+      recentInteractions: interactions.filter(i => new Date(i.date) >= thirtyDaysAgo).length,
+    };
+  }, [contacts, tasks, interactions]);
 
-  // Upcoming tasks
-  const upcomingTasks = tasks
-    .filter(t => !t.completed && t.dueDate)
-    .sort((a, b) => parseLocalDate(a.dueDate!).getTime() - parseLocalDate(b.dueDate!).getTime())
-    .slice(0, 4);
+  // Memoized upcoming tasks
+  const upcomingTasks = useMemo(() =>
+    tasks
+      .filter(t => !t.completed && t.dueDate)
+      .sort((a, b) => parseLocalDate(a.dueDate!).getTime() - parseLocalDate(b.dueDate!).getTime())
+      .slice(0, 4),
+    [tasks]
+  );
 
-  // Upcoming celebrations
-  const upcomingDates: { contact: Contact; label: string; daysUntil: number; type: 'birthday' | 'important' }[] = [];
+  // Memoized upcoming celebrations
+  const upcomingDates = useMemo(() => {
+    const dates: { contact: Contact; label: string; daysUntil: number; type: 'birthday' | 'important' }[] = [];
 
-  contacts.forEach(contact => {
-    if (contact.birthday) {
-      const [month, day] = contact.birthday.split('-').map(Number);
-      const thisYear = new Date(today.getFullYear(), month - 1, day);
-      const nextYear = new Date(today.getFullYear() + 1, month - 1, day);
-      const targetDate = thisYear >= new Date(today.getFullYear(), today.getMonth(), today.getDate()) ? thisYear : nextYear;
-      const daysUntil = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    contacts.forEach(contact => {
+      if (contact.birthday) {
+        const [month, day] = contact.birthday.split('-').map(Number);
+        const thisYear = new Date(today.getFullYear(), month - 1, day);
+        const nextYear = new Date(today.getFullYear() + 1, month - 1, day);
+        const targetDate = thisYear >= new Date(today.getFullYear(), today.getMonth(), today.getDate()) ? thisYear : nextYear;
+        const daysUntil = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-      if (daysUntil <= 30) {
-        upcomingDates.push({ contact, label: 'Birthday', daysUntil, type: 'birthday' });
+        if (daysUntil <= 30) {
+          dates.push({ contact, label: 'Birthday', daysUntil, type: 'birthday' });
+        }
       }
-    }
 
-    contact.importantDates?.forEach(importantDate => {
-      const [month, day] = importantDate.date.split('-').map(Number);
-      const thisYear = new Date(today.getFullYear(), month - 1, day);
-      const nextYear = new Date(today.getFullYear() + 1, month - 1, day);
-      const targetDate = thisYear >= new Date(today.getFullYear(), today.getMonth(), today.getDate()) ? thisYear : nextYear;
-      const daysUntil = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      contact.importantDates?.forEach(importantDate => {
+        const [month, day] = importantDate.date.split('-').map(Number);
+        const thisYear = new Date(today.getFullYear(), month - 1, day);
+        const nextYear = new Date(today.getFullYear() + 1, month - 1, day);
+        const targetDate = thisYear >= new Date(today.getFullYear(), today.getMonth(), today.getDate()) ? thisYear : nextYear;
+        const daysUntil = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-      if (daysUntil <= 30) {
-        upcomingDates.push({ contact, label: importantDate.label, daysUntil, type: 'important' });
-      }
+        if (daysUntil <= 30) {
+          dates.push({ contact, label: importantDate.label, daysUntil, type: 'important' });
+        }
+      });
     });
-  });
 
-  upcomingDates.sort((a, b) => a.daysUntil - b.daysUntil);
+    return dates.sort((a, b) => a.daysUntil - b.daysUntil);
+  }, [contacts, today]);
 
   if (!isOpen) return null;
 
@@ -403,4 +412,4 @@ const StatCard: React.FC<{
   );
 };
 
-export default DashboardWidgets;
+export default memo(DashboardWidgets);
