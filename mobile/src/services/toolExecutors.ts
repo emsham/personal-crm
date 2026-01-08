@@ -214,32 +214,72 @@ function executeGetStats(data: CRMData, args: ToolArguments): Record<string, unk
   const { contacts, interactions, tasks } = data;
   const today = new Date();
 
+  // Helper functions for reuse
+  const getOverview = () => ({
+    totalContacts: contacts.length,
+    activeContacts: contacts.filter(c => c.status === 'active').length,
+    driftingContacts: contacts.filter(c => c.status === 'drifting').length,
+    lostContacts: contacts.filter(c => c.status === 'lost').length,
+    totalInteractions: interactions.length,
+    totalTasks: tasks.length,
+    pendingTasks: tasks.filter(t => !t.completed).length,
+    overdueTasks: tasks.filter(t => !t.completed && t.dueDate && new Date(t.dueDate) < today).length
+  });
+
+  const getInteractionsByType = () => {
+    const byType: Record<string, number> = {};
+    interactions.forEach(i => {
+      byType[i.type] = (byType[i.type] || 0) + 1;
+    });
+    return byType;
+  };
+
+  const getContactsByStatus = () => ({
+    active: contacts.filter(c => c.status === 'active').length,
+    drifting: contacts.filter(c => c.status === 'drifting').length,
+    lost: contacts.filter(c => c.status === 'lost').length
+  });
+
+  const getOverdueTasks = () =>
+    tasks
+      .filter(t => !t.completed && t.dueDate && new Date(t.dueDate) < today)
+      .map(t => ({ id: t.id, title: t.title, dueDate: t.dueDate, priority: t.priority }));
+
+  const getRecentActivity = () =>
+    interactions
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 10)
+      .map(i => {
+        const contact = contacts.find(c => c.id === i.contactId);
+        return {
+          type: i.type,
+          date: i.date,
+          contact: contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown',
+          notes: i.notes.substring(0, 50) + (i.notes.length > 50 ? '...' : '')
+        };
+      });
+
   switch (metric) {
-    case 'overview':
+    case 'all':
+      // Return comprehensive stats in a single call
+      const overview = getOverview();
+      const overdueTasks = getOverdueTasks();
+      const recentActivity = getRecentActivity();
       return {
-        totalContacts: contacts.length,
-        activeContacts: contacts.filter(c => c.status === 'active').length,
-        driftingContacts: contacts.filter(c => c.status === 'drifting').length,
-        lostContacts: contacts.filter(c => c.status === 'lost').length,
-        totalInteractions: interactions.length,
-        totalTasks: tasks.length,
-        pendingTasks: tasks.filter(t => !t.completed).length,
-        overdueTasks: tasks.filter(t => !t.completed && t.dueDate && new Date(t.dueDate) < today).length
+        ...overview,
+        interactionsByType: getInteractionsByType(),
+        overdueTasks: overdueTasks.length > 0 ? overdueTasks : undefined,
+        recentActivity: recentActivity.length > 0 ? recentActivity.slice(0, 5) : undefined
       };
+
+    case 'overview':
+      return getOverview();
 
     case 'interactionsByType':
-      const byType: Record<string, number> = {};
-      interactions.forEach(i => {
-        byType[i.type] = (byType[i.type] || 0) + 1;
-      });
-      return byType;
+      return getInteractionsByType();
 
     case 'contactsByStatus':
-      return {
-        active: contacts.filter(c => c.status === 'active').length,
-        drifting: contacts.filter(c => c.status === 'drifting').length,
-        lost: contacts.filter(c => c.status === 'lost').length
-      };
+      return getContactsByStatus();
 
     case 'upcomingBirthdays':
       const upcoming = contacts
@@ -258,26 +298,10 @@ function executeGetStats(data: CRMData, args: ToolArguments): Record<string, unk
       return { upcoming };
 
     case 'overdueTasks':
-      return {
-        tasks: tasks
-          .filter(t => !t.completed && t.dueDate && new Date(t.dueDate) < today)
-          .map(t => ({ id: t.id, title: t.title, dueDate: t.dueDate, priority: t.priority }))
-      };
+      return { tasks: getOverdueTasks() };
 
     case 'recentActivity':
-      const recentInteractions = interactions
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 10)
-        .map(i => {
-          const contact = contacts.find(c => c.id === i.contactId);
-          return {
-            type: i.type,
-            date: i.date,
-            contact: contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown',
-            notes: i.notes.substring(0, 50) + (i.notes.length > 50 ? '...' : '')
-          };
-        });
-      return { recentInteractions };
+      return { recentInteractions: getRecentActivity() };
 
     default:
       return { error: 'Unknown metric' };

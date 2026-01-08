@@ -132,14 +132,14 @@ export const CRM_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'getStats',
-    description: 'Get CRM statistics and metrics for analytics',
+    description: 'Get CRM statistics and metrics for analytics. Use metric="all" to get a comprehensive overview in a single call (recommended for general stats questions).',
     parameters: {
       type: 'object',
       properties: {
         metric: {
           type: 'string',
-          enum: ['overview', 'interactionsByType', 'contactsByStatus', 'upcomingBirthdays', 'overdueTasks', 'recentActivity'],
-          description: 'The type of statistic to retrieve'
+          enum: ['all', 'overview', 'interactionsByType', 'contactsByStatus', 'upcomingBirthdays', 'overdueTasks', 'recentActivity'],
+          description: 'The type of statistic to retrieve. Use "all" for comprehensive stats in one call.'
         }
       },
       required: ['metric']

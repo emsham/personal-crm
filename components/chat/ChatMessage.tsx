@@ -380,22 +380,77 @@ const ToolResultCard: React.FC<{ result: ToolResult; contacts: Contact[]; onSele
       );
     }
 
-    // Stats overview
+    // Stats overview (handles both simple and comprehensive "all" metric)
     if ('totalContacts' in data) {
-      const stats = data as Record<string, number>;
+      const statsData = data as Record<string, unknown>;
+
+      // Separate scalar stats from nested data
+      const scalarStats = Object.entries(statsData).filter(([_, value]) => typeof value !== 'object');
+      const interactionsByType = statsData.interactionsByType as Record<string, number> | undefined;
+      const overdueTasks = statsData.overdueTasks as Array<{title: string; dueDate: string; priority: string}> | undefined;
+      const recentActivity = statsData.recentActivity as Array<{type: string; date: string; contact: string; notes: string}> | undefined;
+
       return (
         <div className="rounded-2xl glass-light overflow-hidden">
           <div className="px-4 py-3 border-b border-white/5">
             <span className="text-xs font-medium text-slate-400">CRM Overview</span>
           </div>
+
+          {/* Scalar stats grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
-            {Object.entries(stats).map(([key, value]) => (
+            {scalarStats.map(([key, value]) => (
               <div key={key} className="p-3 rounded-xl bg-gradient-to-br from-white/5 to-white/[0.02] text-center">
-                <div className="text-2xl font-bold gradient-text">{value}</div>
+                <div className="text-2xl font-bold gradient-text">{String(value)}</div>
                 <div className="text-xs text-slate-500">{formatStatLabel(key)}</div>
               </div>
             ))}
           </div>
+
+          {/* Interactions by type */}
+          {interactionsByType && Object.keys(interactionsByType).length > 0 && (
+            <div className="px-4 pb-4">
+              <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Interactions by Type</div>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(interactionsByType).map(([type, count]) => (
+                  <div key={type} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 text-sm">
+                    <span className="text-slate-400">{type}</span>
+                    <span className="text-violet-400 font-medium">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Overdue tasks */}
+          {overdueTasks && overdueTasks.length > 0 && (
+            <div className="px-4 pb-4">
+              <div className="text-xs font-medium text-rose-400 uppercase tracking-wide mb-2">Overdue Tasks</div>
+              <div className="space-y-2">
+                {overdueTasks.map((task, i) => (
+                  <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                    <span className="text-sm text-slate-300">{task.title}</span>
+                    <span className="text-xs text-slate-500">Due: {task.dueDate}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recent activity */}
+          {recentActivity && recentActivity.length > 0 && (
+            <div className="px-4 pb-4">
+              <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Recent Activity</div>
+              <div className="space-y-2">
+                {recentActivity.map((activity, i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/5">
+                    <span className="px-2 py-0.5 rounded-md bg-violet-500/10 text-violet-400 text-xs font-medium">{activity.type}</span>
+                    <span className="text-sm text-slate-300 flex-1 truncate">{activity.contact}</span>
+                    <span className="text-xs text-slate-500">{activity.date}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       );
     }

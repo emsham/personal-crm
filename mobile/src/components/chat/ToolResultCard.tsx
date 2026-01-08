@@ -193,20 +193,74 @@ export const ToolResultCard: React.FC<ToolResultCardProps> = ({ result, contacts
   // Render stats (overview, etc.)
   if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
     const statsData = data as Record<string, unknown>;
+
+    // Separate scalar stats from nested data
+    const scalarStats = Object.entries(statsData).filter(([_, value]) => typeof value !== 'object');
+    const interactionsByType = statsData.interactionsByType as Record<string, number> | undefined;
+    const overdueTasks = statsData.overdueTasks as Array<{title: string; dueDate: string; priority: string}> | undefined;
+    const recentActivity = statsData.recentActivity as Array<{type: string; date: string; contact: string; notes: string}> | undefined;
+
     return (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Statistics</Text>
-        <View style={styles.statsGrid}>
-          {Object.entries(statsData).map(([key, value]) => {
-            if (typeof value === 'object') return null;
-            return (
+
+        {/* Render scalar stats in a grid */}
+        {scalarStats.length > 0 && (
+          <View style={styles.statsGrid}>
+            {scalarStats.map(([key, value]) => (
               <View key={key} style={styles.statItem}>
                 <Text style={styles.statValue}>{String(value)}</Text>
                 <Text style={styles.statLabel}>{formatStatLabel(key)}</Text>
               </View>
-            );
-          })}
-        </View>
+            ))}
+          </View>
+        )}
+
+        {/* Render interactions by type */}
+        {interactionsByType && Object.keys(interactionsByType).length > 0 && (
+          <View style={styles.nestedSection}>
+            <Text style={styles.nestedTitle}>Interactions by Type</Text>
+            <View style={styles.typeList}>
+              {Object.entries(interactionsByType).map(([type, count]) => (
+                <View key={type} style={styles.typeItem}>
+                  <Text style={styles.typeIcon}>{getInteractionIcon(type)}</Text>
+                  <Text style={styles.typeLabel}>{type}</Text>
+                  <Text style={styles.typeCount}>{count}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Render overdue tasks */}
+        {overdueTasks && overdueTasks.length > 0 && (
+          <View style={styles.nestedSection}>
+            <Text style={styles.nestedTitle}>Overdue Tasks</Text>
+            {overdueTasks.map((task, i) => (
+              <View key={i} style={styles.overdueTask}>
+                <Text style={styles.overdueTaskTitle}>{task.title}</Text>
+                <Text style={styles.overdueTaskMeta}>Due: {task.dueDate} | {task.priority}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Render recent activity */}
+        {recentActivity && recentActivity.length > 0 && (
+          <View style={styles.nestedSection}>
+            <Text style={styles.nestedTitle}>Recent Activity</Text>
+            {recentActivity.map((activity, i) => (
+              <View key={i} style={styles.activityItem}>
+                <Text style={styles.activityIcon}>{getInteractionIcon(activity.type)}</Text>
+                <View style={styles.activityInfo}>
+                  <Text style={styles.activityContact}>{activity.contact}</Text>
+                  <Text style={styles.activityNotes} numberOfLines={1}>{activity.notes}</Text>
+                </View>
+                <Text style={styles.activityDate}>{activity.date}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
     );
   }
@@ -573,5 +627,92 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 12,
     color: '#94a3b8',
+  },
+  // Nested stats sections
+  nestedSection: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(51, 65, 85, 0.5)',
+  },
+  nestedTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  // Interaction type list
+  typeList: {
+    gap: 6,
+  },
+  typeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  typeIcon: {
+    fontSize: 14,
+    marginRight: 8,
+  },
+  typeLabel: {
+    flex: 1,
+    fontSize: 13,
+    color: '#e2e8f0',
+  },
+  typeCount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8b5cf6',
+  },
+  // Overdue tasks
+  overdueTask: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 6,
+  },
+  overdueTaskTitle: {
+    fontSize: 13,
+    color: '#f87171',
+    fontWeight: '500',
+  },
+  overdueTaskMeta: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  // Recent activity
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(51, 65, 85, 0.3)',
+  },
+  activityIcon: {
+    fontSize: 14,
+    marginRight: 10,
+  },
+  activityInfo: {
+    flex: 1,
+  },
+  activityContact: {
+    fontSize: 13,
+    color: '#e2e8f0',
+    fontWeight: '500',
+  },
+  activityNotes: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 1,
+  },
+  activityDate: {
+    fontSize: 10,
+    color: '#64748b',
   },
 });
