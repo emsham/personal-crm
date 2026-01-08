@@ -1,4 +1,5 @@
 import CryptoJS from 'crypto-js';
+import * as SecureStore from 'expo-secure-store';
 import { EncryptedData } from './types';
 
 const ENCRYPTION_VERSION = 1;
@@ -8,13 +9,46 @@ const KEY_SIZE = 256 / 32; // 256 bits
 // Legacy default for backward compatibility with existing encrypted keys
 const LEGACY_DEFAULT_PASSPHRASE = 'nexus-default-key-material';
 
-// Cache derived keys to avoid expensive PBKDF2 on every render
+// In-memory cache for derived keys (avoids re-derivation during session)
 const keyCache = new Map<string, string>();
+
+// SecureStore key prefix for persisted derived keys
+const DERIVED_KEY_PREFIX = 'nexus_derived_key_';
+
+/**
+ * Loads a previously derived encryption key from SecureStore.
+ * Returns null if not found.
+ */
+export async function loadCachedEncryptionKey(userId: string): Promise<string | null> {
+  try {
+    const key = await SecureStore.getItemAsync(`${DERIVED_KEY_PREFIX}${userId}`);
+    if (key) {
+      // Also populate in-memory cache
+      keyCache.set(`${userId}:${userId}`, key);
+    }
+    return key;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Clears the cached encryption key from SecureStore.
+ * Should be called on logout.
+ */
+export async function clearCachedEncryptionKey(userId: string): Promise<void> {
+  try {
+    await SecureStore.deleteItemAsync(`${DERIVED_KEY_PREFIX}${userId}`);
+    keyCache.delete(`${userId}:${userId}`);
+  } catch {
+    // Ignore errors
+  }
+}
 
 /**
  * Derives an encryption key from the user's Firebase UID using PBKDF2.
  * The key is deterministic - same UID always produces the same key.
- * Results are cached to avoid expensive PBKDF2 computation on every call.
+ * Results are cached in memory and persisted to SecureStore.
  *
  * @param userId - The user's Firebase UID (used as salt component)
  * @param passphrase - Required passphrase for key derivation (typically the userId itself)
@@ -39,8 +73,13 @@ export function deriveEncryptionKey(userId: string, passphrase?: string): string
     iterations: PBKDF2_ITERATIONS,
   }).toString();
 
-  // Cache the derived key
+  // Cache the derived key in memory
   keyCache.set(cacheKey, derivedKey);
+
+  // Persist to SecureStore for fast subsequent app launches (async, non-blocking)
+  SecureStore.setItemAsync(`${DERIVED_KEY_PREFIX}${userId}`, derivedKey).catch(() => {
+    // Ignore errors - caching is best-effort
+  });
 
   return derivedKey;
 }

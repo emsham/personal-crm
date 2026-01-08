@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
-import { deriveEncryptionKey } from '../shared/crypto';
+import { deriveEncryptionKey, loadCachedEncryptionKey, clearCachedEncryptionKey } from '../shared/crypto';
 import { subscribeToApiKeys, saveApiKey, deleteApiKey, deleteAllApiKeys, loadCachedApiKeys, cacheApiKeysLocally, clearCachedApiKeys } from '../services/apiKeyService';
 import { migrateSecureStoreApiKeys, clearLegacySecureStoreKeys } from '../services/apiKeyMigrationService';
 
@@ -51,9 +51,36 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return;
     }
 
-    // Derive key immediately - we're showing a loading screen anyway
-    const key = deriveEncryptionKey(user.uid, user.uid);
-    setEncryptionKey(key);
+    let cancelled = false;
+
+    const initEncryptionKey = async () => {
+      // Try to load cached key first (fast path - no PBKDF2 needed)
+      const cachedKey = await loadCachedEncryptionKey(user.uid);
+      if (cachedKey && !cancelled) {
+        setEncryptionKey(cachedKey);
+        return;
+      }
+
+      // No cached key - need to derive (slow path)
+      // Use requestAnimationFrame to yield one frame for animation, then derive
+      // This runs PBKDF2 during loading screen (visible delay) rather than after (frozen app)
+      if (!cancelled) {
+        requestAnimationFrame(() => {
+          if (!cancelled) {
+            const key = deriveEncryptionKey(user.uid, user.uid);
+            setEncryptionKey(key);
+          }
+        });
+      }
+    };
+
+    // Small delay to let loading animation initialize
+    const timeoutId = setTimeout(initEncryptionKey, 100);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
   }, [user?.uid]);
 
   // Load provider preference from AsyncStorage
@@ -109,14 +136,9 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
 
     // If encryption key is not ready yet, wait for it
-    // But set a short timeout to prevent indefinite loading
+    // PBKDF2 derivation runs during loading screen, so just wait
     if (!encryptionKey) {
-      const timeout = setTimeout(() => {
-        // If still loading after 2 seconds without encryption key,
-        // show the app anyway (user can configure AI later)
-        setIsLoading(false);
-      }, 2000);
-      return () => clearTimeout(timeout);
+      return;
     }
 
     // Run migration first (one-time, from SecureStore to Firestore)

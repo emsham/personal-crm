@@ -16,13 +16,9 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useLLMSettings } from '../contexts/LLMSettingsContext';
-import { useNotifications } from '../contexts/NotificationContext';
+import { useData } from '../contexts/DataContext';
 import { useChat } from '../contexts/ChatContext';
-import {
-  subscribeToContacts,
-  subscribeToTasks,
-  subscribeToInteractions,
-} from '../services/firestoreService';
+import { subscribeToInteractions } from '../services/firestoreService';
 import {
   streamOpenAI,
   streamGemini,
@@ -43,7 +39,7 @@ const MAX_TOOL_ITERATIONS = 5;
 export const HomeScreen: React.FC = () => {
   const { user } = useAuth();
   const { settings, currentProviderConfigured, isLoading: llmLoading } = useLLMSettings();
-  const { scheduleContactNotifications, scheduleTaskNotifications, permissionStatus } = useNotifications();
+  const { contacts, tasks } = useData();
   const {
     sessions,
     currentSessionId,
@@ -63,9 +59,7 @@ export const HomeScreen: React.FC = () => {
   const streamingTextRef = useRef<string>('');
   const streamingUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Data state
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  // Interactions state (contacts/tasks come from DataContext)
   const [interactions, setInteractions] = useState<Interaction[]>([]);
 
   // Chat state - use context for messages
@@ -95,17 +89,13 @@ export const HomeScreen: React.FC = () => {
     }
   }, [currentMessages, currentSessionId]);
 
-  // Subscribe to data only when screen is focused
+  // Subscribe to interactions only when screen is focused (contacts/tasks from DataContext)
   useEffect(() => {
     if (!user || !isFocused) return;
 
-    const unsubContacts = subscribeToContacts(user.uid, setContacts);
-    const unsubTasks = subscribeToTasks(user.uid, setTasks);
     const unsubInteractions = subscribeToInteractions(user.uid, setInteractions);
 
     return () => {
-      unsubContacts();
-      unsubTasks();
       unsubInteractions();
     };
   }, [user, isFocused]);
@@ -118,22 +108,6 @@ export const HomeScreen: React.FC = () => {
       }
     };
   }, []);
-
-  // Schedule notifications when contacts or tasks change (debounced)
-  useEffect(() => {
-    if (permissionStatus !== 'granted') return;
-
-    const timeoutId = setTimeout(() => {
-      if (contacts.length > 0) {
-        scheduleContactNotifications(contacts);
-      }
-      if (tasks.length > 0) {
-        scheduleTaskNotifications(tasks);
-      }
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [contacts, tasks, permissionStatus, scheduleContactNotifications, scheduleTaskNotifications]);
 
   // Scroll to bottom when messages change
   useEffect(() => {

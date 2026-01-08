@@ -32,11 +32,26 @@ export function subscribeToApiKeys(
   callback: (keys: DecryptedApiKeys) => void
 ): () => void {
   const keysRef = collection(db, 'users', userId, 'apiKeys');
-  // Derive legacy key for backward compatibility with old encrypted keys
-  const legacyKey = deriveLegacyEncryptionKey(userId);
+  // Lazy-load legacy key only if needed (PBKDF2 is expensive)
+  let legacyKey: string | null = null;
+  const getLegacyKey = () => {
+    if (!legacyKey) {
+      legacyKey = deriveLegacyEncryptionKey(userId);
+    }
+    return legacyKey;
+  };
 
   return onSnapshot(keysRef, (snapshot) => {
     const decryptedKeys: DecryptedApiKeys = {};
+
+    // Validate decrypted key is ASCII-only (API keys are always ASCII)
+    const isValidApiKey = (key: string): boolean => {
+      if (!key || key.length === 0) return false;
+      for (let i = 0; i < key.length; i++) {
+        if (key.charCodeAt(i) > 127) return false;
+      }
+      return true;
+    };
 
     snapshot.docs.forEach((doc) => {
       const data = doc.data();
@@ -44,15 +59,6 @@ export function subscribeToApiKeys(
         ciphertext: data.encryptedKey,
         iv: data.iv,
         version: data.encryptionVersion,
-      };
-
-      // Validate decrypted key is ASCII-only (API keys are always ASCII)
-      const isValidApiKey = (key: string): boolean => {
-        if (!key || key.length === 0) return false;
-        for (let i = 0; i < key.length; i++) {
-          if (key.charCodeAt(i) > 127) return false;
-        }
-        return true;
       };
 
       // Try new encryption key first
@@ -64,9 +70,9 @@ export function subscribeToApiKeys(
           throw new Error('Decrypted key contains invalid characters');
         }
       } catch {
-        // Fall back to legacy key for backward compatibility
+        // Fall back to legacy key for backward compatibility (lazy-loaded)
         try {
-          const decrypted = decryptApiKey(encryptedData, legacyKey);
+          const decrypted = decryptApiKey(encryptedData, getLegacyKey());
           if (isValidApiKey(decrypted)) {
             decryptedKeys[doc.id] = decrypted;
             if (__DEV__) console.log(`Decrypted ${doc.id} with legacy key`);
