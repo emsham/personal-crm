@@ -37,6 +37,7 @@ const ChatView: React.FC<ChatViewProps> = ({ contacts, tasks, onShowDashboard, o
   } = useChat();
   const { currentProviderConfigured, settings } = useLLMSettings();
 
+  // Use messages directly from session - memoization happens at message component level
   const messages = currentSession?.messages || [];
   const hasMessages = messages.length > 0;
 

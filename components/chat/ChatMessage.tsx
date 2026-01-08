@@ -19,26 +19,19 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
   const isTool = message.role === 'tool';
   const contentRef = useRef<string>('');
 
-  // Check if this message should animate
-  // Only animate if: new message ID AND (user message OR streaming assistant message)
-  // Don't animate completed assistant messages to prevent flash at end of streaming
+  // Only animate user messages - assistant messages update in place during streaming
   const shouldAnimate = useMemo(() => {
-    // Already animated this ID
     if (animatedMessageIds.has(message.id)) {
       return false;
     }
-
-    // For assistant messages, only animate if currently streaming
-    // This prevents the fade-in when streaming ends
-    if (message.role === 'assistant' && !isStreaming && message.content) {
+    // Only animate user messages
+    if (message.role !== 'user') {
       animatedMessageIds.add(message.id);
       return false;
     }
-
-    // Mark as animated
     animatedMessageIds.add(message.id);
     return true;
-  }, [message.id, message.role, isStreaming, message.content]);
+  }, [message.id, message.role]);
 
   // Keep content stable - only update ref, don't cause re-render flashes
   if (message.content) {
@@ -69,7 +62,7 @@ const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, contacts = [], 
   return (
     <div
       className={shouldAnimate ? 'animate-slide-in-from-bottom-4' : ''}
-      style={{ opacity: 1 }} // Prevent any flash when animation ends or state changes
+      style={{ opacity: 1, visibility: 'visible', transform: 'none' }} // Force visibility, prevent any flash
     >
       {/* AI response header */}
       <div className="flex items-center gap-3 mb-3">

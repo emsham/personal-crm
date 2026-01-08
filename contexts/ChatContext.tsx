@@ -67,10 +67,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const currentSession = useMemo(() => {
     const session = sessions.find(s => s.id === currentSessionId) || null;
 
-    // If we have streaming content for this session, use it instead
-    if (streamingContent && streamingContent.sessionId === currentSessionId && session) {
+    // If we have streaming content for this session, ALWAYS use it
+    // This prevents flash when Firestore data replaces local data
+    if (streamingContent && streamingContent.sessionId === currentSessionId) {
+      // Use streamingContent as the authoritative source
+      // Create a minimal session object if the real session isn't available yet
       return {
-        ...session,
+        id: currentSessionId!,
+        title: session?.title || 'New Chat',
+        createdAt: session?.createdAt || new Date(),
+        updatedAt: new Date(),
         messages: streamingContent.messages,
       };
     }
