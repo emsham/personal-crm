@@ -327,7 +327,13 @@ export const EditTaskScreen: React.FC = () => {
         <View style={styles.dateTimeRow}>
           <TouchableOpacity
             style={[styles.pickerButton, styles.dateInput]}
-            onPress={() => setActivePicker('date')}
+            onPress={() => {
+              // Set today's date if none selected, so "Done" works without scrolling
+              if (!selectedDate) {
+                setSelectedDate(new Date());
+              }
+              setActivePicker('date');
+            }}
           >
             <Text style={selectedDate ? styles.pickerButtonTextSelected : styles.pickerButtonText}>
               {selectedDate ? formatDate(selectedDate) : 'Select Date'}
@@ -335,7 +341,13 @@ export const EditTaskScreen: React.FC = () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.pickerButton, styles.timeInput]}
-            onPress={() => setActivePicker('time')}
+            onPress={() => {
+              // Set current time if none selected, so "Done" works without scrolling
+              if (!selectedTime) {
+                setSelectedTime(new Date());
+              }
+              setActivePicker('time');
+            }}
           >
             <Text style={selectedTime ? styles.pickerButtonTextSelected : styles.pickerButtonText}>
               {selectedTime ? formatTime(selectedTime) : 'Time'}

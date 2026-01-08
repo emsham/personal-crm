@@ -70,7 +70,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       <View style={styles.inputRow}>
         <TextInput
           ref={inputRef}
-          style={[styles.input, { height: inputHeight }]}
+          style={[styles.input, { minHeight: inputHeight }]}
           placeholder={
             isConfigured ? placeholder : "Configure AI provider to start..."
           }
@@ -83,6 +83,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           returnKeyType="send"
           editable={isConfigured}
           blurOnSubmit={false}
+          autoCorrect={true}
+          autoCapitalize="sentences"
+          spellCheck={true}
+          scrollEnabled={inputHeight >= 120}
         />
 
         {showStop ? (

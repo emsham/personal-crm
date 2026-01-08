@@ -17,6 +17,24 @@ export function buildSystemPrompt(data: CRMData): string {
   const formattedDate = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const currentTime = today.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }); // HH:MM
 
+  // Pre-compute time offsets so AI doesn't have to do arithmetic
+  const formatTime = (date: Date) => {
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  };
+  const formatDate = (date: Date) => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  const in1Min = new Date(today.getTime() + 1 * 60 * 1000);
+  const in5Min = new Date(today.getTime() + 5 * 60 * 1000);
+  const in10Min = new Date(today.getTime() + 10 * 60 * 1000);
+  const in15Min = new Date(today.getTime() + 15 * 60 * 1000);
+  const in30Min = new Date(today.getTime() + 30 * 60 * 1000);
+  const in1Hour = new Date(today.getTime() + 60 * 60 * 1000);
+  const in2Hours = new Date(today.getTime() + 2 * 60 * 60 * 1000);
+  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+  const in2Days = new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000);
+
   // Get recent interaction types for context
   const recentInteractionTypes = [...new Set(
     interactions.slice(0, 20).map(i => i.type)
@@ -80,16 +98,32 @@ ${recentInteractionTypes ? `- Recent Interaction Types: ${recentInteractionTypes
 5. If a query returns no results, suggest alternative searches
 6. Use the user's natural language - don't be overly formal
 
-## Reminders & Tasks - IMPORTANT
+## Reminders & Tasks - CRITICAL TIME HANDLING
 - "Reminders" and "tasks" are THE SAME THING in this system. Use the addTask tool for both!
 - When a user says "remind me to...", "set a reminder for...", or "don't let me forget to...", create a TASK
-- For relative time expressions, calculate the exact date and time:
-  - "in 5 minutes" → dueDate = today (${todayStr}), dueTime = current time + 5 minutes (HH:MM format)
-  - "in 1 hour" → dueDate = today, dueTime = current time + 1 hour
-  - "tomorrow at 3pm" → dueDate = tomorrow's date, dueTime = "15:00"
-  - "in 2 days" → dueDate = 2 days from now, dueTime = "09:00" (default morning)
-  - "next week" → dueDate = 7 days from now
-- ALWAYS set dueTime when the user specifies a time, or when using relative expressions like "in X minutes"
+
+### Pre-computed Time Values - USE THESE EXACT VALUES:
+Current time is ${currentTime}. Here are the exact values to use for common time expressions:
+
+| User says | dueDate | dueTime |
+|-----------|---------|---------|
+| "in 1 minute" | "${formatDate(in1Min)}" | "${formatTime(in1Min)}" |
+| "in 5 minutes" | "${formatDate(in5Min)}" | "${formatTime(in5Min)}" |
+| "in 10 minutes" | "${formatDate(in10Min)}" | "${formatTime(in10Min)}" |
+| "in 15 minutes" | "${formatDate(in15Min)}" | "${formatTime(in15Min)}" |
+| "in 30 minutes" | "${formatDate(in30Min)}" | "${formatTime(in30Min)}" |
+| "in 1 hour" / "in an hour" | "${formatDate(in1Hour)}" | "${formatTime(in1Hour)}" |
+| "in 2 hours" | "${formatDate(in2Hours)}" | "${formatTime(in2Hours)}" |
+| "tomorrow" | "${formatDate(tomorrow)}" | "09:00" |
+| "tomorrow at 3pm" | "${formatDate(tomorrow)}" | "15:00" |
+| "in 2 days" | "${formatDate(in2Days)}" | "09:00" |
+
+For other times, interpolate from these values. Note: dates may differ from today if near midnight.
+
+### IMPORTANT:
+- ALWAYS set BOTH dueDate AND dueTime for any time-specific reminder
+- dueDate should be TODAY's date (${todayStr}) for same-day reminders
+- dueTime must be in HH:MM 24-hour format (e.g., "14:35", "09:00", "23:15")
 - For time-sensitive reminders (within the next few hours), set priority to "high"
 - The notification system will alert the user at the scheduled time
 

@@ -108,20 +108,32 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return;
     }
 
-    // User is logged in - ensure loading is true while we wait for keys
-    setIsLoading(true);
-
     // If encryption key is not ready yet, wait for it
-    // The encryption key derivation is deferred via InteractionManager
+    // But set a short timeout to prevent indefinite loading
     if (!encryptionKey) {
-      return;
+      const timeout = setTimeout(() => {
+        // If still loading after 2 seconds without encryption key,
+        // show the app anyway (user can configure AI later)
+        setIsLoading(false);
+      }, 2000);
+      return () => clearTimeout(timeout);
     }
 
     // Run migration first (one-time, from SecureStore to Firestore)
     migrateSecureStoreApiKeys(user.uid, encryptionKey).catch(console.error);
 
+    // Set up a timeout for Firestore in case it's slow/offline
+    let didReceiveData = false;
+    const timeout = setTimeout(() => {
+      if (!didReceiveData) {
+        // Firestore is slow - show app anyway with whatever we have
+        setIsLoading(false);
+      }
+    }, 3000);
+
     // Subscribe to real-time updates from Firestore
     const unsubscribe = subscribeToApiKeys(user.uid, encryptionKey, (keys) => {
+      didReceiveData = true;
       setSettings(prev => ({
         ...prev,
         geminiApiKey: keys.gemini,
@@ -133,7 +145,10 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       cacheApiKeysLocally(keys);
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      unsubscribe();
+    };
   }, [authLoading, user?.uid, encryptionKey]);
 
   // Check if any provider is configured

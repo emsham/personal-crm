@@ -269,6 +269,7 @@ const MainTabs: React.FC = () => {
         sceneContainerStyle: {
           backgroundColor: '#0f172a',
         },
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: '#1e293b',
           borderTopWidth: 0,
