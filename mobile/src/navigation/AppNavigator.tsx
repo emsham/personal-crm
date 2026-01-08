@@ -87,16 +87,16 @@ const SettingsScreen: React.FC = () => {
   const [showAISettings, setShowAISettings] = useState(false);
 
   const reminderOptions: { value: number; label: string }[] = [
-    { value: 0, label: 'No reminder' },
-    { value: 15, label: '15 minutes' },
-    { value: 30, label: '30 minutes' },
-    { value: 60, label: '1 hour' },
-    { value: 120, label: '2 hours' },
+    { value: 0, label: 'At time of task' },
+    { value: 15, label: '15 minutes before' },
+    { value: 30, label: '30 minutes before' },
+    { value: 60, label: '1 hour before' },
+    { value: 120, label: '2 hours before' },
   ];
 
   const getSelectedReminderLabel = (): string => {
     const option = reminderOptions.find((o) => o.value === settings.defaultReminderMinutes);
-    return option?.label || '30 minutes';
+    return option?.label || '30 minutes before';
   };
 
   return (

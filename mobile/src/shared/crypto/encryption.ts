@@ -2,8 +2,9 @@ import CryptoJS from 'crypto-js';
 import * as SecureStore from 'expo-secure-store';
 import { EncryptedData } from './types';
 
-const ENCRYPTION_VERSION = 1;
-const PBKDF2_ITERATIONS = 100000;
+const ENCRYPTION_VERSION = 2;
+// 10k iterations is fast on mobile while still secure for API key protection
+const PBKDF2_ITERATIONS = 10000;
 const KEY_SIZE = 256 / 32; // 256 bits
 
 // Legacy default for backward compatibility with existing encrypted keys
@@ -12,8 +13,8 @@ const LEGACY_DEFAULT_PASSPHRASE = 'nexus-default-key-material';
 // In-memory cache for derived keys (avoids re-derivation during session)
 const keyCache = new Map<string, string>();
 
-// SecureStore key prefix for persisted derived keys
-const DERIVED_KEY_PREFIX = 'nexus_derived_key_';
+// SecureStore key prefix for persisted derived keys (v2 = 10k iterations)
+const DERIVED_KEY_PREFIX = 'nexus_derived_key_v2_';
 
 /**
  * Loads a previously derived encryption key from SecureStore.
