@@ -13,7 +13,8 @@ export interface NotificationSettings {
   birthdaysEnabled: boolean;
   importantDatesEnabled: boolean;
   tasksEnabled: boolean;
-  defaultReminderMinutes: number; // Default reminder time before tasks (0 = no reminder)
+  defaultReminderTimes: number[]; // Default reminder times (e.g., [0, 30] = at time + 30 min before)
+  defaultReminderMinutes?: number; // @deprecated - kept for migration, use defaultReminderTimes
 }
 
 interface ScheduledNotificationIds {
@@ -38,7 +39,7 @@ const defaultSettings: NotificationSettings = {
   birthdaysEnabled: true,
   importantDatesEnabled: true,
   tasksEnabled: true,
-  defaultReminderMinutes: 30, // 30 minutes before by default
+  defaultReminderTimes: [0, 30], // At time + 30 minutes before by default
 };
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
@@ -67,7 +68,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       // Load settings
       const storedSettings = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
       if (storedSettings) {
-        setSettings({ ...defaultSettings, ...JSON.parse(storedSettings) });
+        const parsed = JSON.parse(storedSettings);
+
+        // Migrate from old defaultReminderMinutes to new defaultReminderTimes
+        if (parsed.defaultReminderMinutes !== undefined && !parsed.defaultReminderTimes) {
+          parsed.defaultReminderTimes = parsed.defaultReminderMinutes === 0
+            ? [0] // "No reminder" -> "At time of task"
+            : [0, parsed.defaultReminderMinutes]; // Add both at-time and the old value
+          delete parsed.defaultReminderMinutes;
+        }
+
+        setSettings({ ...defaultSettings, ...parsed });
       }
 
       // Load scheduled IDs
@@ -229,39 +240,42 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         // Only schedule if due date is in the future
         if (dueDate <= now) continue;
 
-        // Schedule main notification (at due time)
-        const mainNotifId = await notificationService.scheduleTaskNotification(
-          task.title,
-          task.id,
-          dueDate,
-          false
-        );
-        if (mainNotifId) {
-          notificationIds.push(mainNotifId);
+        // Get reminder times: task-specific > legacy reminderBefore > defaults
+        let reminderTimes: number[];
+        if (task.reminderTimes && task.reminderTimes.length > 0) {
+          reminderTimes = task.reminderTimes;
+        } else if (task.reminderBefore !== undefined) {
+          // Legacy: convert single reminderBefore to array
+          reminderTimes = task.reminderBefore === 0 ? [0] : [0, task.reminderBefore];
+        } else {
+          // Use defaults
+          reminderTimes = settings.defaultReminderTimes;
         }
 
-        // Schedule reminder notification (before due time)
-        const reminderMinutes = task.reminderBefore ?? settings.defaultReminderMinutes;
+        // For high priority tasks with no reminders, add default reminders
+        if (reminderTimes.length === 0 && task.priority === 'high') {
+          reminderTimes = settings.defaultReminderTimes.length > 0
+            ? settings.defaultReminderTimes
+            : [0, 30]; // Fallback: at time + 30 min before
+        }
 
-        // For high priority tasks, always add reminder if not already set
-        const shouldAddReminder = reminderMinutes > 0 || task.priority === 'high';
-        const actualReminderMinutes = reminderMinutes > 0 ? reminderMinutes : (task.priority === 'high' ? settings.defaultReminderMinutes : 0);
+        // Schedule notification for each reminder time
+        for (const minutesBefore of reminderTimes) {
+          const notifyDate = new Date(dueDate.getTime() - minutesBefore * 60 * 1000);
 
-        if (shouldAddReminder && actualReminderMinutes > 0) {
-          const reminderDate = new Date(dueDate.getTime() - actualReminderMinutes * 60 * 1000);
+          // Only schedule if notification time is in the future
+          if (notifyDate <= now) continue;
 
-          // Only schedule if reminder time is in the future
-          if (reminderDate > now) {
-            const reminderNotifId = await notificationService.scheduleTaskNotification(
-              task.title,
-              task.id,
-              dueDate,
-              true,
-              actualReminderMinutes
-            );
-            if (reminderNotifId) {
-              notificationIds.push(reminderNotifId);
-            }
+          const isReminder = minutesBefore > 0;
+          const notifId = await notificationService.scheduleTaskNotification(
+            task.title,
+            task.id,
+            dueDate,
+            isReminder,
+            minutesBefore
+          );
+          if (notifId) {
+            notificationIds.push(notifId);
           }
         }
 

@@ -95,8 +95,21 @@ const SettingsScreen: React.FC = () => {
   ];
 
   const getSelectedReminderLabel = (): string => {
-    const option = reminderOptions.find((o) => o.value === settings.defaultReminderMinutes);
-    return option?.label || '30 minutes before';
+    const times = settings.defaultReminderTimes || [];
+    if (times.length === 0) return 'No reminders';
+    if (times.length === 1) {
+      const option = reminderOptions.find((o) => o.value === times[0]);
+      return option?.label || 'Custom';
+    }
+    return `${times.length} reminders selected`;
+  };
+
+  const toggleReminderTime = (value: number) => {
+    const currentTimes = settings.defaultReminderTimes || [];
+    const newTimes = currentTimes.includes(value)
+      ? currentTimes.filter((t) => t !== value)
+      : [...currentTimes, value].sort((a, b) => a - b);
+    updateSettings({ defaultReminderTimes: newTimes });
   };
 
   return (
@@ -213,29 +226,33 @@ const SettingsScreen: React.FC = () => {
 
         {showReminderPicker && (
           <View style={styles.reminderList}>
-            {reminderOptions.map((option, index) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.reminderItem,
-                  settings.defaultReminderMinutes === option.value && styles.reminderItemSelected,
-                  index === reminderOptions.length - 1 && styles.reminderItemLast,
-                ]}
-                onPress={() => {
-                  updateSettings({ defaultReminderMinutes: option.value });
-                  setShowReminderPicker(false);
-                }}
-              >
-                <Text
+            {reminderOptions.map((option, index) => {
+              const isSelected = (settings.defaultReminderTimes || []).includes(option.value);
+              return (
+                <TouchableOpacity
+                  key={option.value}
                   style={[
-                    styles.reminderItemText,
-                    settings.defaultReminderMinutes === option.value && styles.reminderItemTextSelected,
+                    styles.reminderItem,
+                    isSelected && styles.reminderItemSelected,
+                    index === reminderOptions.length - 1 && styles.reminderItemLast,
                   ]}
+                  onPress={() => toggleReminderTime(option.value)}
                 >
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                    {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text
+                    style={[
+                      styles.reminderItemText,
+                      isSelected && styles.reminderItemTextSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            <Text style={styles.reminderHint}>Select multiple to get reminded at different times</Text>
           </View>
         )}
       </View>
@@ -585,6 +602,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   reminderItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
@@ -602,6 +621,32 @@ const styles = StyleSheet.create({
   reminderItemTextSelected: {
     color: '#3b82f6',
     fontWeight: '600',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#475569',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  reminderHint: {
+    color: '#64748b',
+    fontSize: 12,
+    textAlign: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   signOutButton: {
     backgroundColor: '#ef4444',

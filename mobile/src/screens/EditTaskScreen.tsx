@@ -27,10 +27,6 @@ type RouteParams = {
   EditTask: { taskId: string };
 };
 
-// Special values for reminder
-const REMINDER_AT_TIME = -1; // Remind at time of task
-const REMINDER_CUSTOM = -2; // Custom value
-
 export const EditTaskScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<RouteParams, 'EditTask'>>();
@@ -48,10 +44,9 @@ export const EditTaskScreen: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
 
-  // Reminder states
+  // Reminder states - undefined means use defaults, empty array means no reminders
   const [showReminderModal, setShowReminderModal] = useState(false);
-  const [reminderSelection, setReminderSelection] = useState<number | undefined>(undefined);
-  const [customReminderMinutes, setCustomReminderMinutes] = useState('');
+  const [selectedReminderTimes, setSelectedReminderTimes] = useState<number[] | undefined>(undefined);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -100,17 +95,14 @@ export const EditTaskScreen: React.FC = () => {
         setSelectedTime(timeDate);
       }
 
-      // Set reminder selection
-      if (task.reminderBefore !== undefined) {
-        if (task.reminderBefore === 0) {
-          setReminderSelection(REMINDER_AT_TIME);
-        } else if ([15, 30, 60, 120].includes(task.reminderBefore)) {
-          setReminderSelection(task.reminderBefore);
-        } else {
-          setReminderSelection(REMINDER_CUSTOM);
-          setCustomReminderMinutes(task.reminderBefore.toString());
-        }
+      // Set reminder times (handle both new and legacy formats)
+      if (task.reminderTimes !== undefined) {
+        setSelectedReminderTimes(task.reminderTimes);
+      } else if (task.reminderBefore !== undefined) {
+        // Legacy migration: convert single value to array
+        setSelectedReminderTimes(task.reminderBefore === 0 ? [0] : [0, task.reminderBefore]);
       }
+      // else: undefined = use defaults
 
       setInitialLoading(false);
     }
@@ -136,23 +128,13 @@ export const EditTaskScreen: React.FC = () => {
         ? `${String(selectedTime.getHours()).padStart(2, '0')}:${String(selectedTime.getMinutes()).padStart(2, '0')}`
         : undefined;
 
-      // Calculate reminder value
-      let reminderBefore: number | undefined;
-      if (reminderSelection === REMINDER_AT_TIME) {
-        reminderBefore = 0;
-      } else if (reminderSelection === REMINDER_CUSTOM) {
-        reminderBefore = parseInt(customReminderMinutes, 10) || undefined;
-      } else {
-        reminderBefore = reminderSelection;
-      }
-
       await updateTask(user.uid, route.params.taskId, {
         title: formData.title.trim(),
         description: formData.description.trim() || undefined,
         contactId: formData.contactId || undefined,
         dueDate,
         dueTime,
-        reminderBefore,
+        reminderTimes: selectedReminderTimes, // undefined = use defaults, [] = no reminders
         priority: formData.priority,
         frequency: formData.frequency,
         completed: formData.completed,
@@ -205,22 +187,32 @@ export const EditTaskScreen: React.FC = () => {
   ];
 
   const reminderOptions: { value: number; label: string }[] = [
-    { value: REMINDER_AT_TIME, label: 'At time of task' },
+    { value: 0, label: 'At time of task' },
     { value: 15, label: '15 minutes before' },
     { value: 30, label: '30 minutes before' },
     { value: 60, label: '1 hour before' },
     { value: 120, label: '2 hours before' },
-    { value: REMINDER_CUSTOM, label: 'Custom...' },
   ];
 
   const getSelectedReminderLabel = (): string => {
-    if (reminderSelection === undefined) return 'Use Default';
-    if (reminderSelection === REMINDER_AT_TIME) return 'At time of task';
-    if (reminderSelection === REMINDER_CUSTOM) {
-      return customReminderMinutes ? `${customReminderMinutes} min before` : 'Custom';
+    if (selectedReminderTimes === undefined) return 'Use Default';
+    if (selectedReminderTimes.length === 0) return 'No reminders';
+    if (selectedReminderTimes.length === 1) {
+      const option = reminderOptions.find((o) => o.value === selectedReminderTimes[0]);
+      return option?.label || 'Custom';
     }
-    const option = reminderOptions.find((o) => o.value === reminderSelection);
-    return option?.label || 'Use Default';
+    return `${selectedReminderTimes.length} reminders`;
+  };
+
+  const toggleReminderTime = (value: number) => {
+    if (selectedReminderTimes === undefined) {
+      setSelectedReminderTimes([value]);
+      return;
+    }
+    const newTimes = selectedReminderTimes.includes(value)
+      ? selectedReminderTimes.filter((t) => t !== value)
+      : [...selectedReminderTimes, value].sort((a, b) => a - b);
+    setSelectedReminderTimes(newTimes);
   };
 
   const formatDate = (date: Date): string => {
@@ -255,21 +247,6 @@ export const EditTaskScreen: React.FC = () => {
     }
     if (date) {
       setSelectedTime(date);
-    }
-  };
-
-  const handleReminderSelect = (value: number) => {
-    setReminderSelection(value);
-    if (value !== REMINDER_CUSTOM) {
-      setShowReminderModal(false);
-    }
-  };
-
-  const handleCustomReminderSave = () => {
-    if (customReminderMinutes && parseInt(customReminderMinutes, 10) > 0) {
-      setShowReminderModal(false);
-    } else {
-      Alert.alert('Error', 'Please enter a valid number of minutes');
     }
   };
 
@@ -587,62 +564,70 @@ export const EditTaskScreen: React.FC = () => {
           onPress={() => setShowReminderModal(false)}
         >
           <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
-            <Text style={styles.modalTitle}>Reminder</Text>
+            <Text style={styles.modalTitle}>Reminders</Text>
 
+            {/* Use Default option */}
             <TouchableOpacity
               style={[
                 styles.modalOption,
-                reminderSelection === undefined && styles.modalOptionSelected,
+                selectedReminderTimes === undefined && styles.modalOptionSelected,
               ]}
-              onPress={() => { setReminderSelection(undefined); setShowReminderModal(false); }}
+              onPress={() => { setSelectedReminderTimes(undefined); setShowReminderModal(false); }}
             >
+              <View style={[styles.radioButton, selectedReminderTimes === undefined && styles.radioButtonSelected]}>
+                {selectedReminderTimes === undefined && <View style={styles.radioButtonInner} />}
+              </View>
               <Text style={[
                 styles.modalOptionText,
-                reminderSelection === undefined && styles.modalOptionTextSelected,
+                selectedReminderTimes === undefined && styles.modalOptionTextSelected,
               ]}>Use Default</Text>
             </TouchableOpacity>
 
-            {reminderOptions.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.modalOption,
-                  reminderSelection === option.value && styles.modalOptionSelected,
-                ]}
-                onPress={() => handleReminderSelect(option.value)}
-              >
-                <Text style={[
-                  styles.modalOptionText,
-                  reminderSelection === option.value && styles.modalOptionTextSelected,
-                ]}>{option.label}</Text>
-              </TouchableOpacity>
-            ))}
-
-            {reminderSelection === REMINDER_CUSTOM && (
-              <View style={styles.customReminderContainer}>
-                <TextInput
-                  style={styles.customReminderInput}
-                  placeholder="Minutes before"
-                  placeholderTextColor="#64748b"
-                  value={customReminderMinutes}
-                  onChangeText={setCustomReminderMinutes}
-                  keyboardType="number-pad"
-                  autoFocus
-                />
-                <TouchableOpacity
-                  style={styles.customReminderButton}
-                  onPress={handleCustomReminderSave}
-                >
-                  <Text style={styles.customReminderButtonText}>Save</Text>
-                </TouchableOpacity>
+            {/* No reminders option */}
+            <TouchableOpacity
+              style={[
+                styles.modalOption,
+                selectedReminderTimes !== undefined && selectedReminderTimes.length === 0 && styles.modalOptionSelected,
+              ]}
+              onPress={() => { setSelectedReminderTimes([]); setShowReminderModal(false); }}
+            >
+              <View style={[styles.radioButton, selectedReminderTimes !== undefined && selectedReminderTimes.length === 0 && styles.radioButtonSelected]}>
+                {selectedReminderTimes !== undefined && selectedReminderTimes.length === 0 && <View style={styles.radioButtonInner} />}
               </View>
-            )}
+              <Text style={[
+                styles.modalOptionText,
+                selectedReminderTimes !== undefined && selectedReminderTimes.length === 0 && styles.modalOptionTextSelected,
+              ]}>No reminders</Text>
+            </TouchableOpacity>
+
+            <View style={styles.modalDivider} />
+            <Text style={styles.modalSubtitle}>Or select specific times:</Text>
+
+            {/* Checkbox options */}
+            {reminderOptions.map((option) => {
+              const isSelected = selectedReminderTimes !== undefined && selectedReminderTimes.includes(option.value);
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[styles.modalOption, isSelected && styles.modalOptionSelected]}
+                  onPress={() => toggleReminderTime(option.value)}
+                >
+                  <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                    {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text style={[
+                    styles.modalOptionText,
+                    isSelected && styles.modalOptionTextSelected,
+                  ]}>{option.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
 
             <TouchableOpacity
-              style={styles.modalCancelButton}
+              style={styles.modalDoneButton}
               onPress={() => setShowReminderModal(false)}
             >
-              <Text style={styles.modalCancelText}>Cancel</Text>
+              <Text style={styles.modalDoneText}>Done</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -989,6 +974,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 14,
     borderRadius: 10,
     marginBottom: 8,
@@ -1006,6 +993,66 @@ const styles = StyleSheet.create({
   },
   modalOptionTextSelected: {
     color: '#3b82f6',
+    fontWeight: '600',
+  },
+  radioButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#475569',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioButtonSelected: {
+    borderColor: '#3b82f6',
+  },
+  radioButtonInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#3b82f6',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#475569',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: '#334155',
+    marginVertical: 12,
+  },
+  modalSubtitle: {
+    color: '#94a3b8',
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  modalDoneButton: {
+    marginTop: 12,
+    padding: 14,
+    backgroundColor: '#3b82f6',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalDoneText: {
+    color: '#fff',
+    fontSize: 15,
     fontWeight: '600',
   },
   customReminderContainer: {
