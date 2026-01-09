@@ -53,8 +53,10 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
     notes: contact.notes,
     birthday: contact.birthday || '',
     importantDates: contact.importantDates || [],
+    relatedContactIds: contact.relatedContactIds || [],
   });
   const [newImportantDate, setNewImportantDate] = useState({ label: '', date: '' });
+  const [searchRelated, setSearchRelated] = useState('');
   const [hasAnimated, setHasAnimated] = useState(false);
 
   // Mark as animated after first render to prevent re-animation on updates
@@ -77,6 +79,7 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
         notes: contact.notes,
         birthday: contact.birthday || '',
         importantDates: contact.importantDates || [],
+        relatedContactIds: contact.relatedContactIds || [],
       });
     }
   }, [contact, isEditingContact]);
@@ -162,13 +165,36 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
       tags: editedContact.tags.split(',').map(t => t.trim()).filter(t => t),
       notes: editedContact.notes,
       importantDates: editedContact.importantDates,
+      relatedContactIds: editedContact.relatedContactIds,
     };
     if (editedContact.birthday) {
       updates.birthday = editedContact.birthday;
     }
     onUpdateContact(contact.id, updates);
     setIsEditingContact(false);
+    setSearchRelated('');
   };
+
+  const toggleRelatedContact = (id: string) => {
+    setEditedContact(prev => ({
+      ...prev,
+      relatedContactIds: prev.relatedContactIds.includes(id)
+        ? prev.relatedContactIds.filter(rid => rid !== id)
+        : [...prev.relatedContactIds, id]
+    }));
+    setSearchRelated('');
+  };
+
+  const filteredContactsForLinking = useMemo(() => {
+    if (!searchRelated.trim()) return [];
+    const search = searchRelated.toLowerCase();
+    return allContacts.filter(c =>
+      c.id !== contact.id &&
+      !editedContact.relatedContactIds.includes(c.id) &&
+      (`${c.firstName} ${c.lastName}`.toLowerCase().includes(search) ||
+       c.company?.toLowerCase().includes(search))
+    ).slice(0, 5);
+  }, [searchRelated, allContacts, contact.id, editedContact.relatedContactIds]);
 
   const handleAddImportantDate = () => {
     if (!newImportantDate.label.trim() || !newImportantDate.date) return;
@@ -473,6 +499,63 @@ const ContactDetail: React.FC<ContactDetailProps> = ({
                         <Plus size={16} />
                       </button>
                     </div>
+                  </div>
+                </div>
+                <div className="pt-4 border-t border-white/5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-1">
+                    <Users size={12} /> Linked Contacts
+                  </label>
+                  {/* Currently linked contacts */}
+                  {editedContact.relatedContactIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {editedContact.relatedContactIds.map(id => {
+                        const linkedContact = allContacts.find(c => c.id === id);
+                        return linkedContact ? (
+                          <div key={id} className="flex items-center gap-2 px-3 py-1.5 bg-violet-500/20 border border-violet-500/30 rounded-lg">
+                            <span className="text-sm text-slate-300">{linkedContact.firstName} {linkedContact.lastName}</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleRelatedContact(id)}
+                              className="text-slate-400 hover:text-red-400 transition-colors"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
+                  {/* Search to add more */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search to link contacts..."
+                      className="w-full px-4 py-3 input-dark rounded-xl text-sm"
+                      value={searchRelated}
+                      onChange={e => setSearchRelated(e.target.value)}
+                    />
+                    {filteredContactsForLinking.length > 0 && (
+                      <div className="absolute z-10 w-full mt-2 glass-strong border border-white/10 rounded-xl max-h-48 overflow-y-auto">
+                        {filteredContactsForLinking.map(c => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => toggleRelatedContact(c.id)}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 transition-colors text-left"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-black flex items-center justify-center">
+                              <span className="text-xs font-bold text-white">
+                                {c.firstName?.charAt(0)}{c.lastName?.charAt(0)}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-sm text-white">{c.firstName} {c.lastName}</span>
+                              {c.company && <span className="text-xs text-slate-500 block">{c.company}</span>}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
