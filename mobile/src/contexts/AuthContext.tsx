@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
 import { User } from 'firebase/auth';
 import { subscribeToAuthState, signIn, signUp, signOut, resetPassword, resendVerificationEmail } from '../services/authService';
 
@@ -30,25 +30,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return unsubscribe;
   }, []);
 
-  const handleSignIn = async (email: string, password: string) => {
+  const handleSignIn = useCallback(async (email: string, password: string) => {
     await signIn(email, password);
-  };
+  }, []);
 
-  const handleSignUp = async (email: string, password: string) => {
+  const handleSignUp = useCallback(async (email: string, password: string) => {
     await signUp(email, password);
-  };
+  }, []);
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     await signOut();
-  };
+  }, []);
 
-  const handleResetPassword = async (email: string) => {
+  const handleResetPassword = useCallback(async (email: string) => {
     await resetPassword(email);
-  };
+  }, []);
 
-  const handleResendVerificationEmail = async () => {
+  const handleResendVerificationEmail = useCallback(async () => {
     await resendVerificationEmail();
-  };
+  }, []);
 
   const refreshUser = useCallback(async () => {
     if (user) {
@@ -64,21 +64,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Only require verification for email/password users, not OAuth users
   const requiresEmailVerification = isEmailProvider && !isEmailVerified;
 
+  const value = useMemo(() => ({
+    user,
+    loading,
+    signIn: handleSignIn,
+    signUp: handleSignUp,
+    signOut: handleSignOut,
+    resetPassword: handleResetPassword,
+    resendVerificationEmail: handleResendVerificationEmail,
+    refreshUser,
+    isEmailVerified,
+    requiresEmailVerification,
+  }), [user, loading, handleSignIn, handleSignUp, handleSignOut, handleResetPassword, handleResendVerificationEmail, refreshUser, isEmailVerified, requiresEmailVerification]);
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        signIn: handleSignIn,
-        signUp: handleSignUp,
-        signOut: handleSignOut,
-        resetPassword: handleResetPassword,
-        resendVerificationEmail: handleResendVerificationEmail,
-        refreshUser,
-        isEmailVerified,
-        requiresEmailVerification,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

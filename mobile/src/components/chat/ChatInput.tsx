@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   TextInput,
@@ -7,6 +7,8 @@ import {
   StyleSheet,
   NativeSyntheticEvent,
   TextInputContentSizeChangeEventData,
+  Platform,
+  Keyboard,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -22,6 +24,13 @@ interface ChatInputProps {
   providerName?: string;
 }
 
+// Constants for height calculation
+const MIN_HEIGHT = 44;
+const MAX_HEIGHT = 120;
+const LINE_HEIGHT = 20; // Approximate line height for fontSize 15
+const VERTICAL_PADDING = 24; // paddingTop + paddingBottom (12 + 12)
+const CHARS_PER_LINE = 32; // Approximate characters before text wraps
+
 export const ChatInput: React.FC<ChatInputProps> = ({
   value,
   onChangeText,
@@ -33,25 +42,70 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   placeholder = "Ask about your contacts...",
   providerName,
 }) => {
-  const [inputHeight, setInputHeight] = useState(44);
+  const [inputHeight, setInputHeight] = useState(MIN_HEIGHT);
   const inputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
+  const prevValueLengthRef = useRef(0);
+  const currentHeightRef = useRef(MIN_HEIGHT);
 
-  const handleContentSizeChange = (
-    e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>
-  ) => {
-    const newHeight = Math.min(
-      Math.max(44, e.nativeEvent.contentSize.height),
-      120
-    );
-    setInputHeight(newHeight);
-  };
+  // Keep ref in sync with state (avoids stale closures)
+  currentHeightRef.current = inputHeight;
 
-  const handleSubmit = () => {
+  // Stable callback - no dependencies needed since we use refs
+  const handleContentSizeChange = useCallback(
+    (e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
+      const newHeight = Math.min(
+        Math.max(MIN_HEIGHT, e.nativeEvent.contentSize.height),
+        MAX_HEIGHT
+      );
+      if (newHeight !== currentHeightRef.current) {
+        setInputHeight(newHeight);
+      }
+    },
+    []
+  );
+
+  // iOS workaround: onContentSizeChange doesn't reliably fire when content shrinks
+  // Calculate estimated height when text is deleted
+  useEffect(() => {
+    const currentLength = value.length;
+    const wasDeleted = currentLength < prevValueLengthRef.current;
+    prevValueLengthRef.current = currentLength;
+
+    if (!value || currentLength === 0) {
+      // Text cleared completely
+      setInputHeight(MIN_HEIGHT);
+      return;
+    }
+
+    // Only recalculate on deletion (iOS doesn't fire onContentSizeChange reliably for shrinks)
+    if (wasDeleted && Platform.OS === 'ios') {
+      // Estimate wrapped lines based on text length between newlines
+      const lines = value.split('\n');
+      let totalLines = 0;
+      for (const line of lines) {
+        // Each line takes at least 1 line, plus additional lines for wrapping
+        totalLines += Math.max(1, Math.ceil(line.length / CHARS_PER_LINE));
+      }
+
+      const estimatedHeight = Math.min(
+        MAX_HEIGHT,
+        Math.max(MIN_HEIGHT, totalLines * LINE_HEIGHT + VERTICAL_PADDING)
+      );
+
+      // Only shrink, never grow (let onContentSizeChange handle growth)
+      if (estimatedHeight < currentHeightRef.current) {
+        setInputHeight(estimatedHeight);
+      }
+    }
+  }, [value]); // Removed inputHeight dependency - use ref instead
+
+  const handleSubmit = useCallback(() => {
     if (value.trim() && !isLoading && !isStreaming) {
+      Keyboard.dismiss(); // Dismiss keyboard when sending message
       onSend();
     }
-  };
+  }, [value, isLoading, isStreaming, onSend]);
 
   const canSend =
     value.trim().length > 0 && isConfigured && !isLoading && !isStreaming;
@@ -80,13 +134,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           onSubmitEditing={handleSubmit}
           onContentSizeChange={handleContentSizeChange}
           multiline
-          returnKeyType="send"
+          returnKeyType="default"
           editable={isConfigured}
           blurOnSubmit={false}
           autoCorrect={true}
           autoCapitalize="sentences"
           spellCheck={true}
-          scrollEnabled={inputHeight >= 120}
+          scrollEnabled={true}
+          keyboardType="default"
         />
 
         {showStop ? (
@@ -153,7 +208,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     borderWidth: 1,
     borderColor: "#334155",
-    maxHeight: 120,
+    maxHeight: MAX_HEIGHT,
   },
   sendButton: {
     width: 44,

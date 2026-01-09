@@ -29,6 +29,12 @@ const defaultSettings: LLMSettings = {
 
 const LLMSettingsContext = createContext<LLMSettingsContextType | undefined>(undefined);
 
+// Encryption keys state - web (100k iter) for security, mobile (10k iter) for cross-platform compat
+interface EncryptionKeys {
+  webKey: string;     // 100k iterations - web default, used for saving
+  mobileKey: string;  // 10k iterations - mobile compatibility for reading
+}
+
 export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [settings, setSettings] = useState<LLMSettings>(() => {
@@ -40,10 +46,14 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Derive encryption key from user ID (deterministic)
-  const encryptionKey = useMemo(() => {
+  // Derive both encryption keys from user ID (deterministic)
+  // Web key (100k iter) for saving, mobile key (10k iter) for cross-platform decryption
+  const encryptionKeys = useMemo((): EncryptionKeys | null => {
     if (!user?.uid) return null;
-    return deriveEncryptionKey(user.uid, user.uid);
+    return {
+      webKey: deriveEncryptionKey(user.uid, user.uid, false),      // 100k iterations (web default)
+      mobileKey: deriveEncryptionKey(user.uid, user.uid, true),    // 10k iterations (mobile compat)
+    };
   }, [user?.uid]);
 
   // Subscribe to encrypted API keys from Firestore when user is authenticated
@@ -59,31 +69,38 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return;
     }
 
-    // If encryption key isn't ready yet, keep loading state as true
-    if (!encryptionKey) {
+    // If encryption keys aren't ready yet, keep loading state as true
+    if (!encryptionKeys) {
       setIsLoading(true);
       return;
     }
 
-    // User is logged in and encryption key is ready - fetch their API keys
+    // User is logged in and encryption keys are ready - fetch their API keys
     // Set loading to true while we wait for Firestore
     setIsLoading(true);
 
     // Run migration first (one-time, from localStorage to Firestore)
-    migrateLocalStorageApiKeys(user.uid, encryptionKey).catch(console.error);
+    // Use web key for migration
+    migrateLocalStorageApiKeys(user.uid, encryptionKeys.webKey).catch(console.error);
 
     // Subscribe to real-time updates from Firestore
-    const unsubscribe = subscribeToApiKeys(user.uid, encryptionKey, (keys) => {
-      setSettings(prev => ({
-        ...prev,
-        geminiApiKey: keys.gemini,
-        openaiApiKey: keys.openai,
-      }));
-      setIsLoading(false);
-    });
+    // Pass both keys so it can decrypt keys saved from either web (100k iter) or mobile (10k iter)
+    const unsubscribe = subscribeToApiKeys(
+      user.uid,
+      encryptionKeys.webKey,
+      encryptionKeys.mobileKey,
+      (keys) => {
+        setSettings(prev => ({
+          ...prev,
+          geminiApiKey: keys.gemini,
+          openaiApiKey: keys.openai,
+        }));
+        setIsLoading(false);
+      }
+    );
 
     return () => unsubscribe();
-  }, [user?.uid, encryptionKey]);
+  }, [user?.uid, encryptionKeys]);
 
   // Check if any provider is configured
   const isConfigured = Boolean(settings.geminiApiKey || settings.openaiApiKey);
@@ -99,14 +116,15 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   const setGeminiApiKey = useCallback(async (key: string) => {
-    if (!user?.uid || !encryptionKey) return;
+    if (!user?.uid || !encryptionKeys) return;
 
     const trimmedKey = key.trim();
     setIsSyncing(true);
 
     try {
       if (trimmedKey) {
-        await saveApiKey(user.uid, 'gemini', trimmedKey, encryptionKey);
+        // Use web key (100k iter) for saving - more secure
+        await saveApiKey(user.uid, 'gemini', trimmedKey, encryptionKeys.webKey);
       } else {
         await deleteApiKey(user.uid, 'gemini');
       }
@@ -115,17 +133,18 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     } finally {
       setIsSyncing(false);
     }
-  }, [user?.uid, encryptionKey]);
+  }, [user?.uid, encryptionKeys]);
 
   const setOpenAIApiKey = useCallback(async (key: string) => {
-    if (!user?.uid || !encryptionKey) return;
+    if (!user?.uid || !encryptionKeys) return;
 
     const trimmedKey = key.trim();
     setIsSyncing(true);
 
     try {
       if (trimmedKey) {
-        await saveApiKey(user.uid, 'openai', trimmedKey, encryptionKey);
+        // Use web key (100k iter) for saving - more secure
+        await saveApiKey(user.uid, 'openai', trimmedKey, encryptionKeys.webKey);
       } else {
         await deleteApiKey(user.uid, 'openai');
       }
@@ -134,7 +153,7 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     } finally {
       setIsSyncing(false);
     }
-  }, [user?.uid, encryptionKey]);
+  }, [user?.uid, encryptionKeys]);
 
   const clearApiKeys = useCallback(async () => {
     if (!user?.uid) return;

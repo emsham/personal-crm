@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,60 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChatSession } from '../../types';
+
+// Moved outside component to avoid recreation on each render
+const groupSessionsByDate = (sessions: ChatSession[]) => {
+  const groups: { label: string; sessions: ChatSession[] }[] = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const lastWeek = new Date(today);
+  lastWeek.setDate(lastWeek.getDate() - 7);
+  const lastMonth = new Date(today);
+  lastMonth.setMonth(lastMonth.getMonth() - 1);
+
+  const todaySessions: ChatSession[] = [];
+  const yesterdaySessions: ChatSession[] = [];
+  const lastWeekSessions: ChatSession[] = [];
+  const lastMonthSessions: ChatSession[] = [];
+  const olderSessions: ChatSession[] = [];
+
+  sessions.forEach(session => {
+    const sessionDate = new Date(session.updatedAt);
+    sessionDate.setHours(0, 0, 0, 0);
+
+    if (sessionDate.getTime() === today.getTime()) {
+      todaySessions.push(session);
+    } else if (sessionDate.getTime() === yesterday.getTime()) {
+      yesterdaySessions.push(session);
+    } else if (sessionDate >= lastWeek) {
+      lastWeekSessions.push(session);
+    } else if (sessionDate >= lastMonth) {
+      lastMonthSessions.push(session);
+    } else {
+      olderSessions.push(session);
+    }
+  });
+
+  if (todaySessions.length > 0) {
+    groups.push({ label: 'Today', sessions: todaySessions });
+  }
+  if (yesterdaySessions.length > 0) {
+    groups.push({ label: 'Yesterday', sessions: yesterdaySessions });
+  }
+  if (lastWeekSessions.length > 0) {
+    groups.push({ label: 'Last 7 Days', sessions: lastWeekSessions });
+  }
+  if (lastMonthSessions.length > 0) {
+    groups.push({ label: 'Last 30 Days', sessions: lastMonthSessions });
+  }
+  if (olderSessions.length > 0) {
+    groups.push({ label: 'Older', sessions: olderSessions });
+  }
+
+  return groups;
+};
 
 interface ChatHistoryModalProps {
   visible: boolean;
@@ -30,61 +84,10 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
   onDeleteSession,
   onNewChat,
 }) => {
-  // Group sessions by date
-  const groupSessionsByDate = (sessions: ChatSession[]) => {
-    const groups: { label: string; sessions: ChatSession[] }[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const lastWeek = new Date(today);
-    lastWeek.setDate(lastWeek.getDate() - 7);
-    const lastMonth = new Date(today);
-    lastMonth.setMonth(lastMonth.getMonth() - 1);
+  // Memoize grouped sessions to avoid recalculation on every render
+  const groupedSessions = useMemo(() => groupSessionsByDate(sessions), [sessions]);
 
-    const todaySessions: ChatSession[] = [];
-    const yesterdaySessions: ChatSession[] = [];
-    const lastWeekSessions: ChatSession[] = [];
-    const lastMonthSessions: ChatSession[] = [];
-    const olderSessions: ChatSession[] = [];
-
-    sessions.forEach(session => {
-      const sessionDate = new Date(session.updatedAt);
-      sessionDate.setHours(0, 0, 0, 0);
-
-      if (sessionDate.getTime() === today.getTime()) {
-        todaySessions.push(session);
-      } else if (sessionDate.getTime() === yesterday.getTime()) {
-        yesterdaySessions.push(session);
-      } else if (sessionDate >= lastWeek) {
-        lastWeekSessions.push(session);
-      } else if (sessionDate >= lastMonth) {
-        lastMonthSessions.push(session);
-      } else {
-        olderSessions.push(session);
-      }
-    });
-
-    if (todaySessions.length > 0) {
-      groups.push({ label: 'Today', sessions: todaySessions });
-    }
-    if (yesterdaySessions.length > 0) {
-      groups.push({ label: 'Yesterday', sessions: yesterdaySessions });
-    }
-    if (lastWeekSessions.length > 0) {
-      groups.push({ label: 'Last 7 Days', sessions: lastWeekSessions });
-    }
-    if (lastMonthSessions.length > 0) {
-      groups.push({ label: 'Last 30 Days', sessions: lastMonthSessions });
-    }
-    if (olderSessions.length > 0) {
-      groups.push({ label: 'Older', sessions: olderSessions });
-    }
-
-    return groups;
-  };
-
-  const handleDelete = (session: ChatSession) => {
+  const handleDelete = useCallback((session: ChatSession) => {
     Alert.alert(
       'Delete Chat',
       `Are you sure you want to delete "${session.title}"?`,
@@ -97,16 +100,14 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
         },
       ]
     );
-  };
+  }, [onDeleteSession]);
 
-  const handleNewChat = () => {
+  const handleNewChat = useCallback(() => {
     onNewChat();
     onClose();
-  };
+  }, [onNewChat, onClose]);
 
-  const groupedSessions = groupSessionsByDate(sessions);
-
-  const renderSession = (session: ChatSession) => {
+  const renderSession = useCallback((session: ChatSession) => {
     const isSelected = session.id === currentSessionId;
     const messageCount = session.messages.length;
     const previewMessage = session.messages.find(m => m.role === 'user')?.content || '';
@@ -144,7 +145,7 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
         </TouchableOpacity>
       </TouchableOpacity>
     );
-  };
+  }, [currentSessionId, onSelectSession, handleDelete]);
 
   return (
     <Modal

@@ -36,6 +36,33 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 
 const MAX_TOOL_ITERATIONS = 5;
 
+// Moved outside component to avoid recreation on each render
+const getStatusStyle = (status: string) => {
+  switch (status) {
+    case 'active':
+      return { backgroundColor: 'rgba(34, 197, 94, 0.2)' };
+    case 'drifting':
+      return { backgroundColor: 'rgba(234, 179, 8, 0.2)' };
+    case 'lost':
+      return { backgroundColor: 'rgba(239, 68, 68, 0.2)' };
+    default:
+      return {};
+  }
+};
+
+const getPriorityStyle = (priority: string) => {
+  switch (priority) {
+    case 'high':
+      return { backgroundColor: '#ef4444' };
+    case 'medium':
+      return { backgroundColor: '#eab308' };
+    case 'low':
+      return { backgroundColor: '#22c55e' };
+    default:
+      return { backgroundColor: '#64748b' };
+  }
+};
+
 export const HomeScreen: React.FC = () => {
   const { user } = useAuth();
   const { settings, currentProviderConfigured, isLoading: llmLoading } = useLLMSettings();
@@ -505,6 +532,16 @@ export const HomeScreen: React.FC = () => {
   const suggestions = useMemo(() => getSuggestions(), []);
   const providerName = settings.provider === 'gemini' ? 'Gemini' : 'OpenAI';
 
+  // Memoized date strings to avoid creating Date objects in render
+  const { todayString, tomorrowString } = useMemo(() => {
+    const today = new Date();
+    const tomorrow = new Date(Date.now() + 86400000);
+    return {
+      todayString: today.toDateString(),
+      tomorrowString: tomorrow.toDateString(),
+    };
+  }, []);
+
   // Memoized dashboard calculations
   const { activeContacts, driftingContacts, pendingTasks, overdueTasks, upcomingTasks } = useMemo(() => {
     const now = new Date();
@@ -541,32 +578,6 @@ export const HomeScreen: React.FC = () => {
   const onRefresh = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
-  };
-
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case 'active':
-        return { backgroundColor: 'rgba(34, 197, 94, 0.2)' };
-      case 'drifting':
-        return { backgroundColor: 'rgba(234, 179, 8, 0.2)' };
-      case 'lost':
-        return { backgroundColor: 'rgba(239, 68, 68, 0.2)' };
-      default:
-        return {};
-    }
-  };
-
-  const getPriorityStyle = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return { backgroundColor: '#ef4444' };
-      case 'medium':
-        return { backgroundColor: '#eab308' };
-      case 'low':
-        return { backgroundColor: '#22c55e' };
-      default:
-        return { backgroundColor: '#64748b' };
-    }
   };
 
   const renderMessage = useCallback(
@@ -704,12 +715,9 @@ export const HomeScreen: React.FC = () => {
             {upcomingTasks.map((task) => {
               const contact = contacts.find((c) => c.id === task.contactId);
               const dueDate = task.dueDate ? new Date(task.dueDate) : null;
-              const isToday =
-                dueDate && dueDate.toDateString() === new Date().toDateString();
-              const isTomorrow =
-                dueDate &&
-                dueDate.toDateString() ===
-                  new Date(Date.now() + 86400000).toDateString();
+              const dueDateStr = dueDate?.toDateString();
+              const isToday = dueDateStr === todayString;
+              const isTomorrow = dueDateStr === tomorrowString;
 
               let dueDateText = task.dueDate;
               if (isToday) dueDateText = 'Today';

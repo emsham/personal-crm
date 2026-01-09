@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
-import { deriveEncryptionKey, loadCachedEncryptionKey, clearCachedEncryptionKey } from '../shared/crypto';
+import { deriveEncryptionKey, loadCachedEncryptionKeys, clearCachedEncryptionKey } from '../shared/crypto';
 import { subscribeToApiKeys, saveApiKey, deleteApiKey, deleteAllApiKeys, loadCachedApiKeys, cacheApiKeysLocally, clearCachedApiKeys } from '../services/apiKeyService';
 import { migrateSecureStoreApiKeys, clearLegacySecureStoreKeys } from '../services/apiKeyMigrationService';
 
@@ -37,45 +37,65 @@ const defaultSettings: LLMSettings = {
 
 const LLMSettingsContext = createContext<LLMSettingsContextType | undefined>(undefined);
 
+// Encryption keys state - mobile (10k iter) is fast, web (100k iter) is for cross-platform compat
+interface EncryptionKeys {
+  mobileKey: string;  // 10k iterations - fast, used for saving
+  webKey: string;     // 100k iterations - web compatibility for reading
+}
+
 export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading: authLoading } = useAuth();
   const [settings, setSettings] = useState<LLMSettings>(defaultSettings);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
+  const [encryptionKeys, setEncryptionKeys] = useState<EncryptionKeys | null>(null);
 
-  // Derive encryption key when user logs in
+  // Derive encryption keys when user logs in
+  // Mobile key (10k iter) is derived first and fast, web key (100k iter) is slower but needed for cross-platform
   useEffect(() => {
     if (!user?.uid) {
-      setEncryptionKey(null);
+      setEncryptionKeys(null);
       return;
     }
 
     let cancelled = false;
 
-    const initEncryptionKey = async () => {
-      // Try to load cached key first (fast path - no PBKDF2 needed)
-      const cachedKey = await loadCachedEncryptionKey(user.uid);
-      if (cachedKey && !cancelled) {
-        setEncryptionKey(cachedKey);
+    const initEncryptionKeys = async () => {
+      // Try to load cached keys first (fast path - no PBKDF2 needed)
+      const { mobileKey: cachedMobile, webKey: cachedWeb } = await loadCachedEncryptionKeys(user.uid);
+
+      // If we have both cached, use them immediately
+      if (cachedMobile && cachedWeb && !cancelled) {
+        setEncryptionKeys({ mobileKey: cachedMobile, webKey: cachedWeb });
         return;
       }
 
-      // No cached key - need to derive (slow path)
+      // Need to derive at least one key
       // Use requestAnimationFrame to yield one frame for animation, then derive
-      // This runs PBKDF2 during loading screen (visible delay) rather than after (frozen app)
       if (!cancelled) {
         requestAnimationFrame(() => {
           if (!cancelled) {
-            const key = deriveEncryptionKey(user.uid, user.uid);
-            setEncryptionKey(key);
+            // Derive mobile key first (10k iter - fast)
+            const mobileKey = cachedMobile || deriveEncryptionKey(user.uid, user.uid, false);
+
+            // Set mobile key immediately so app can start working
+            // Web key derivation happens in next frame to keep UI responsive
+            if (!cancelled) {
+              requestAnimationFrame(() => {
+                if (!cancelled) {
+                  // Derive web key (100k iter - slower but needed for cross-platform)
+                  const webKey = cachedWeb || deriveEncryptionKey(user.uid, user.uid, true);
+                  setEncryptionKeys({ mobileKey, webKey });
+                }
+              });
+            }
           }
         });
       }
     };
 
     // Small delay to let loading animation initialize
-    const timeoutId = setTimeout(initEncryptionKey, 100);
+    const timeoutId = setTimeout(initEncryptionKeys, 100);
 
     return () => {
       cancelled = true;
@@ -135,14 +155,15 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return;
     }
 
-    // If encryption key is not ready yet, wait for it
+    // If encryption keys are not ready yet, wait for them
     // PBKDF2 derivation runs during loading screen, so just wait
-    if (!encryptionKey) {
+    if (!encryptionKeys) {
       return;
     }
 
     // Run migration first (one-time, from SecureStore to Firestore)
-    migrateSecureStoreApiKeys(user.uid, encryptionKey).catch(console.error);
+    // Use mobile key for migration (fast)
+    migrateSecureStoreApiKeys(user.uid, encryptionKeys.mobileKey).catch(console.error);
 
     // Set up a timeout for Firestore in case it's slow/offline
     let didReceiveData = false;
@@ -154,24 +175,30 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }, 3000);
 
     // Subscribe to real-time updates from Firestore
-    const unsubscribe = subscribeToApiKeys(user.uid, encryptionKey, (keys) => {
-      didReceiveData = true;
-      setSettings(prev => ({
-        ...prev,
-        geminiApiKey: keys.gemini,
-        openaiApiKey: keys.openai,
-      }));
-      setIsLoading(false);
+    // Pass both keys so it can decrypt keys saved from either mobile (10k iter) or web (100k iter)
+    const unsubscribe = subscribeToApiKeys(
+      user.uid,
+      encryptionKeys.mobileKey,
+      encryptionKeys.webKey,
+      (keys) => {
+        didReceiveData = true;
+        setSettings(prev => ({
+          ...prev,
+          geminiApiKey: keys.gemini,
+          openaiApiKey: keys.openai,
+        }));
+        setIsLoading(false);
 
-      // Cache keys locally for instant startup next time
-      cacheApiKeysLocally(keys);
-    });
+        // Cache keys locally for instant startup next time
+        cacheApiKeysLocally(keys);
+      }
+    );
 
     return () => {
       clearTimeout(timeout);
       unsubscribe();
     };
-  }, [authLoading, user?.uid, encryptionKey]);
+  }, [authLoading, user?.uid, encryptionKeys]);
 
   // Check if any provider is configured
   const isConfigured = Boolean(settings.geminiApiKey || settings.openaiApiKey);
@@ -191,14 +218,15 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   const setGeminiApiKey = useCallback(async (key: string) => {
-    if (!user?.uid || !encryptionKey) return;
+    if (!user?.uid || !encryptionKeys) return;
 
     const trimmedKey = key.trim();
     setIsSyncing(true);
 
     try {
       if (trimmedKey) {
-        await saveApiKey(user.uid, 'gemini', trimmedKey, encryptionKey);
+        // Use mobile key (10k iter) for saving - fast encryption
+        await saveApiKey(user.uid, 'gemini', trimmedKey, encryptionKeys.mobileKey);
       } else {
         await deleteApiKey(user.uid, 'gemini');
       }
@@ -207,17 +235,18 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     } finally {
       setIsSyncing(false);
     }
-  }, [user?.uid, encryptionKey]);
+  }, [user?.uid, encryptionKeys]);
 
   const setOpenAIApiKey = useCallback(async (key: string) => {
-    if (!user?.uid || !encryptionKey) return;
+    if (!user?.uid || !encryptionKeys) return;
 
     const trimmedKey = key.trim();
     setIsSyncing(true);
 
     try {
       if (trimmedKey) {
-        await saveApiKey(user.uid, 'openai', trimmedKey, encryptionKey);
+        // Use mobile key (10k iter) for saving - fast encryption
+        await saveApiKey(user.uid, 'openai', trimmedKey, encryptionKeys.mobileKey);
       } else {
         await deleteApiKey(user.uid, 'openai');
       }
@@ -226,7 +255,7 @@ export const LLMSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     } finally {
       setIsSyncing(false);
     }
-  }, [user?.uid, encryptionKey]);
+  }, [user?.uid, encryptionKeys]);
 
   const clearApiKeys = useCallback(async () => {
     if (!user?.uid) return;

@@ -37,11 +37,16 @@ export const addContact = async (
   contact: Omit<Contact, 'id'>
 ): Promise<string> => {
   const contactsRef = collection(db, 'users', userId, 'contacts');
-  const docRef = await addDoc(contactsRef, {
-    ...contact,
+  const cleanContact: Record<string, unknown> = {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+  };
+  Object.entries(contact).forEach(([key, value]) => {
+    if (value !== undefined) {
+      cleanContact[key] = value;
+    }
   });
+  const docRef = await addDoc(contactsRef, cleanContact);
   return docRef.id;
 };
 

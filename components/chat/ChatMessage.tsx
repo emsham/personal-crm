@@ -365,23 +365,34 @@ const ToolResultCard: React.FC<{ result: ToolResult; contacts: Contact[]; onSele
       );
     }
 
-    // Success messages - compact inline indicator
-    if ('success' in data && data.success) {
-      return (
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-          <CheckCircle size={14} />
-          <span className="text-xs font-medium">
-            {'contactId' in data ? 'Contact added' :
-             'interactionId' in data ? 'Interaction logged' :
-             'taskId' in data ? 'Task created' :
-             'Done'}
-          </span>
-        </div>
-      );
+    // Success/failure messages - compact inline indicator
+    if ('success' in data) {
+      const d = data as { success: boolean; contactId?: string; taskId?: string; interactionId?: string; error?: string };
+      if (d.success) {
+        return (
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+            <CheckCircle size={14} />
+            <span className="text-xs font-medium">
+              {d.contactId ? 'Contact added' :
+               d.interactionId ? 'Interaction logged' :
+               d.taskId ? 'Task created' :
+               'Done'}
+            </span>
+          </div>
+        );
+      } else {
+        // Failed operation
+        return (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+            <AlertCircle size={16} />
+            <span className="text-sm">{d.error || 'Operation failed'}</span>
+          </div>
+        );
+      }
     }
 
-    // Stats overview (handles both simple and comprehensive "all" metric)
-    if ('totalContacts' in data) {
+    // Stats overview (handles both simple and comprehensive "all" metric) - but not error objects
+    if ('totalContacts' in data && !('error' in data)) {
       const statsData = data as Record<string, unknown>;
 
       // Separate scalar stats from nested data
@@ -455,7 +466,18 @@ const ToolResultCard: React.FC<{ result: ToolResult; contacts: Contact[]; onSele
       );
     }
 
-    // Generic object
+    // Error object fallback
+    if ('error' in data) {
+      const d = data as { error: string };
+      return (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+          <AlertCircle size={16} />
+          <span className="text-sm">{d.error}</span>
+        </div>
+      );
+    }
+
+    // Generic object - last resort
     return (
       <div className="px-4 py-3 rounded-xl glass overflow-x-auto">
         <pre className="text-xs text-slate-400 whitespace-pre-wrap">

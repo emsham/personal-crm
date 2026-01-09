@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,64 @@ import { useAuth } from '../contexts/AuthContext';
 import { subscribeToContacts } from '../services/firestoreService';
 import type { Contact } from '../types';
 import type { RootStackParamList } from '../navigation/AppNavigator';
+
+// Memoized contact card to prevent unnecessary re-renders
+const ContactCard = memo(({
+  item,
+  onPress
+}: {
+  item: Contact;
+  onPress: (id: string) => void;
+}) => (
+  <TouchableOpacity
+    style={styles.contactCard}
+    onPress={() => onPress(item.id)}
+  >
+    <View style={styles.avatar}>
+      <Text style={styles.avatarText}>
+        {item.firstName[0]}{item.lastName[0]}
+      </Text>
+    </View>
+    <View style={styles.contactInfo}>
+      <Text style={styles.contactName}>
+        {item.firstName} {item.lastName}
+      </Text>
+      <Text style={styles.contactCompany}>{item.company || item.position}</Text>
+      {item.tags.length > 0 && (
+        <View style={styles.tagsRow}>
+          {item.tags.slice(0, 3).map((tag) => (
+            <View key={tag} style={styles.tag}>
+              <Text style={styles.tagText}>{tag}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+    <View style={[styles.statusDot, styles[`dot_${item.status}`]]} />
+  </TouchableOpacity>
+));
+
+// Memoized filter button to prevent unnecessary re-renders
+const FilterButton = memo(({
+  status,
+  isActive,
+  onPress,
+}: {
+  status: 'all' | 'active' | 'drifting' | 'lost';
+  isActive: boolean;
+  onPress: (status: 'all' | 'active' | 'drifting' | 'lost') => void;
+}) => (
+  <TouchableOpacity
+    style={[styles.filterButton, isActive && styles.filterActive]}
+    onPress={() => onPress(status)}
+  >
+    <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
+      {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
+    </Text>
+  </TouchableOpacity>
+));
+
+const FILTER_OPTIONS = ['all', 'active', 'drifting', 'lost'] as const;
 
 export const ContactsScreen: React.FC = () => {
   const { user } = useAuth();
@@ -44,39 +102,22 @@ export const ContactsScreen: React.FC = () => {
     });
   }, [contacts, searchQuery, statusFilter]);
 
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
-  };
+  }, []);
+
+  const handleContactPress = useCallback((contactId: string) => {
+    navigation.navigate('ContactDetail', { contactId });
+  }, [navigation]);
+
+  const handleFilterPress = useCallback((status: 'all' | 'active' | 'drifting' | 'lost') => {
+    setStatusFilter(status);
+  }, []);
 
   const renderContact = useCallback(({ item }: { item: Contact }) => (
-    <TouchableOpacity
-      style={styles.contactCard}
-      onPress={() => navigation.navigate('ContactDetail', { contactId: item.id })}
-    >
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>
-          {item.firstName[0]}{item.lastName[0]}
-        </Text>
-      </View>
-      <View style={styles.contactInfo}>
-        <Text style={styles.contactName}>
-          {item.firstName} {item.lastName}
-        </Text>
-        <Text style={styles.contactCompany}>{item.company || item.position}</Text>
-        {item.tags.length > 0 && (
-          <View style={styles.tagsRow}>
-            {item.tags.slice(0, 3).map((tag) => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-      <View style={[styles.statusDot, styles[`dot_${item.status}`]]} />
-    </TouchableOpacity>
-  ), [navigation]);
+    <ContactCard item={item} onPress={handleContactPress} />
+  ), [handleContactPress]);
 
   return (
     <View style={styles.container}>
@@ -89,16 +130,13 @@ export const ContactsScreen: React.FC = () => {
       />
 
       <View style={styles.filterRow}>
-        {(['all', 'active', 'drifting', 'lost'] as const).map((status) => (
-          <TouchableOpacity
+        {FILTER_OPTIONS.map((status) => (
+          <FilterButton
             key={status}
-            style={[styles.filterButton, statusFilter === status && styles.filterActive]}
-            onPress={() => setStatusFilter(status)}
-          >
-            <Text style={[styles.filterText, statusFilter === status && styles.filterTextActive]}>
-              {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
-            </Text>
-          </TouchableOpacity>
+            status={status}
+            isActive={statusFilter === status}
+            onPress={handleFilterPress}
+          />
         ))}
       </View>
 

@@ -172,9 +172,9 @@ export const ToolResultCard: React.FC<ToolResultCardProps> = ({ result, contacts
     );
   }
 
-  // Render success response
+  // Render success/failure response for operations
   if (typeof data === 'object' && data !== null && 'success' in data) {
-    const d = data as { success: boolean; contactId?: string; taskId?: string; interactionId?: string };
+    const d = data as { success: boolean; contactId?: string; taskId?: string; interactionId?: string; error?: string };
     if (d.success) {
       let message = 'Operation completed successfully!';
       if (d.contactId) message = 'Contact created successfully!';
@@ -187,11 +187,18 @@ export const ToolResultCard: React.FC<ToolResultCardProps> = ({ result, contacts
           <Text style={styles.successText}>{message}</Text>
         </View>
       );
+    } else {
+      // Failed operation - don't render as stats
+      return (
+        <View style={styles.errorCard}>
+          <Text style={styles.errorText}>{d.error || 'Operation failed'}</Text>
+        </View>
+      );
     }
   }
 
-  // Render stats (overview, etc.)
-  if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+  // Render stats (overview, etc.) - but not error objects
+  if (typeof data === 'object' && data !== null && !Array.isArray(data) && !('error' in data)) {
     const statsData = data as Record<string, unknown>;
 
     // Separate scalar stats from nested data
@@ -270,6 +277,16 @@ export const ToolResultCard: React.FC<ToolResultCardProps> = ({ result, contacts
     return (
       <View style={styles.emptyCard}>
         <Text style={styles.emptyText}>No results found</Text>
+      </View>
+    );
+  }
+
+  // Error object fallback
+  if (typeof data === 'object' && data !== null && 'error' in data) {
+    const d = data as { error: string };
+    return (
+      <View style={styles.errorCard}>
+        <Text style={styles.errorText}>{d.error}</Text>
       </View>
     );
   }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -42,6 +42,31 @@ export const LogInteractionScreen: React.FC = () => {
     return unsubscribe;
   }, [user]);
 
+  // Memoized handlers to avoid inline function recreation
+  const handleSelectContact = useCallback((contactId: string) => {
+    setFormData((prev) => ({ ...prev, contactId }));
+    setShowContactPicker(false);
+  }, []);
+
+  const handleSelectType = useCallback((type: InteractionType) => {
+    setFormData((prev) => ({ ...prev, type }));
+  }, []);
+
+  const handleDateChange = useCallback((date: string) => {
+    setFormData((prev) => ({ ...prev, date }));
+  }, []);
+
+  const handleNotesChange = useCallback((notes: string) => {
+    setFormData((prev) => ({ ...prev, notes }));
+  }, []);
+
+  const selectedContact = useMemo(
+    () => contacts.find((c) => c.id === formData.contactId),
+    [contacts, formData.contactId]
+  );
+
+  const interactionTypes = useMemo(() => Object.values(InteractionType), []);
+
   const handleSubmit = async () => {
     if (!formData.contactId) {
       Alert.alert('Error', 'Please select a contact');
@@ -78,16 +103,18 @@ export const LogInteractionScreen: React.FC = () => {
     }
   };
 
-  const selectedContact = contacts.find((c) => c.id === formData.contactId);
-
-  const interactionTypes = Object.values(InteractionType);
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+      >
         <Text style={styles.sectionTitle}>Contact *</Text>
         <TouchableOpacity
           style={styles.contactPicker}
@@ -116,10 +143,7 @@ export const LogInteractionScreen: React.FC = () => {
               <TouchableOpacity
                 key={contact.id}
                 style={styles.contactItem}
-                onPress={() => {
-                  setFormData({ ...formData, contactId: contact.id });
-                  setShowContactPicker(false);
-                }}
+                onPress={() => handleSelectContact(contact.id)}
               >
                 <View style={styles.contactAvatar}>
                   <Text style={styles.contactAvatarText}>
@@ -144,7 +168,7 @@ export const LogInteractionScreen: React.FC = () => {
                 styles.typeButton,
                 formData.type === type && styles.typeSelected,
               ]}
-              onPress={() => setFormData({ ...formData, type })}
+              onPress={() => handleSelectType(type)}
             >
               <View style={styles.typeIconContainer}>
                 {type === InteractionType.MEETING && <Ionicons name="people-outline" size={20} color={formData.type === type ? '#fff' : '#94a3b8'} />}
@@ -172,7 +196,7 @@ export const LogInteractionScreen: React.FC = () => {
           placeholder="YYYY-MM-DD"
           placeholderTextColor="#64748b"
           value={formData.date}
-          onChangeText={(text) => setFormData({ ...formData, date: text })}
+          onChangeText={handleDateChange}
         />
 
         <Text style={styles.sectionTitle}>Notes *</Text>
@@ -181,7 +205,7 @@ export const LogInteractionScreen: React.FC = () => {
           placeholder="What did you talk about? Any action items?"
           placeholderTextColor="#64748b"
           value={formData.notes}
-          onChangeText={(text) => setFormData({ ...formData, notes: text })}
+          onChangeText={handleNotesChange}
           multiline
           numberOfLines={5}
           textAlignVertical="top"
@@ -216,7 +240,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 16,
+    paddingBottom: 40,
   },
   sectionTitle: {
     fontSize: 12,

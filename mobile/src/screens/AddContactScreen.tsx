@@ -139,6 +139,17 @@ export const AddContactScreen: React.FC = () => {
           keyboardType="phone-pad"
         />
 
+        <Text style={styles.sectionTitle}>Birthday</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="MM-DD (e.g., 05-15 for May 15)"
+          placeholderTextColor="#64748b"
+          value={formData.birthday}
+          onChangeText={(text) => setFormData({ ...formData, birthday: text })}
+          keyboardType="numbers-and-punctuation"
+          maxLength={5}
+        />
+
         <Text style={styles.sectionTitle}>Additional</Text>
         <TextInput
           style={styles.input}

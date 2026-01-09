@@ -23,12 +23,18 @@ const LOCAL_CACHE_KEY_OPENAI = 'nexus_cached_openai_key';
 
 /**
  * Subscribes to real-time updates of encrypted API keys from Firestore.
- * Automatically decrypts keys using the provided encryption key.
- * Falls back to legacy encryption key for backward compatibility.
+ * Automatically decrypts keys trying multiple encryption keys for cross-platform compatibility.
+ * Order of attempts: mobileKey (10k iter) -> webKey (100k iter) -> legacyKey
+ *
+ * @param userId - The user's Firebase UID
+ * @param mobileEncryptionKey - Key derived with 10k iterations (fast, mobile default)
+ * @param webEncryptionKey - Key derived with 100k iterations (web compatibility)
+ * @param callback - Called with decrypted keys whenever Firestore updates
  */
 export function subscribeToApiKeys(
   userId: string,
-  encryptionKey: string,
+  mobileEncryptionKey: string,
+  webEncryptionKey: string,
   callback: (keys: DecryptedApiKeys) => void
 ): () => void {
   const keysRef = collection(db, 'users', userId, 'apiKeys');
@@ -53,6 +59,19 @@ export function subscribeToApiKeys(
       return true;
     };
 
+    // Try to decrypt with a given key, returns decrypted value or null
+    const tryDecrypt = (encryptedData: EncryptedData, key: string): string | null => {
+      try {
+        const decrypted = decryptApiKey(encryptedData, key);
+        if (isValidApiKey(decrypted)) {
+          return decrypted;
+        }
+      } catch {
+        // Decryption failed
+      }
+      return null;
+    };
+
     snapshot.docs.forEach((doc) => {
       const data = doc.data();
       const encryptedData: EncryptedData = {
@@ -61,28 +80,30 @@ export function subscribeToApiKeys(
         version: data.encryptionVersion,
       };
 
-      // Try new encryption key first
-      try {
-        const decrypted = decryptApiKey(encryptedData, encryptionKey);
-        if (isValidApiKey(decrypted)) {
-          decryptedKeys[doc.id] = decrypted;
-        } else {
-          throw new Error('Decrypted key contains invalid characters');
-        }
-      } catch {
-        // Fall back to legacy key for backward compatibility (lazy-loaded)
-        try {
-          const decrypted = decryptApiKey(encryptedData, getLegacyKey());
-          if (isValidApiKey(decrypted)) {
-            decryptedKeys[doc.id] = decrypted;
-            if (__DEV__) console.log(`Decrypted ${doc.id} with legacy key`);
-          } else {
-            console.error(`Failed to decrypt key for ${doc.id}: Invalid characters in decrypted key`);
-          }
-        } catch (error) {
-          console.error(`Failed to decrypt key for ${doc.id}:`, error);
-        }
+      // Try mobile key first (10k iterations - most likely for mobile-saved keys)
+      let decrypted = tryDecrypt(encryptedData, mobileEncryptionKey);
+      if (decrypted) {
+        decryptedKeys[doc.id] = decrypted;
+        return;
       }
+
+      // Try web key (100k iterations - for keys saved from web app)
+      decrypted = tryDecrypt(encryptedData, webEncryptionKey);
+      if (decrypted) {
+        if (__DEV__) console.log(`Decrypted ${doc.id} with web iteration key`);
+        decryptedKeys[doc.id] = decrypted;
+        return;
+      }
+
+      // Fall back to legacy key for very old keys
+      decrypted = tryDecrypt(encryptedData, getLegacyKey());
+      if (decrypted) {
+        if (__DEV__) console.log(`Decrypted ${doc.id} with legacy key`);
+        decryptedKeys[doc.id] = decrypted;
+        return;
+      }
+
+      console.error(`Failed to decrypt key for ${doc.id}: No valid key found`);
     });
 
     callback(decryptedKeys);

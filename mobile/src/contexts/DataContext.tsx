@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { useNotifications } from './NotificationContext';
 import { subscribeToContacts, subscribeToTasks } from '../services/firestoreService';
@@ -22,6 +22,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // Track if initial load is complete
   const initialLoadRef = useRef({ contacts: false, tasks: false });
+
+  // Store notification callbacks in refs to avoid effect dependency issues
+  const scheduleContactNotificationsRef = useRef(scheduleContactNotifications);
+  const scheduleTaskNotificationsRef = useRef(scheduleTaskNotifications);
+  scheduleContactNotificationsRef.current = scheduleContactNotifications;
+  scheduleTaskNotificationsRef.current = scheduleTaskNotifications;
 
   // Subscribe to Firestore data
   useEffect(() => {
@@ -63,18 +69,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     const timeoutId = setTimeout(() => {
       if (contacts.length > 0) {
-        scheduleContactNotifications(contacts);
+        scheduleContactNotificationsRef.current(contacts);
       }
       if (tasks.length > 0) {
-        scheduleTaskNotifications(tasks);
+        scheduleTaskNotificationsRef.current(tasks);
       }
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [contacts, tasks, permissionStatus, isLoading, scheduleContactNotifications, scheduleTaskNotifications]);
+  }, [contacts, tasks, permissionStatus, isLoading]);
+
+  const value = useMemo(() => ({ contacts, tasks, isLoading }), [contacts, tasks, isLoading]);
 
   return (
-    <DataContext.Provider value={{ contacts, tasks, isLoading }}>
+    <DataContext.Provider value={value}>
       {children}
     </DataContext.Provider>
   );

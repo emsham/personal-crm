@@ -2,7 +2,10 @@ import CryptoJS from 'crypto-js';
 import { EncryptedData } from './types';
 
 const ENCRYPTION_VERSION = 1;
-const PBKDF2_ITERATIONS = 100000;
+// Web uses 100k iterations for encryption (more secure)
+const PBKDF2_ITERATIONS_WEB = 100000;
+// Mobile uses 10k iterations (faster UX) - we need to support decrypting these
+const PBKDF2_ITERATIONS_MOBILE = 10000;
 const KEY_SIZE = 256 / 32; // 256 bits
 
 // Legacy default for backward compatibility with existing encrypted keys
@@ -14,18 +17,37 @@ const LEGACY_DEFAULT_PASSPHRASE = 'nexus-default-key-material';
  *
  * @param userId - The user's Firebase UID (used as salt component)
  * @param passphrase - Required passphrase for key derivation (typically the userId itself)
+ * @param useMobileIterations - If true, uses 10k iterations (mobile compat). Default false (100k, web default)
  * @throws Error if passphrase is not provided
  */
-export function deriveEncryptionKey(userId: string, passphrase?: string): string {
+export function deriveEncryptionKey(
+  userId: string,
+  passphrase?: string,
+  useMobileIterations: boolean = false
+): string {
   if (!passphrase) {
     throw new Error('Passphrase is required for key derivation');
   }
   const salt = `${userId}-nexus-api-key-encryption-v1`;
+  const iterations = useMobileIterations ? PBKDF2_ITERATIONS_MOBILE : PBKDF2_ITERATIONS_WEB;
 
   return CryptoJS.PBKDF2(passphrase, salt, {
     keySize: KEY_SIZE,
-    iterations: PBKDF2_ITERATIONS,
+    iterations,
   }).toString();
+}
+
+/**
+ * Derives both web (100k iterations) and mobile (10k iterations) encryption keys.
+ * Used for decryption when we don't know which key was used to encrypt.
+ */
+export function deriveEncryptionKeys(
+  userId: string,
+  passphrase: string
+): { webKey: string; mobileKey: string } {
+  const webKey = deriveEncryptionKey(userId, passphrase, false);
+  const mobileKey = deriveEncryptionKey(userId, passphrase, true);
+  return { webKey, mobileKey };
 }
 
 /**
@@ -75,6 +97,41 @@ export function decryptApiKey(encryptedData: EncryptedData, encryptionKey: strin
   });
 
   return decrypted.toString(CryptoJS.enc.Utf8);
+}
+
+/**
+ * Attempts to decrypt an API key trying multiple encryption keys.
+ * Tries web iteration key first (100k), then mobile iteration key (10k).
+ * Returns decrypted key or empty string if all attempts fail.
+ */
+export function decryptApiKeyWithFallback(
+  encryptedData: EncryptedData,
+  userId: string,
+  passphrase: string
+): string {
+  // Try web iterations first (100k - most likely for web-saved keys)
+  const webKey = deriveEncryptionKey(userId, passphrase, false);
+  try {
+    const result = decryptApiKey(encryptedData, webKey);
+    if (result && result.length > 0) {
+      return result;
+    }
+  } catch {
+    // Decryption failed with web key, try mobile key
+  }
+
+  // Try mobile iterations (10k - for keys saved from mobile app)
+  const mobileKey = deriveEncryptionKey(userId, passphrase, true);
+  try {
+    const result = decryptApiKey(encryptedData, mobileKey);
+    if (result && result.length > 0) {
+      return result;
+    }
+  } catch {
+    // Decryption failed with mobile key too
+  }
+
+  return '';
 }
 
 /**
