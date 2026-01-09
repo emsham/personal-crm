@@ -1,21 +1,23 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
 import {
   View,
   TextInput,
   TouchableOpacity,
   Text,
   StyleSheet,
-  NativeSyntheticEvent,
-  TextInputContentSizeChangeEventData,
-  Platform,
   Keyboard,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+export interface ChatInputRef {
+  clear: () => void;
+  focus: () => void;
+  getText: () => string;
+}
+
 interface ChatInputProps {
-  value: string;
-  onChangeText: (text: string) => void;
-  onSend: () => void;
+  onSend: (text: string) => void;
   onStop?: () => void;
   isLoading: boolean;
   isStreaming: boolean;
@@ -24,196 +26,191 @@ interface ChatInputProps {
   providerName?: string;
 }
 
-// Constants for height calculation
-const MIN_HEIGHT = 44;
 const MAX_HEIGHT = 120;
-const LINE_HEIGHT = 20; // Approximate line height for fontSize 15
-const VERTICAL_PADDING = 24; // paddingTop + paddingBottom (12 + 12)
-const CHARS_PER_LINE = 32; // Approximate characters before text wraps
 
-export const ChatInput: React.FC<ChatInputProps> = ({
-  value,
-  onChangeText,
-  onSend,
-  onStop,
-  isLoading,
-  isStreaming,
-  isConfigured,
-  placeholder = "Ask about your contacts...",
-  providerName,
-}) => {
-  const [inputHeight, setInputHeight] = useState(MIN_HEIGHT);
-  const inputRef = useRef<TextInput>(null);
-  const insets = useSafeAreaInsets();
-  const prevValueLengthRef = useRef(0);
-  const currentHeightRef = useRef(MIN_HEIGHT);
-
-  // Keep ref in sync with state (avoids stale closures)
-  currentHeightRef.current = inputHeight;
-
-  // Stable callback - no dependencies needed since we use refs
-  const handleContentSizeChange = useCallback(
-    (e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
-      const newHeight = Math.min(
-        Math.max(MIN_HEIGHT, e.nativeEvent.contentSize.height),
-        MAX_HEIGHT
-      );
-      if (newHeight !== currentHeightRef.current) {
-        setInputHeight(newHeight);
-      }
+export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
+  (
+    {
+      onSend,
+      onStop,
+      isLoading,
+      isStreaming,
+      isConfigured,
+      placeholder = "Ask about your contacts...",
+      providerName,
     },
-    []
-  );
+    ref
+  ) => {
+    const [text, setText] = useState("");
+    const inputRef = useRef<TextInput>(null);
+    const insets = useSafeAreaInsets();
 
-  // iOS workaround: onContentSizeChange doesn't reliably fire when content shrinks
-  // Calculate estimated height when text is deleted
-  useEffect(() => {
-    const currentLength = value.length;
-    const wasDeleted = currentLength < prevValueLengthRef.current;
-    prevValueLengthRef.current = currentLength;
+    useImperativeHandle(ref, () => ({
+      clear: () => {
+        setText("");
+      },
+      focus: () => {
+        inputRef.current?.focus();
+      },
+      getText: () => text,
+    }));
 
-    if (!value || currentLength === 0) {
-      // Text cleared completely
-      setInputHeight(MIN_HEIGHT);
-      return;
-    }
-
-    // Only recalculate on deletion (iOS doesn't fire onContentSizeChange reliably for shrinks)
-    if (wasDeleted && Platform.OS === 'ios') {
-      // Estimate wrapped lines based on text length between newlines
-      const lines = value.split('\n');
-      let totalLines = 0;
-      for (const line of lines) {
-        // Each line takes at least 1 line, plus additional lines for wrapping
-        totalLines += Math.max(1, Math.ceil(line.length / CHARS_PER_LINE));
+    // Manually handle sentence capitalization since autoCapitalize is buggy on iOS
+    const handleChangeText = useCallback((newText: string) => {
+      if (newText.length === 0) {
+        setText("");
+        return;
       }
 
-      const estimatedHeight = Math.min(
-        MAX_HEIGHT,
-        Math.max(MIN_HEIGHT, totalLines * LINE_HEIGHT + VERTICAL_PADDING)
-      );
+      let result = newText;
 
-      // Only shrink, never grow (let onContentSizeChange handle growth)
-      if (estimatedHeight < currentHeightRef.current) {
-        setInputHeight(estimatedHeight);
+      // Capitalize first character of input
+      if (result.charAt(0).match(/[a-z]/)) {
+        result = result.charAt(0).toUpperCase() + result.slice(1);
       }
-    }
-  }, [value]); // Removed inputHeight dependency - use ref instead
 
-  const handleSubmit = useCallback(() => {
-    if (value.trim() && !isLoading && !isStreaming) {
-      Keyboard.dismiss(); // Dismiss keyboard when sending message
-      onSend();
-    }
-  }, [value, isLoading, isStreaming, onSend]);
+      // Check if we just typed a letter after sentence-ending punctuation + space
+      if (result.length >= 3) {
+        const lastChar = result.slice(-1);
+        const beforeLast = result.slice(-3, -1);
 
-  const canSend =
-    value.trim().length > 0 && isConfigured && !isLoading && !isStreaming;
-  const showStop = isStreaming && onStop;
+        // Patterns like ". a" or "! b" or "? c" or ".\na"
+        if (lastChar.match(/[a-z]/) &&
+            (beforeLast.match(/[.!?]\s/) || beforeLast.match(/[.!?]\n/))) {
+          result = result.slice(0, -1) + lastChar.toUpperCase();
+        }
+      }
 
-  return (
-    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
-      {/* Provider indicator */}
-      {isConfigured && providerName && (
-        <View style={styles.providerIndicator}>
-          <View style={styles.providerDot} />
-          <Text style={styles.providerText}>{providerName}</Text>
-        </View>
-      )}
+      setText(result);
+    }, []);
 
-      <View style={styles.inputRow}>
-        <TextInput
-          ref={inputRef}
-          style={[styles.input, { minHeight: inputHeight }]}
-          placeholder={
-            isConfigured ? placeholder : "Configure AI provider to start..."
-          }
-          placeholderTextColor="#64748b"
-          value={value}
-          onChangeText={onChangeText}
-          onSubmitEditing={handleSubmit}
-          onContentSizeChange={handleContentSizeChange}
-          multiline
-          returnKeyType="default"
-          editable={isConfigured}
-          blurOnSubmit={false}
-          autoCorrect={true}
-          autoCapitalize="sentences"
-          spellCheck={true}
-          scrollEnabled={true}
-          keyboardType="default"
-        />
+    const handleSubmit = useCallback(() => {
+      const trimmedText = text.trim();
+      if (trimmedText && !isLoading && !isStreaming) {
+        Keyboard.dismiss();
+        onSend(trimmedText);
+        setText("");
+      }
+    }, [text, isLoading, isStreaming, onSend]);
 
-        {showStop ? (
-          <TouchableOpacity style={styles.stopButton} onPress={onStop}>
-            <View style={styles.stopIcon} />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
-            onPress={handleSubmit}
-            disabled={!canSend}
-          >
-            {isLoading ? (
-              <View style={styles.loadingDots}>
-                <View style={styles.loadingDot} />
-                <View style={[styles.loadingDot, styles.loadingDot2]} />
-                <View style={[styles.loadingDot, styles.loadingDot3]} />
-              </View>
-            ) : (
-              <Text style={styles.sendIcon}>↑</Text>
-            )}
-          </TouchableOpacity>
+    const canSend = text.trim().length > 0 && isConfigured && !isLoading && !isStreaming;
+    const showStop = isStreaming && onStop;
+
+    // Minimal bottom padding - just enough for safe area
+    const bottomPadding = Math.max(insets.bottom, 4);
+
+    return (
+      <View style={[styles.wrapper, { paddingBottom: bottomPadding }]}>
+        {/* Provider indicator - more compact */}
+        {isConfigured && providerName && (
+          <View style={styles.providerIndicator}>
+            <View style={styles.providerDot} />
+            <Text style={styles.providerText}>{providerName}</Text>
+          </View>
         )}
+
+        <View style={styles.inputRow}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              ref={inputRef}
+              style={styles.input}
+              value={text}
+              onChangeText={handleChangeText}
+              placeholder={
+                isConfigured ? placeholder : "Configure AI provider to start..."
+              }
+              placeholderTextColor="#64748b"
+              multiline
+              editable={isConfigured}
+              autoCapitalize="sentences"
+              autoCorrect={true}
+              spellCheck={true}
+            />
+          </View>
+
+          {showStop ? (
+            <TouchableOpacity
+              style={styles.stopButton}
+              onPress={onStop}
+              activeOpacity={0.7}
+            >
+              <View style={styles.stopIcon} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
+              onPress={handleSubmit}
+              disabled={!canSend}
+              activeOpacity={0.7}
+            >
+              {isLoading ? (
+                <View style={styles.loadingDots}>
+                  <View style={styles.loadingDot} />
+                  <View style={[styles.loadingDot, styles.loadingDot2]} />
+                  <View style={[styles.loadingDot, styles.loadingDot3]} />
+                </View>
+              ) : (
+                <Text style={[styles.sendIcon, !canSend && styles.sendIconDisabled]}>
+                  ↑
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-    </View>
-  );
-};
+    );
+  }
+);
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     backgroundColor: "#0f172a",
-    padding: 12,
+    paddingTop: 6,
+    paddingHorizontal: 8,
   },
   providerIndicator: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
-    paddingHorizontal: 4,
+    marginBottom: 4,
+    marginLeft: 8,
   },
   providerDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: "#22c55e",
-    marginRight: 6,
+    marginRight: 5,
   },
   providerText: {
-    fontSize: 11,
+    fontSize: 10,
     color: "#64748b",
   },
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 8,
   },
-  input: {
+  inputContainer: {
     flex: 1,
     backgroundColor: "#1e293b",
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    fontSize: 15,
-    color: "#fff",
     borderWidth: 1,
     borderColor: "#334155",
+    marginRight: 8,
     maxHeight: MAX_HEIGHT,
   },
+  input: {
+    fontSize: 16,
+    color: "#fff",
+    paddingHorizontal: 14,
+    paddingTop: Platform.OS === "ios" ? 10 : 8,
+    paddingBottom: Platform.OS === "ios" ? 10 : 8,
+    maxHeight: MAX_HEIGHT - 2,
+    minHeight: 40,
+  },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#8b5cf6",
     justifyContent: "center",
     alignItems: "center",
@@ -223,31 +220,34 @@ const styles = StyleSheet.create({
   },
   sendIcon: {
     color: "#fff",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "600",
   },
+  sendIconDisabled: {
+    color: "#64748b",
+  },
   stopButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#ef4444",
     justifyContent: "center",
     alignItems: "center",
   },
   stopIcon: {
-    width: 14,
-    height: 14,
+    width: 12,
+    height: 12,
     backgroundColor: "#fff",
     borderRadius: 2,
   },
   loadingDots: {
     flexDirection: "row",
-    gap: 3,
+    gap: 2,
   },
   loadingDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: "#fff",
     opacity: 0.4,
   },

@@ -113,8 +113,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
-    marginVertical: 4,
+    paddingHorizontal: 12,
+    marginVertical: 3,
   },
   userContainer: {
     alignItems: 'flex-end',
@@ -124,8 +124,9 @@ const styles = StyleSheet.create({
   },
   bubble: {
     maxWidth: '85%',
-    padding: 12,
-    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 18,
   },
   userBubble: {
     backgroundColor: '#8b5cf6',
@@ -146,9 +147,9 @@ const styles = StyleSheet.create({
     color: '#e2e8f0',
   },
   toolResultsContainer: {
-    paddingHorizontal: 16,
-    marginVertical: 4,
-    gap: 8,
+    paddingHorizontal: 12,
+    marginVertical: 3,
+    gap: 6,
   },
   streamingIndicator: {
     flexDirection: 'row',

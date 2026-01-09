@@ -28,7 +28,7 @@ import {
 } from '../services/aiService';
 import { executeToolCall, CRMData, ToolResult } from '../services/toolExecutors';
 import { ToolCall } from '../shared/ai/types';
-import { ChatMessage, ChatMessageData, ChatInput, ChatHistoryModal } from '../components/chat';
+import { ChatMessage, ChatMessageData, ChatInput, ChatInputRef, ChatHistoryModal } from '../components/chat';
 import { LLMSettingsModal } from '../components/LLMSettingsModal';
 import { LoadingDots } from '../components/ui';
 import type { Contact, Task, Interaction } from '../types';
@@ -91,11 +91,11 @@ export const HomeScreen: React.FC = () => {
 
   // Chat state - use context for messages
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
-  const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const chatInputRef = useRef<ChatInputRef>(null);
 
   // Track last known AI configuration state to avoid abrupt transitions
   const [lastKnownConfigured, setLastKnownConfigured] = useState<boolean | null>(null);
@@ -274,8 +274,8 @@ export const HomeScreen: React.FC = () => {
     [user, contacts, tasks, interactions, settings, saveCurrentSession]
   );
 
-  const handleSend = useCallback(async () => {
-    if (!inputValue.trim() || isLoading || isStreaming || !currentProviderConfigured) return;
+  const handleSend = useCallback(async (inputText: string) => {
+    if (!inputText.trim() || isLoading || isStreaming || !currentProviderConfigured) return;
 
     const apiKey =
       settings.provider === 'gemini' ? settings.geminiApiKey : settings.openaiApiKey;
@@ -288,12 +288,11 @@ export const HomeScreen: React.FC = () => {
     const userMessage: ChatMessageData = {
       id: `msg_${Date.now()}_user`,
       role: 'user',
-      content: inputValue.trim(),
+      content: inputText.trim(),
     };
 
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
-    setInputValue('');
     setIsLoading(true);
     setIsStreaming(true);
 
@@ -388,7 +387,6 @@ export const HomeScreen: React.FC = () => {
       setIsLoading(false);
     }
   }, [
-    inputValue,
     messages,
     isLoading,
     isStreaming,
@@ -593,7 +591,7 @@ export const HomeScreen: React.FC = () => {
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <LoadingDots size="lg" style={{ marginBottom: 24 }} />
+      <LoadingDots size="lg" style={{ marginBottom: 16 }} />
       <Text style={styles.emptyTitle}>tethru AI</Text>
       <Text style={styles.emptySubtitle}>
         {currentProviderConfigured
@@ -902,8 +900,7 @@ export const HomeScreen: React.FC = () => {
 
         {/* Input */}
         <ChatInput
-          value={inputValue}
-          onChangeText={setInputValue}
+          ref={chatInputRef}
           onSend={handleSend}
           onStop={handleStop}
           isLoading={isLoading}
@@ -944,20 +941,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#1e293b',
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    minWidth: 80,
+    minWidth: 72,
   },
   iconButton: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 10,
     backgroundColor: '#1e293b',
     justifyContent: 'center',
@@ -982,13 +979,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: 4,
-    minWidth: 80,
+    minWidth: 72,
   },
   messagesList: {
     flex: 1,
   },
   messagesContent: {
-    paddingVertical: 16,
+    paddingVertical: 8,
   },
   emptyContainer: {
     flexGrow: 1,
@@ -996,31 +993,32 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 48,
+    paddingHorizontal: 24,
+    paddingVertical: 24,
   },
   emptyTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
     color: '#fff',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   emptySubtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#64748b',
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   suggestionsGrid: {
     width: '100%',
-    gap: 12,
+    gap: 8,
   },
   suggestionCard: {
     backgroundColor: '#1e293b',
     borderWidth: 1,
     borderColor: 'rgba(139, 92, 246, 0.2)',
     borderRadius: 12,
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
   suggestionText: {
     color: '#a78bfa',
