@@ -2,6 +2,8 @@ import {
   collection,
   doc,
   setDoc,
+  updateDoc,
+  getDoc,
   deleteDoc,
   onSnapshot,
   serverTimestamp,
@@ -101,6 +103,7 @@ export function subscribeToApiKeys(
 
 /**
  * Saves an encrypted API key to Firestore.
+ * Properly handles create vs update to maintain createdAt timestamp.
  */
 export async function saveApiKey(
   userId: string,
@@ -110,16 +113,29 @@ export async function saveApiKey(
 ): Promise<void> {
   const keyRef = doc(db, 'users', userId, 'apiKeys', providerId);
   const encrypted = encryptApiKey(apiKey, encryptionKey);
+  const docSnap = await getDoc(keyRef);
 
-  await setDoc(keyRef, {
-    providerId,
-    encryptedKey: encrypted.ciphertext,
-    iv: encrypted.iv,
-    encryptionVersion: encrypted.version,
-    keyHint: getKeyHint(apiKey),
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  if (docSnap.exists()) {
+    // Update existing - preserve createdAt, only update the encrypted data
+    await updateDoc(keyRef, {
+      encryptedKey: encrypted.ciphertext,
+      iv: encrypted.iv,
+      encryptionVersion: encrypted.version,
+      keyHint: getKeyHint(apiKey),
+      updatedAt: serverTimestamp(),
+    });
+  } else {
+    // Create new - set both timestamps
+    await setDoc(keyRef, {
+      providerId,
+      encryptedKey: encrypted.ciphertext,
+      iv: encrypted.iv,
+      encryptionVersion: encrypted.version,
+      keyHint: getKeyHint(apiKey),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
 }
 
 /**

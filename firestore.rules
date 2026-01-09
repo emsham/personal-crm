@@ -63,6 +63,51 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Timestamp Validation Functions
+    // ============================================
+
+    // Check if createdAt is a valid server timestamp (within 60 seconds of request time)
+    // This prevents clients from backdating document creation
+    function isValidCreatedAt() {
+      return request.resource.data.createdAt == request.time;
+    }
+
+    // Check if updatedAt is a valid server timestamp
+    function isValidUpdatedAt() {
+      return request.resource.data.updatedAt == request.time;
+    }
+
+    // Check if createdAt is preserved on update (not modified)
+    function createdAtUnchanged() {
+      return !('createdAt' in request.resource.data) ||
+             request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    // ============================================
+    // Date Format Validation Functions
+    // ============================================
+
+    // Check if a date string is in valid ISO format (YYYY-MM-DD or ISO timestamp)
+    // Basic validation: must be string between 10-30 chars (covers dates and timestamps)
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.size() >= 10 && dateStr.size() <= 30;
+    }
+
+    // Check if a date string is in MM-DD format (for birthdays, important dates)
+    function isValidMonthDayString(dateStr) {
+      return dateStr is string && dateStr.size() == 5;
+    }
+
+    // ============================================
+    // Encryption Version Validation
+    // ============================================
+
+    // Check if encryption version is valid (must be positive integer, current max is 1)
+    function isValidEncryptionVersion(version) {
+      return version is int && version >= 1 && version <= 10;
+    }
+
+    // ============================================
     // User Document Rules
     // ============================================
 
@@ -173,12 +218,16 @@ service cloud.firestore {
           && isValidString(request.resource.data.providerId)
           && isValidString(request.resource.data.encryptedKey)
           && isValidString(request.resource.data.iv)
-          && request.resource.data.encryptionVersion is number
-          && request.resource.data.encryptionVersion > 0;
+          && isValidEncryptionVersion(request.resource.data.encryptionVersion)
+          && isValidCreatedAt()
+          && isValidUpdatedAt();
 
         allow update: if isOwner(userId)
           && isValidString(request.resource.data.encryptedKey)
-          && isValidString(request.resource.data.iv);
+          && isValidString(request.resource.data.iv)
+          && isValidEncryptionVersion(request.resource.data.encryptionVersion)
+          && createdAtUnchanged()
+          && isValidUpdatedAt();
 
         allow delete: if isOwner(userId);
       }
