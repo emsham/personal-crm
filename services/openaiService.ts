@@ -1,7 +1,16 @@
 import { ChatMessage, ToolDefinition, ToolCall } from "../types";
 import { LLMService, LLMCompletionOptions, LLMStreamChunk, registerLLMService } from "./llmService";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { auth } from "./firebase";
 
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+// Get the Firebase Functions region - update this if you deploy to a different region
+const functions = getFunctions(undefined, 'us-central1');
+
+// Get the project ID from Firebase config for the streaming endpoint URL
+const getStreamProxyUrl = (): string => {
+  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+  return `https://us-central1-${projectId}.cloudfunctions.net/openaiStreamProxy`;
+};
 
 interface OpenAIMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -91,29 +100,23 @@ function convertToOpenAITools(tools: ToolDefinition[]): unknown[] {
 }
 
 export function createOpenAIService(apiKey: string): LLMService {
+  const openaiProxy = httpsCallable<{
+    apiKey: string;
+    messages: OpenAIMessage[];
+    tools?: unknown[];
+  }, { choices: Array<{ message: { content: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> } }> }>(functions, 'openaiProxy');
+
   return {
     isAvailable: () => true,
 
     async complete(options: LLMCompletionOptions): Promise<ChatMessage> {
-      const response = await fetch(OPENAI_API_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: formatMessagesForOpenAI(options.messages, options.systemPrompt),
-          ...(options.tools && { tools: convertToOpenAITools(options.tools) }),
-        }),
+      const result = await openaiProxy({
+        apiKey,
+        messages: formatMessagesForOpenAI(options.messages, options.systemPrompt),
+        ...(options.tools && { tools: convertToOpenAITools(options.tools) }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || 'OpenAI API error');
-      }
-
-      const data = await response.json();
+      const data = result.data;
       const choice = data.choices[0];
       const message = choice.message;
 
@@ -136,17 +139,24 @@ export function createOpenAIService(apiKey: string): LLMService {
       try {
         const formattedMessages = formatMessagesForOpenAI(options.messages, options.systemPrompt);
 
-        const response = await fetch(OPENAI_API_URL, {
+        // Get the Firebase ID token for authentication
+        const user = auth.currentUser;
+        if (!user) {
+          yield { type: 'error', error: 'User not authenticated' };
+          return;
+        }
+        const idToken = await user.getIdToken();
+
+        const response = await fetch(getStreamProxyUrl(), {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
+            'Authorization': `Bearer ${idToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            apiKey,
             messages: formattedMessages,
             ...(options.tools && { tools: convertToOpenAITools(options.tools) }),
-            stream: true,
           }),
         });
 
