@@ -1,16 +1,8 @@
 import { ChatMessage, ToolDefinition, ToolCall } from "../types";
 import { LLMService, LLMCompletionOptions, LLMStreamChunk, registerLLMService } from "./llmService";
-import { getFunctions, httpsCallable } from "firebase/functions";
-import { auth } from "./firebase";
 
-// Get the Firebase Functions region - update this if you deploy to a different region
-const functions = getFunctions(undefined, 'us-central1');
-
-// Get the project ID from Firebase config for the streaming endpoint URL
-const getStreamProxyUrl = (): string => {
-  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
-  return `https://us-central1-${projectId}.cloudfunctions.net/openaiStreamProxy`;
-};
+// Cloudflare Worker proxy URL - update this after deploying the worker
+const PROXY_URL = import.meta.env.VITE_OPENAI_PROXY_URL || 'https://openai-proxy.YOUR_SUBDOMAIN.workers.dev';
 
 interface OpenAIMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -100,27 +92,32 @@ function convertToOpenAITools(tools: ToolDefinition[]): unknown[] {
 }
 
 export function createOpenAIService(apiKey: string): LLMService {
-  const openaiProxy = httpsCallable<{
-    apiKey: string;
-    messages: OpenAIMessage[];
-    tools?: unknown[];
-  }, { choices: Array<{ message: { content: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> } }> }>(functions, 'openaiProxy');
-
   return {
     isAvailable: () => true,
 
     async complete(options: LLMCompletionOptions): Promise<ChatMessage> {
-      const result = await openaiProxy({
-        apiKey,
-        messages: formatMessagesForOpenAI(options.messages, options.systemPrompt),
-        ...(options.tools && { tools: convertToOpenAITools(options.tools) }),
+      const response = await fetch(PROXY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          apiKey,
+          messages: formatMessagesForOpenAI(options.messages, options.systemPrompt),
+          ...(options.tools && { tools: convertToOpenAITools(options.tools) }),
+        }),
       });
 
-      const data = result.data;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || 'OpenAI API error');
+      }
+
+      const data = await response.json();
       const choice = data.choices[0];
       const message = choice.message;
 
-      const toolCalls: ToolCall[] = message.tool_calls?.map((tc: any) => ({
+      const toolCalls: ToolCall[] = message.tool_calls?.map((tc: { id: string; function: { name: string; arguments: string } }) => ({
         id: tc.id,
         name: tc.function.name,
         arguments: JSON.parse(tc.function.arguments || '{}')
@@ -139,24 +136,16 @@ export function createOpenAIService(apiKey: string): LLMService {
       try {
         const formattedMessages = formatMessagesForOpenAI(options.messages, options.systemPrompt);
 
-        // Get the Firebase ID token for authentication
-        const user = auth.currentUser;
-        if (!user) {
-          yield { type: 'error', error: 'User not authenticated' };
-          return;
-        }
-        const idToken = await user.getIdToken();
-
-        const response = await fetch(getStreamProxyUrl(), {
+        const response = await fetch(PROXY_URL, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${idToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             apiKey,
             messages: formattedMessages,
             ...(options.tools && { tools: convertToOpenAITools(options.tools) }),
+            stream: true,
           }),
         });
 

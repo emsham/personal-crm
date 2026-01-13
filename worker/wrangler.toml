@@ -1,0 +1,7 @@
+name = "openai-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[vars]
+# Add your allowed origins here (comma-separated)
+ALLOWED_ORIGINS = "https://tethru.com,http://localhost:5173"
