@@ -10,7 +10,9 @@ import {
 import { CRM_TOOLS } from '../shared/ai/toolDefinitions';
 import { buildSystemPrompt } from '../shared/ai/systemPrompt';
 
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+// Use Cloudflare Worker proxy to bypass CORS restrictions (and for consistency with web)
+// Set this in your .env file as EXPO_PUBLIC_OPENAI_PROXY_URL
+const OPENAI_PROXY_URL = process.env.EXPO_PUBLIC_OPENAI_PROXY_URL || 'https://openai-proxy.YOUR_SUBDOMAIN.workers.dev';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash';
 
 export interface ChatMessage {
@@ -202,8 +204,7 @@ export async function streamOpenAI(
     let lastProcessedIndex = 0;
     const toolCallBuffers: Map<number, { id: string; name: string; arguments: string }> = new Map();
 
-    xhr.open('POST', OPENAI_API_URL);
-    xhr.setRequestHeader('Authorization', `Bearer ${apiKey}`);
+    xhr.open('POST', OPENAI_PROXY_URL);
     xhr.setRequestHeader('Content-Type', 'application/json');
 
     // Handle abort signal
@@ -292,6 +293,7 @@ export async function streamOpenAI(
     };
 
     xhr.send(JSON.stringify({
+      apiKey,
       model: 'gpt-4o-mini',
       messages: formatMessagesForOpenAI(messages, systemPrompt),
       tools: convertToOpenAITools(CRM_TOOLS),
@@ -424,13 +426,13 @@ export async function sendAIMessage(
   ];
 
   if (options.provider === 'openai') {
-    const response = await fetch(OPENAI_API_URL, {
+    const response = await fetch(OPENAI_PROXY_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${options.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        apiKey: options.apiKey,
         model: 'gpt-4o-mini',
         messages: formatMessagesForOpenAI(messages, systemPrompt),
         tools: convertToOpenAITools(CRM_TOOLS),

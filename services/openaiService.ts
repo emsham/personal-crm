@@ -1,7 +1,8 @@
 import { ChatMessage, ToolDefinition, ToolCall } from "../types";
 import { LLMService, LLMCompletionOptions, LLMStreamChunk, registerLLMService } from "./llmService";
 
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+// Use Cloudflare Worker proxy to bypass CORS restrictions
+const OPENAI_PROXY_URL = import.meta.env.VITE_OPENAI_PROXY_URL || 'https://openai-proxy.YOUR_SUBDOMAIN.workers.dev';
 
 interface OpenAIMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -95,13 +96,13 @@ export function createOpenAIService(apiKey: string): LLMService {
     isAvailable: () => true,
 
     async complete(options: LLMCompletionOptions): Promise<ChatMessage> {
-      const response = await fetch(OPENAI_API_URL, {
+      const response = await fetch(OPENAI_PROXY_URL, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          apiKey,
           model: 'gpt-4o-mini',
           messages: formatMessagesForOpenAI(options.messages, options.systemPrompt),
           ...(options.tools && { tools: convertToOpenAITools(options.tools) }),
@@ -136,13 +137,13 @@ export function createOpenAIService(apiKey: string): LLMService {
       try {
         const formattedMessages = formatMessagesForOpenAI(options.messages, options.systemPrompt);
 
-        const response = await fetch(OPENAI_API_URL, {
+        const response = await fetch(OPENAI_PROXY_URL, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            apiKey,
             model: 'gpt-4o-mini',
             messages: formattedMessages,
             ...(options.tools && { tools: convertToOpenAITools(options.tools) }),

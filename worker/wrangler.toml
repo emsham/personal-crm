@@ -1,0 +1,8 @@
+name = "openai-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-12-05"
+
+# Uncomment and set your custom domain if desired
+# routes = [
+#   { pattern = "api.yourdomain.com/openai/*", zone_name = "yourdomain.com" }
+# ]
