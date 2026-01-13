@@ -326,8 +326,8 @@ async function executeAddContact(
   const relatedContactIds = resolveContactNames(contacts, relatedContactNames);
 
   const contact: Omit<Contact, 'id'> = {
-    firstName: args.firstName as string,
-    lastName: args.lastName as string,
+    firstName: (args.firstName as string) || '',
+    lastName: (args.lastName as string) || '',
     email: (args.email as string) || '',
     phone: (args.phone as string) || '',
     company: (args.company as string) || '',

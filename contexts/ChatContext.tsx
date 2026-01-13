@@ -326,15 +326,42 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('CRM data available:', { contacts: crmData.contacts.length, interactions: crmData.interactions.length, tasks: crmData.tasks.length });
         const toolResults: ToolResult[] = [];
 
+        // Track newly created contacts during this tool execution batch
+        // so subsequent tools (like addTask) can reference them
+        const newlyCreatedContacts: Contact[] = [];
+
         for (const toolCall of toolCalls) {
           console.log('Executing tool:', toolCall.name, 'with args:', toolCall.arguments);
+
+          // Merge existing contacts with newly created ones for this call
+          const currentData: CRMData = {
+            ...crmData,
+            contacts: [...crmData.contacts, ...newlyCreatedContacts],
+          };
+
+          // Debug: Log available contacts when executing addTask
+          if (toolCall.name === 'addTask') {
+            console.log('addTask called with contactName:', toolCall.arguments.contactName);
+            console.log('Available contacts for matching:', currentData.contacts.map(c => `${c.firstName} ${c.lastName} (id: ${c.id})`));
+            console.log('Newly created contacts:', newlyCreatedContacts.map(c => `${c.firstName} ${c.lastName} (id: ${c.id})`));
+          }
+
           const result = await executeToolCall(toolCall.name, toolCall.arguments, {
             userId: user.uid,
-            data: crmData,
+            data: currentData,
           });
           result.toolCallId = toolCall.id;
           toolResults.push(result);
           console.log('Tool result:', result.success ? 'success' : 'failed', result);
+
+          // If a contact was created, track it for subsequent tool calls
+          if (toolCall.name === 'addContact' && result.success && result.result) {
+            const addResult = result.result as { contactId?: string; contact?: Partial<Contact> };
+            if (addResult.contact && addResult.contactId) {
+              newlyCreatedContacts.push(addResult.contact as Contact);
+              console.log('Tracked new contact for subsequent tools:', addResult.contact);
+            }
+          }
         }
 
         // Add assistant message with tool calls
@@ -480,15 +507,34 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('Executing follow-up tool calls:', followUpToolCalls.map(tc => tc.name));
             const followUpToolResults: ToolResult[] = [];
 
+            // Track newly created contacts during follow-up tool execution
+            const followUpNewContacts: Contact[] = [];
+
             for (const toolCall of followUpToolCalls) {
               console.log('Executing follow-up tool:', toolCall.name, 'with args:', toolCall.arguments);
+
+              // Merge existing contacts with newly created ones (from both initial and follow-up batches)
+              const currentData: CRMData = {
+                ...crmData,
+                contacts: [...crmData.contacts, ...newlyCreatedContacts, ...followUpNewContacts],
+              };
+
               const result = await executeToolCall(toolCall.name, toolCall.arguments, {
                 userId: user.uid,
-                data: crmData,
+                data: currentData,
               });
               result.toolCallId = toolCall.id;
               followUpToolResults.push(result);
               console.log('Follow-up tool result:', result.success ? 'success' : 'failed', result);
+
+              // Track newly created contacts from follow-up
+              if (toolCall.name === 'addContact' && result.success && result.result) {
+                const addResult = result.result as { contactId?: string; contact?: Partial<Contact> };
+                if (addResult.contact && addResult.contactId) {
+                  followUpNewContacts.push(addResult.contact as Contact);
+                  console.log('Tracked follow-up new contact:', addResult.contact);
+                }
+              }
             }
 
             // Add assistant message with tool calls

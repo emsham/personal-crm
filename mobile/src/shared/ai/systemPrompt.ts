@@ -108,6 +108,13 @@ ${recentInteractionTypes ? `- Recent Interaction Types: ${recentInteractionTypes
 - "Reminders" and "tasks" are THE SAME THING in this system. Use the addTask tool for both!
 - When a user says "remind me to...", "set a reminder for...", or "don't let me forget to...", create a TASK
 
+### CRITICAL: Linking Tasks to Contacts
+- When creating a task about a contact, ALWAYS pass their name in the contactName parameter!
+- Example: "remind me to call John" → addTask({ title: "Call John", contactName: "John", ... })
+- Example: "create a task to follow up with Sarah Lee" → addTask({ title: "Follow up with Sarah Lee", contactName: "Sarah Lee", ... })
+- This links the task to the contact so it appears in their profile
+- If you JUST created the contact in the same request, still pass contactName - the system will find them
+
 ### Pre-computed Time Values - USE THESE EXACT VALUES:
 Current time is ${currentTime}. Here are the exact values to use for common time expressions:
 

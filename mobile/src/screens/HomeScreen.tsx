@@ -158,20 +158,39 @@ export const HomeScreen: React.FC = () => {
     async (
       toolCalls: ToolCall[],
       currentMessages: ChatMessageData[],
-      iteration: number
+      iteration: number,
+      accumulatedNewContacts: Contact[] = []
     ): Promise<void> => {
       if (!user || iteration >= MAX_TOOL_ITERATIONS) return;
 
-      const crmData: CRMData = { contacts, interactions, tasks };
+      // Track newly created contacts during this tool execution batch
+      // so subsequent tools (like addTask) can reference them
+      const newlyCreatedContacts: Contact[] = [...accumulatedNewContacts];
 
       // Execute tool calls
       const results: ToolResult[] = [];
       for (const toolCall of toolCalls) {
+        // Merge existing contacts with newly created ones for this call
+        const crmData: CRMData = {
+          contacts: [...contacts, ...newlyCreatedContacts],
+          interactions,
+          tasks,
+        };
+
         const result = await executeToolCall(toolCall, {
           userId: user.uid,
           data: crmData,
         });
         results.push(result);
+
+        // If a contact was created, track it for subsequent tool calls
+        if (toolCall.name === 'addContact' && result.success && result.result) {
+          const addResult = result.result as { contactId?: string; contact?: Partial<Contact> };
+          if (addResult.contact && addResult.contactId) {
+            newlyCreatedContacts.push(addResult.contact as Contact);
+            console.log('Tracked new contact for subsequent tools:', addResult.contact);
+          }
+        }
       }
 
       // Add tool results message
@@ -248,9 +267,9 @@ export const HomeScreen: React.FC = () => {
 
             setMessages(finalMessages);
 
-            // Process any new tool calls
+            // Process any new tool calls, passing accumulated new contacts
             if (newToolCalls.length > 0) {
-              await processToolCalls(newToolCalls, finalMessages, iteration + 1);
+              await processToolCalls(newToolCalls, finalMessages, iteration + 1, newlyCreatedContacts);
             } else {
               // No more tool calls, save the session
               await saveCurrentSession(finalMessages);
