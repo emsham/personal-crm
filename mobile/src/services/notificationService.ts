@@ -66,6 +66,21 @@ export async function getPermissionStatus(): Promise<'granted' | 'denied' | 'und
 }
 
 /**
+ * Setup notification categories with actions (for iOS actionable notifications)
+ */
+export async function setupNotificationCategories(): Promise<void> {
+  await Notifications.setNotificationCategoryAsync('task_actions', [
+    {
+      identifier: 'mark_complete',
+      buttonTitle: '✓ Mark Complete',
+      options: {
+        opensAppToForeground: false,
+      },
+    },
+  ]);
+}
+
+/**
  * Setup Android notification channels
  */
 async function setupAndroidChannels(): Promise<void> {
@@ -137,7 +152,8 @@ export async function scheduleNotificationAtDate(
   body: string,
   date: Date,
   channelId?: string,
-  data?: Record<string, unknown>
+  data?: Record<string, unknown>,
+  categoryIdentifier?: string
 ): Promise<string> {
   // Don't schedule if date is in the past
   if (date.getTime() <= Date.now()) {
@@ -145,7 +161,24 @@ export async function scheduleNotificationAtDate(
     return '';
   }
 
-  return scheduleNotification(title, body, { date, channelId }, data);
+  const trigger: Notifications.NotificationTriggerInput = {
+    type: Notifications.SchedulableTriggerInputTypes.DATE,
+    date,
+    channelId,
+  };
+
+  const id = await Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+      data: data || {},
+      sound: true,
+      categoryIdentifier,
+    },
+    trigger,
+  });
+
+  return id;
 }
 
 /**
@@ -269,7 +302,7 @@ export async function scheduleImportantDateNotification(
 }
 
 /**
- * Schedule a task notification
+ * Schedule a task notification with actionable "Mark Complete" button
  */
 export async function scheduleTaskNotification(
   taskTitle: string,
@@ -293,7 +326,8 @@ export async function scheduleTaskNotification(
     taskTitle,
     notifyDate,
     'tasks',
-    { type: 'task', taskId, isReminder }
+    { type: 'task', taskId, isReminder },
+    'task_actions' // This enables the "Mark Complete" action button
   );
 }
 

@@ -28,7 +28,7 @@ import {
 } from '../services/aiService';
 import { executeToolCall, CRMData, ToolResult } from '../services/toolExecutors';
 import { ToolCall } from '../shared/ai/types';
-import { ChatMessage, ChatMessageData, ChatInput, ChatInputRef, ChatHistoryModal } from '../components/chat';
+import { ChatMessage, ChatMessageData, ChatInput, ChatInputRef, ChatHistoryModal, VoiceRecordingIndicator, RecordingState } from '../components/chat';
 import { LLMSettingsModal } from '../components/LLMSettingsModal';
 import { LoadingDots } from '../components/ui';
 import type { Contact, Task, Interaction } from '../types';
@@ -95,6 +95,11 @@ export const HomeScreen: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [recordingState, setRecordingState] = useState<RecordingState>({
+    isRecording: false,
+    isProcessing: false,
+    duration: 0,
+  });
   const chatInputRef = useRef<ChatInputRef>(null);
 
   // Track last known AI configuration state to avoid abrupt transitions
@@ -926,8 +931,17 @@ export const HomeScreen: React.FC = () => {
           isStreaming={isStreaming}
           isConfigured={currentProviderConfigured}
           providerName={currentProviderConfigured ? providerName : undefined}
+          openaiApiKey={settings.openaiApiKey}
+          onRecordingStateChange={setRecordingState}
         />
       </KeyboardAvoidingView>
+
+      {/* Full-screen voice recording overlay */}
+      <VoiceRecordingIndicator
+        isRecording={recordingState.isRecording}
+        isProcessing={recordingState.isProcessing}
+        duration={recordingState.duration}
+      />
 
       <LLMSettingsModal visible={showSettings} onClose={() => setShowSettings(false)} />
       <ChatHistoryModal

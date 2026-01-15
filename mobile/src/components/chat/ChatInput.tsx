@@ -1,19 +1,30 @@
-import React, { useState, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
+import React, { useState, useRef, useCallback, useImperativeHandle, forwardRef, useEffect } from "react";
 import {
   View,
   TextInput,
   TouchableOpacity,
+  Pressable,
   Text,
   StyleSheet,
   Keyboard,
   Platform,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from '@expo/vector-icons';
+import { useVoiceRecording } from '../../hooks/useVoiceRecording';
 
 export interface ChatInputRef {
   clear: () => void;
   focus: () => void;
   getText: () => string;
+  getRecordingState: () => { isRecording: boolean; isProcessing: boolean; duration: number };
+}
+
+export interface RecordingState {
+  isRecording: boolean;
+  isProcessing: boolean;
+  duration: number;
 }
 
 interface ChatInputProps {
@@ -24,6 +35,8 @@ interface ChatInputProps {
   isConfigured: boolean;
   placeholder?: string;
   providerName?: string;
+  openaiApiKey?: string;
+  onRecordingStateChange?: (state: RecordingState) => void;
 }
 
 const MAX_HEIGHT = 120;
@@ -38,12 +51,45 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       isConfigured,
       placeholder = "Ask about your contacts...",
       providerName,
+      openaiApiKey,
+      onRecordingStateChange,
     },
     ref
   ) => {
     const [text, setText] = useState("");
     const inputRef = useRef<TextInput>(null);
     const insets = useSafeAreaInsets();
+
+    // Voice recording hook
+    const {
+      state: recordingState,
+      duration: recordingDuration,
+      startRecording,
+      stopRecording,
+    } = useVoiceRecording({
+      apiKey: openaiApiKey,
+      onTranscriptionComplete: (transcribedText) => {
+        if (transcribedText.trim()) {
+          onSend(transcribedText.trim());
+        }
+      },
+      onError: (error) => {
+        Alert.alert('Voice Input Error', error);
+      },
+    });
+
+    const isRecording = recordingState === 'recording';
+    const isProcessing = recordingState === 'processing';
+    const voiceEnabled = Boolean(openaiApiKey) && isConfigured;
+
+    // Notify parent of recording state changes
+    useEffect(() => {
+      onRecordingStateChange?.({
+        isRecording,
+        isProcessing,
+        duration: recordingDuration,
+      });
+    }, [isRecording, isProcessing, recordingDuration, onRecordingStateChange]);
 
     useImperativeHandle(ref, () => ({
       clear: () => {
@@ -53,6 +99,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         inputRef.current?.focus();
       },
       getText: () => text,
+      getRecordingState: () => ({
+        isRecording,
+        isProcessing,
+        duration: recordingDuration,
+      }),
     }));
 
     // Manually handle sentence capitalization since autoCapitalize is buggy on iOS
@@ -93,8 +144,29 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       }
     }, [text, isLoading, isStreaming, onSend]);
 
+    // Handle mic button press
+    const handleMicPressIn = useCallback(() => {
+      if (!voiceEnabled) {
+        Alert.alert(
+          'Voice Input Unavailable',
+          'Please configure your OpenAI API key in settings to use voice input.'
+        );
+        return;
+      }
+      if (!isLoading && !isStreaming) {
+        startRecording();
+      }
+    }, [voiceEnabled, isLoading, isStreaming, startRecording]);
+
+    const handleMicPressOut = useCallback(() => {
+      if (isRecording) {
+        stopRecording();
+      }
+    }, [isRecording, stopRecording]);
+
     const canSend = text.trim().length > 0 && isConfigured && !isLoading && !isStreaming;
     const showStop = isStreaming && onStop;
+    const showMic = !showStop && !isLoading && text.trim().length === 0 && voiceEnabled && !isProcessing;
 
     // Minimal bottom padding - just enough for safe area
     const bottomPadding = Math.max(insets.bottom, 4);
@@ -110,25 +182,60 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         )}
 
         <View style={styles.inputRow}>
-          <View style={styles.inputContainer}>
+          <View style={[
+            styles.inputContainer,
+            isRecording && styles.inputContainerRecording
+          ]}>
             <TextInput
               ref={inputRef}
               style={styles.input}
               value={text}
               onChangeText={handleChangeText}
               placeholder={
-                isConfigured ? placeholder : "Configure AI provider to start..."
+                isRecording
+                  ? "Recording..."
+                  : isProcessing
+                  ? "Transcribing..."
+                  : isConfigured
+                  ? placeholder
+                  : "Configure AI provider to start..."
               }
-              placeholderTextColor="#64748b"
+              placeholderTextColor={isRecording ? "#ef4444" : "#64748b"}
               multiline
-              editable={isConfigured}
+              editable={isConfigured && !isRecording && !isProcessing}
               autoCapitalize="sentences"
               autoCorrect={true}
               spellCheck={true}
             />
           </View>
 
-          {showStop ? (
+          {/* Mic Button (when text is empty and voice is enabled) */}
+          {showMic && (
+            <Pressable
+              style={[
+                styles.micButton,
+                isRecording && styles.micButtonRecording,
+              ]}
+              onPressIn={handleMicPressIn}
+              onPressOut={handleMicPressOut}
+            >
+              <Ionicons
+                name={isRecording ? "radio" : "mic"}
+                size={20}
+                color="#fff"
+              />
+            </Pressable>
+          )}
+
+          {/* Processing indicator button */}
+          {isProcessing && (
+            <View style={styles.processingButton}>
+              <Ionicons name="hourglass" size={20} color="#fff" />
+            </View>
+          )}
+
+          {/* Stop Button */}
+          {showStop && (
             <TouchableOpacity
               style={styles.stopButton}
               onPress={onStop}
@@ -136,7 +243,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             >
               <View style={styles.stopIcon} />
             </TouchableOpacity>
-          ) : (
+          )}
+
+          {/* Send Button (when text has content or mic is not shown) */}
+          {!showStop && !showMic && !isProcessing && (
             <TouchableOpacity
               style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
               onPress={handleSubmit}
@@ -198,6 +308,10 @@ const styles = StyleSheet.create({
     marginRight: 8,
     maxHeight: MAX_HEIGHT,
   },
+  inputContainerRecording: {
+    borderColor: '#ef4444',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
   input: {
     fontSize: 16,
     color: "#fff",
@@ -239,6 +353,25 @@ const styles = StyleSheet.create({
     height: 12,
     backgroundColor: "#fff",
     borderRadius: 2,
+  },
+  micButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#3b82f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  micButtonRecording: {
+    backgroundColor: '#ef4444',
+  },
+  processingButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#8b5cf6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingDots: {
     flexDirection: "row",

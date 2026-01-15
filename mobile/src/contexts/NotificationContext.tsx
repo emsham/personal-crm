@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Contact, Task } from '../types';
 import * as notificationService from '../services/notificationService';
+import { useAuth } from './AuthContext';
+import { updateTask } from '../services/firestoreService';
 
 const STORAGE_KEYS = {
   SETTINGS: 'nexus_notification_settings',
@@ -45,6 +47,7 @@ const defaultSettings: NotificationSettings = {
 const NotificationContext = createContext<NotificationContextValue | null>(null);
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'undetermined' | 'loading'>('loading');
   const [settings, setSettings] = useState<NotificationSettings>(defaultSettings);
   // Use ref instead of state to avoid circular dependency in callbacks
@@ -63,8 +66,42 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     loadInitialState();
   }, []);
 
+  // Set up notification response listener for "Mark Complete" action
+  useEffect(() => {
+    const subscription = notificationService.addNotificationResponseListener(async (response) => {
+      const actionId = response.actionIdentifier;
+      const data = response.notification.request.content.data;
+
+      // Handle "Mark Complete" action from task notification
+      if (actionId === 'mark_complete' && data?.type === 'task' && data?.taskId && user) {
+        try {
+          await updateTask(user.uid, data.taskId as string, { completed: true });
+          // Cancel any remaining notifications for this task
+          const taskNotifIds = scheduledIdsRef.current.tasks[data.taskId as string];
+          if (taskNotifIds && taskNotifIds.length > 0) {
+            await notificationService.cancelNotifications(taskNotifIds);
+            const newScheduledIds = { ...scheduledIdsRef.current };
+            delete newScheduledIds.tasks[data.taskId as string];
+            scheduledIdsRef.current = newScheduledIds;
+            await AsyncStorage.setItem(STORAGE_KEYS.SCHEDULED_IDS, JSON.stringify(newScheduledIds));
+          }
+          if (__DEV__) console.log('Task marked complete from notification:', data.taskId);
+        } catch (error) {
+          console.error('Error marking task complete from notification:', error);
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [user]);
+
   const loadInitialState = async () => {
     try {
+      // Set up notification categories (for iOS actionable notifications)
+      await notificationService.setupNotificationCategories();
+
       // Load settings
       const storedSettings = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
       if (storedSettings) {
