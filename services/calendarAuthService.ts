@@ -67,10 +67,17 @@ export async function initiateCalendarAuth(mobile = false): Promise<void> {
  */
 export function parseState(state: string): { nonce: string; mobile: boolean } | null {
   try {
-    return JSON.parse(atob(state));
+    // URL-decode first in case base64 chars were encoded (+, /, =)
+    const decoded = decodeURIComponent(state);
+    return JSON.parse(atob(decoded));
   } catch {
-    // Legacy state format (plain UUID)
-    return { nonce: state, mobile: false };
+    // Try without URL decoding (in case it wasn't encoded)
+    try {
+      return JSON.parse(atob(state));
+    } catch {
+      // Legacy state format (plain UUID)
+      return { nonce: state, mobile: false };
+    }
   }
 }
 
