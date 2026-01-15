@@ -69,6 +69,41 @@ export interface Task {
   priority: 'low' | 'medium' | 'high';
   frequency: TaskFrequency;
   createdAt?: string;
+  googleEventId?: string;
+}
+
+// Calendar Integration Types
+export type CalendarEventSourceType = 'task' | 'birthday' | 'importantDate' | 'followUp';
+
+export interface CalendarMapping {
+  id: string;
+  sourceType: CalendarEventSourceType;
+  sourceId: string;           // taskId or contactId
+  importantDateId?: string;   // for importantDates within a contact
+  googleEventId: string;
+  createdAt: Date;
+}
+
+export interface CalendarSettings {
+  connected: boolean;
+  syncTasks: boolean;
+  syncBirthdays: boolean;
+  syncImportantDates: boolean;
+  syncFollowUps: boolean;
+  lastSyncAt?: Date;
+}
+
+export interface GoogleCalendarEvent {
+  id?: string;
+  summary: string;
+  description?: string;
+  start: { date?: string; dateTime?: string; timeZone?: string };
+  end: { date?: string; dateTime?: string; timeZone?: string };
+  recurrence?: string[];
+  reminders?: {
+    useDefault: boolean;
+    overrides?: { method: string; minutes: number }[];
+  };
 }
 
 // LLM Chat Types

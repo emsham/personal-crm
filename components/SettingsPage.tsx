@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Key, ExternalLink, Check, AlertCircle, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { useLLMSettings } from '../contexts/LLMSettingsContext';
-import { LLMProvider } from '../types';
+import { LLMProvider, Task, Contact } from '../types';
+import CalendarSettingsSection from './CalendarSettingsSection';
 
-const SettingsPage: React.FC = () => {
+interface SettingsPageProps {
+  tasks?: Task[];
+  contacts?: Contact[];
+}
+
+const SettingsPage: React.FC<SettingsPageProps> = ({ tasks = [], contacts = [] }) => {
   const {
     settings,
     setProvider,
@@ -224,6 +230,9 @@ const SettingsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Calendar Integration Section */}
+      <CalendarSettingsSection tasks={tasks} contacts={contacts} />
     </div>
   );
 };

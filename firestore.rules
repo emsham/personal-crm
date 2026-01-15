@@ -249,6 +249,26 @@ service cloud.firestore {
           && request.resource.data.keys().size() <= 50;
         allow delete: if isOwner(userId);
       }
+
+      // ============================================
+      // Calendar Mappings Collection
+      // Tracks which CRM items have been synced to Google Calendar
+      // ============================================
+      match /calendarMappings/{mappingId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+          && request.resource.data.sourceType in ['task', 'birthday', 'importantDate', 'followUp']
+          && isValidString(request.resource.data.sourceId)
+          && isValidString(request.resource.data.googleEventId);
+
+        allow update: if isOwner(userId)
+          && (!('sourceType' in request.resource.data) || request.resource.data.sourceType in ['task', 'birthday', 'importantDate', 'followUp'])
+          && (!('sourceId' in request.resource.data) || isValidString(request.resource.data.sourceId))
+          && (!('googleEventId' in request.resource.data) || isValidString(request.resource.data.googleEventId));
+
+        allow delete: if isOwner(userId);
+      }
     }
 
     // ============================================

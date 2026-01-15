@@ -18,11 +18,13 @@ const DashboardWidgets = lazy(() => import('./components/DashboardWidgets'));
 const SettingsPage = lazy(() => import('./components/SettingsPage'));
 const LandingPage = lazy(() => import('./components/landing').then(m => ({ default: m.LandingPage })));
 const AnalyticsPage = lazy(() => import('./components/AnalyticsPage'));
+const CalendarMobileCallback = lazy(() => import('./components/CalendarMobileCallback'));
 
 import { Contact, Interaction, InteractionType, Task } from './types';
 import { useAuth } from './contexts/AuthContext';
 import { useChat } from './contexts/ChatContext';
 import { useLLMSettings } from './contexts/LLMSettingsContext';
+import { useCalendar } from './contexts/CalendarContext';
 import { useFirestoreData, useCRMStats, useContactFilters } from './hooks';
 import {
   addContact as addContactToFirestore,
@@ -47,6 +49,7 @@ const App: React.FC = () => {
   const { user, loading: authLoading, requiresEmailVerification } = useAuth();
   const { setCRMData } = useChat();
   const { currentProviderConfigured, isLoading: llmLoading } = useLLMSettings();
+  const { mobileRedirectPending } = useCalendar();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -525,7 +528,19 @@ const App: React.FC = () => {
             path="/settings"
             element={
               <ProtectedRoute>
-                <AppLayout><SettingsPage /></AppLayout>
+                <AppLayout><SettingsPage tasks={tasks} contacts={contacts} /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/auth/calendar/callback"
+            element={
+              <ProtectedRoute>
+                {mobileRedirectPending ? (
+                  <CalendarMobileCallback />
+                ) : (
+                  <AppLayout><SettingsPage tasks={tasks} contacts={contacts} /></AppLayout>
+                )}
               </ProtectedRoute>
             }
           />

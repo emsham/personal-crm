@@ -5,6 +5,7 @@ import { LLMSettingsProvider } from './src/contexts/LLMSettingsContext';
 import { NotificationProvider } from './src/contexts/NotificationContext';
 import { DataProvider } from './src/contexts/DataContext';
 import { ChatProvider } from './src/contexts/ChatContext';
+import { CalendarProvider } from './src/contexts/CalendarContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 
 export default function App() {
@@ -12,14 +13,16 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <LLMSettingsProvider>
-          <NotificationProvider>
-            <DataProvider>
-              <ChatProvider>
-                <StatusBar style="light" />
-                <AppNavigator />
-              </ChatProvider>
-            </DataProvider>
-          </NotificationProvider>
+          <CalendarProvider>
+            <NotificationProvider>
+              <DataProvider>
+                <ChatProvider>
+                  <StatusBar style="light" />
+                  <AppNavigator />
+                </ChatProvider>
+              </DataProvider>
+            </NotificationProvider>
+          </CalendarProvider>
         </LLMSettingsProvider>
       </AuthProvider>
     </SafeAreaProvider>

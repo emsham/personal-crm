@@ -1,7 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { initializeAppCheck, CustomProvider } from 'firebase/app-check';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
@@ -28,35 +27,40 @@ try {
   auth = getAuth(app);
 }
 
-// Initialize App Check for mobile
-// Note: For production, you need to:
-// 1. Install @react-native-firebase/app-check for native attestation (DeviceCheck/Play Integrity)
-// 2. Configure in Firebase Console
-// For now, we set up a placeholder that can be enabled when native modules are added
-const appCheckDebugToken = process.env.EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN;
-if (appCheckDebugToken && __DEV__) {
-  // Debug provider for development
+// Initialize React Native Firebase App Check
+// This uses native attestation: DeviceCheck (iOS) / Play Integrity (Android)
+const initializeNativeAppCheck = async () => {
   try {
-    initializeAppCheck(app, {
-      provider: new CustomProvider({
-        getToken: async () => {
-          return {
-            token: appCheckDebugToken,
-            expireTimeMillis: Date.now() + 60 * 60 * 1000, // 1 hour
-          };
-        },
-      }),
+    const { default: appCheck } = await import('@react-native-firebase/app-check');
+
+    // Configure the provider based on environment
+    const provider = appCheck().newReactNativeFirebaseAppCheckProvider();
+    provider.configure({
+      apple: {
+        provider: __DEV__ ? 'debug' : 'deviceCheck',
+        debugToken: process.env.EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN,
+      },
+      android: {
+        provider: __DEV__ ? 'debug' : 'playIntegrity',
+        debugToken: process.env.EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN,
+      },
+    });
+
+    await appCheck().initializeAppCheck({
+      provider,
       isTokenAutoRefreshEnabled: true,
     });
-    console.log(`App Check initialized in debug mode (${Platform.OS})`);
+
+    console.log(`App Check initialized (${Platform.OS}, ${__DEV__ ? 'debug' : 'production'})`);
   } catch (error) {
-    console.warn('App Check debug initialization failed:', error);
+    // App Check initialization is optional - app works without it
+    // but Firestore security rules requiring App Check will fail
+    console.warn('App Check initialization failed:', error);
   }
-} else if (!__DEV__) {
-  // Production: App Check requires native modules (@react-native-firebase/app-check)
-  // This will be handled by the native Firebase SDK when properly configured
-  // Intentionally no logging in production
-}
+};
+
+// Initialize App Check asynchronously
+initializeNativeAppCheck();
 
 export { auth };
 export const db = getFirestore(app);

@@ -6,6 +6,7 @@ import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { LLMSettingsProvider } from './contexts/LLMSettingsContext';
 import { ChatProvider } from './contexts/ChatContext';
+import { CalendarProvider } from './contexts/CalendarContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -18,9 +19,11 @@ root.render(
     <BrowserRouter>
       <AuthProvider>
         <LLMSettingsProvider>
-          <ChatProvider>
-            <App />
-          </ChatProvider>
+          <CalendarProvider>
+            <ChatProvider>
+              <App />
+            </ChatProvider>
+          </CalendarProvider>
         </LLMSettingsProvider>
       </AuthProvider>
     </BrowserRouter>

@@ -4,14 +4,19 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  getDoc,
+  getDocs,
+  setDoc,
   onSnapshot,
   query,
   orderBy,
   limit,
+  where,
   serverTimestamp,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import type { Contact, Interaction, Task } from '../types';
+import type { Contact, Interaction, Task, CalendarMapping, CalendarSettings, CalendarEventSourceType } from '../types';
 
 // Contacts
 
@@ -173,4 +178,173 @@ export const updateTask = async (
 export const deleteTask = async (userId: string, taskId: string): Promise<void> => {
   const taskRef = doc(db, 'users', userId, 'tasks', taskId);
   await deleteDoc(taskRef);
+};
+
+// Calendar Mappings
+
+export const subscribeToCalendarMappings = (
+  userId: string,
+  callback: (mappings: CalendarMapping[]) => void
+): (() => void) => {
+  const mappingsRef = collection(db, 'users', userId, 'calendarMappings');
+
+  return onSnapshot(mappingsRef, (snapshot) => {
+    const mappings: CalendarMapping[] = snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+      createdAt: docSnap.data().createdAt?.toDate() || new Date(),
+    })) as CalendarMapping[];
+    callback(mappings);
+  });
+};
+
+export const addCalendarMapping = async (
+  userId: string,
+  mapping: Omit<CalendarMapping, 'id' | 'createdAt'>
+): Promise<string> => {
+  const mappingsRef = collection(db, 'users', userId, 'calendarMappings');
+  const docRef = await addDoc(mappingsRef, {
+    ...mapping,
+    createdAt: serverTimestamp(),
+  });
+  return docRef.id;
+};
+
+export const getCalendarMappingBySource = async (
+  userId: string,
+  sourceType: CalendarEventSourceType,
+  sourceId: string,
+  importantDateId?: string
+): Promise<CalendarMapping | null> => {
+  const mappingsRef = collection(db, 'users', userId, 'calendarMappings');
+  const q = query(
+    mappingsRef,
+    where('sourceType', '==', sourceType),
+    where('sourceId', '==', sourceId)
+  );
+
+  const snapshot = await getDocs(q);
+
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data();
+    if (sourceType === 'importantDate') {
+      if (data.importantDateId === importantDateId) {
+        return {
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate() || new Date(),
+        } as CalendarMapping;
+      }
+    } else {
+      return {
+        id: docSnap.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+      } as CalendarMapping;
+    }
+  }
+
+  return null;
+};
+
+export const getCalendarMappingsBySourceId = async (
+  userId: string,
+  sourceId: string
+): Promise<CalendarMapping[]> => {
+  const mappingsRef = collection(db, 'users', userId, 'calendarMappings');
+  const q = query(mappingsRef, where('sourceId', '==', sourceId));
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...docSnap.data(),
+    createdAt: docSnap.data().createdAt?.toDate() || new Date(),
+  })) as CalendarMapping[];
+};
+
+export const deleteCalendarMapping = async (
+  userId: string,
+  mappingId: string
+): Promise<void> => {
+  const mappingRef = doc(db, 'users', userId, 'calendarMappings', mappingId);
+  await deleteDoc(mappingRef);
+};
+
+export const deleteAllCalendarMappings = async (userId: string): Promise<void> => {
+  const mappingsRef = collection(db, 'users', userId, 'calendarMappings');
+  const snapshot = await getDocs(mappingsRef);
+  await Promise.all(snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+};
+
+// Calendar Settings
+
+const DEFAULT_CALENDAR_SETTINGS: CalendarSettings = {
+  connected: false,
+  syncTasks: true,
+  syncBirthdays: true,
+  syncImportantDates: true,
+  syncFollowUps: true,
+};
+
+export const getCalendarSettings = async (userId: string): Promise<CalendarSettings> => {
+  const settingsRef = doc(db, 'users', userId, 'settings', 'calendar');
+  const docSnap = await getDoc(settingsRef);
+
+  if (!docSnap.exists()) {
+    return DEFAULT_CALENDAR_SETTINGS;
+  }
+
+  const data = docSnap.data();
+  return {
+    connected: data.connected ?? false,
+    syncTasks: data.syncTasks ?? true,
+    syncBirthdays: data.syncBirthdays ?? true,
+    syncImportantDates: data.syncImportantDates ?? true,
+    syncFollowUps: data.syncFollowUps ?? true,
+    lastSyncAt: data.lastSyncAt?.toDate(),
+  };
+};
+
+export const updateCalendarSettings = async (
+  userId: string,
+  updates: Partial<CalendarSettings>
+): Promise<void> => {
+  const settingsRef = doc(db, 'users', userId, 'settings', 'calendar');
+  const cleanUpdates: Record<string, unknown> = {};
+
+  Object.entries(updates).forEach(([key, value]) => {
+    if (value !== undefined) {
+      if (key === 'lastSyncAt' && value instanceof Date) {
+        cleanUpdates[key] = Timestamp.fromDate(value);
+      } else {
+        cleanUpdates[key] = value;
+      }
+    }
+  });
+
+  await setDoc(settingsRef, cleanUpdates, { merge: true });
+};
+
+export const subscribeToCalendarSettings = (
+  userId: string,
+  callback: (settings: CalendarSettings) => void
+): (() => void) => {
+  const settingsRef = doc(db, 'users', userId, 'settings', 'calendar');
+
+  return onSnapshot(settingsRef, (docSnap) => {
+    if (!docSnap.exists()) {
+      callback(DEFAULT_CALENDAR_SETTINGS);
+      return;
+    }
+
+    const data = docSnap.data();
+    callback({
+      connected: data.connected ?? false,
+      syncTasks: data.syncTasks ?? true,
+      syncBirthdays: data.syncBirthdays ?? true,
+      syncImportantDates: data.syncImportantDates ?? true,
+      syncFollowUps: data.syncFollowUps ?? true,
+      lastSyncAt: data.lastSyncAt?.toDate(),
+    });
+  });
 };

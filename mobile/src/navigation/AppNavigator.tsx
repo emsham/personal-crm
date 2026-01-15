@@ -9,7 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useLLMSettings } from '../contexts/LLMSettingsContext';
 import { useNotifications } from '../contexts/NotificationContext';
+import { useData } from '../contexts/DataContext';
 import { LLMSettingsModal } from '../components/LLMSettingsModal';
+import { CalendarSettingsSection } from '../components/CalendarSettingsSection';
 import { LoadingDots } from '../components/ui';
 import {
   LoginScreen,
@@ -83,6 +85,7 @@ const SettingsScreen: React.FC = () => {
   const { signOut, user } = useAuth();
   const { permissionStatus, settings, updateSettings, requestPermission } = useNotifications();
   const { settings: llmSettings, currentProviderConfigured } = useLLMSettings();
+  const { tasks, contacts } = useData();
   const [showReminderPicker, setShowReminderPicker] = useState(false);
   const [showAISettings, setShowAISettings] = useState(false);
 
@@ -256,6 +259,9 @@ const SettingsScreen: React.FC = () => {
           </View>
         )}
       </View>
+
+      {/* Calendar Integration Section */}
+      <CalendarSettingsSection tasks={tasks} contacts={contacts} />
 
       {/* Account Section */}
       <View style={styles.settingsSection}>
