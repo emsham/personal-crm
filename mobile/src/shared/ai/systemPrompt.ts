@@ -34,6 +34,34 @@ export function buildSystemPrompt(data: CRMData): string {
   const in2Hours = new Date(today.getTime() + 2 * 60 * 60 * 1000);
   const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
   const in2Days = new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000);
+  const in1Week = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const in2Weeks = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const in1Month = new Date(today);
+  in1Month.setMonth(in1Month.getMonth() + 1);
+  const in3Months = new Date(today);
+  in3Months.setMonth(in3Months.getMonth() + 3);
+  const in6Months = new Date(today);
+  in6Months.setMonth(in6Months.getMonth() + 6);
+  const in1Year = new Date(today);
+  in1Year.setFullYear(in1Year.getFullYear() + 1);
+
+  // Pre-compute upcoming weekday dates
+  const getNextWeekday = (targetDay: number): Date => {
+    const currentDay = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    let daysUntil = targetDay - currentDay;
+    if (daysUntil <= 0) daysUntil += 7; // If today or past, get next week's
+    const result = new Date(today);
+    result.setDate(today.getDate() + daysUntil);
+    return result;
+  };
+
+  const nextSunday = getNextWeekday(0);
+  const nextMonday = getNextWeekday(1);
+  const nextTuesday = getNextWeekday(2);
+  const nextWednesday = getNextWeekday(3);
+  const nextThursday = getNextWeekday(4);
+  const nextFriday = getNextWeekday(5);
+  const nextSaturday = getNextWeekday(6);
 
   // Get recent interaction types for context
   const recentInteractionTypes = [...new Set(
@@ -130,6 +158,25 @@ Current time is ${currentTime}. Here are the exact values to use for common time
 | "tomorrow" | "${formatDate(tomorrow)}" | "09:00" |
 | "tomorrow at 3pm" | "${formatDate(tomorrow)}" | "15:00" |
 | "in 2 days" | "${formatDate(in2Days)}" | "09:00" |
+| "in a week" / "next week" | "${formatDate(in1Week)}" | "09:00" |
+| "in 2 weeks" | "${formatDate(in2Weeks)}" | "09:00" |
+| "in a month" / "next month" | "${formatDate(in1Month)}" | "09:00" |
+| "in 3 months" | "${formatDate(in3Months)}" | "09:00" |
+| "in 6 months" | "${formatDate(in6Months)}" | "09:00" |
+| "in a year" / "next year" | "${formatDate(in1Year)}" | "09:00" |
+
+### Pre-computed Weekday Dates - USE THESE EXACT VALUES:
+Today is ${dayOfWeek}. When user says a day name, use these dates:
+
+| User says | dueDate |
+|-----------|---------|
+| "Sunday" / "this Sunday" / "on Sunday" | "${formatDate(nextSunday)}" |
+| "Monday" / "this Monday" / "on Monday" | "${formatDate(nextMonday)}" |
+| "Tuesday" / "this Tuesday" / "on Tuesday" | "${formatDate(nextTuesday)}" |
+| "Wednesday" / "this Wednesday" / "on Wednesday" | "${formatDate(nextWednesday)}" |
+| "Thursday" / "this Thursday" / "on Thursday" | "${formatDate(nextThursday)}" |
+| "Friday" / "this Friday" / "on Friday" | "${formatDate(nextFriday)}" |
+| "Saturday" / "this Saturday" / "on Saturday" | "${formatDate(nextSaturday)}" |
 
 For other times, interpolate from these values. Note: dates may differ from today if near midnight.
 
